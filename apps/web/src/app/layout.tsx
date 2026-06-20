@@ -4,11 +4,22 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+  ),
   title: {
-    default: "Wedding Invitation Studio",
-    template: "%s · Wedding Invitation Studio",
+    default: "Niskala · Digital Wedding Invitations",
+    template: "%s · Niskala",
   },
-  description: "Premium digital wedding invitations, crafted with intention.",
+  description:
+    "Premium editorial digital wedding invitations, crafted in Indonesia.",
+  openGraph: {
+    title: "Niskala · Digital Wedding Invitations",
+    description:
+      "Premium editorial digital wedding invitations, crafted in Indonesia.",
+    type: "website",
+    locale: "id_ID",
+  },
 };
 
 export default function RootLayout({

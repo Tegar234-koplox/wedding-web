@@ -7,6 +7,7 @@
   --color-gold-soft: #ead08d;
   --color-oxblood: #5f161c;
   --color-rule: #3b3933;
+  --color-rule-light: #7c7669;
 
   --space-section: clamp(5rem, 10vw, 10rem);
   --space-gutter: clamp(1.25rem, 4vw, 4.5rem);
