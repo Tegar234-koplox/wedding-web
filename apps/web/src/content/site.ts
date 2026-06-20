@@ -1,7 +1,9 @@
+import type { RendererKey } from "@wedding/invitation-themes";
+
 import type { Locale } from "@/lib/locales";
 
 export type Theme = {
-  slug: string;
+  slug: RendererKey;
   name: Record<Locale, string>;
   category: Record<Locale, string>;
   description: Record<Locale, string>;
