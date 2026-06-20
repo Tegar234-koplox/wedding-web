@@ -6,6 +6,10 @@ const publicEnvSchema = z.object({
   NEXT_PUBLIC_DEFAULT_LOCALE: z.enum(["id", "en"]).default("id"),
   NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: z.string().optional(),
   NEXT_PUBLIC_SENTRY_DSN: z.string().optional(),
+  NEXT_PUBLIC_WHATSAPP_NUMBER: z
+    .string()
+    .regex(/^\d{8,15}$/)
+    .optional(),
 });
 
 export const env = publicEnvSchema.parse({
@@ -15,4 +19,5 @@ export const env = publicEnvSchema.parse({
   NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME:
     process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
   NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,
+  NEXT_PUBLIC_WHATSAPP_NUMBER: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER,
 });
