@@ -5,6 +5,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { MobileWhatsApp } from "@/components/site/mobile-whatsapp";
+import { PreviewFrame } from "@/components/site/preview-frame";
 import { SiteFooter } from "@/components/site/site-footer";
 import { SiteNav } from "@/components/site/site-nav";
 import { WhatsAppLink } from "@/components/site/whatsapp-link";
@@ -102,17 +103,25 @@ export default async function ThemePage({ params }: ThemePageProps) {
                     : "Couples who want an invitation that feels personal, intentional, and distinct."}
                 </p>
               </div>
-              <WhatsAppLink
-                className="self-end"
-                locale={locale}
-                theme={theme.name[locale]}
-              >
-                {id ? "Pilih tema ini" : "Choose this theme"}
-                <MoveUpRight size={15} />
-              </WhatsAppLink>
+              <div className="grid gap-3 self-end">
+                <Link
+                  className="inline-flex min-h-12 items-center justify-center gap-3 border border-white/25 px-5 text-xs font-semibold uppercase tracking-[0.18em] transition hover:border-[var(--color-gold)]"
+                  href={`/${locale}/preview/${slug}` as const}
+                  target="_blank"
+                >
+                  {id ? "Buka live preview" : "Open live preview"}
+                  <MoveUpRight size={15} />
+                </Link>
+                <WhatsAppLink locale={locale} theme={theme.name[locale]}>
+                  {id ? "Pilih tema ini" : "Choose this theme"}
+                  <MoveUpRight size={15} />
+                </WhatsAppLink>
+              </div>
             </div>
           </div>
         </section>
+
+        <PreviewFrame locale={locale} slug={slug} title={theme.name[locale]} />
 
         <section className="border-y border-white/10 bg-[var(--color-surface)] px-[var(--space-gutter)] py-14">
           <div className="grid gap-8 text-sm md:grid-cols-4">
