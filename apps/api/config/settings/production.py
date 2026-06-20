@@ -1,0 +1,15 @@
+from config.settings.base import *  # noqa: F403
+from config.settings.base import env_bool
+
+DEBUG = False
+
+SECURE_SSL_REDIRECT = env_bool("DJANGO_SECURE_SSL_REDIRECT", True)
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+SECURE_HSTS_SECONDS = 31_536_000
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
+
+if SECRET_KEY == "unsafe-local-development-key":  # noqa: F405
+    raise RuntimeError("DJANGO_SECRET_KEY must be configured in production")

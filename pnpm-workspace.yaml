@@ -1,0 +1,18 @@
+packages:
+  - apps/web
+  - packages/*
+
+overrides:
+  rollup: 4.61.0
+
+confirmModulesPurge: false
+
+onlyBuiltDependencies:
+  - esbuild
+  - sharp
+  - unrs-resolver
+
+allowBuilds:
+  esbuild: true
+  sharp: true
+  unrs-resolver: true

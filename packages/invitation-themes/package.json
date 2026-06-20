@@ -1,0 +1,23 @@
+{
+  "name": "@wedding/invitation-themes",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^4.0.10"
+  },
+  "devDependencies": {
+    "@wedding/eslint-config": "workspace:*",
+    "@wedding/typescript-config": "workspace:*",
+    "eslint": "^9.31.0",
+    "typescript": "^5.9.2"
+  }
+}

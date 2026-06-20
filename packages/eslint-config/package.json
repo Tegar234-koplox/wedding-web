@@ -1,0 +1,14 @@
+{
+  "name": "@wedding/eslint-config",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./base": "./base.js",
+    "./next": "./next.js"
+  },
+  "dependencies": {
+    "eslint": "^9.31.0",
+    "eslint-config-next": "16.2.9"
+  }
+}

@@ -1,0 +1,22 @@
+Metadata-Version: 2.4
+Name: wedding-api
+Version: 0.1.0
+Summary: Backend API for the Wedding Invitation Studio
+Requires-Python: <3.15,>=3.12
+Requires-Dist: celery[redis]<6,>=5.5
+Requires-Dist: cloudinary<2,>=1.44
+Requires-Dist: dj-database-url<4,>=3
+Requires-Dist: django<5.3,>=5.2
+Requires-Dist: django-cors-headers<5,>=4.7
+Requires-Dist: django-csp<5,>=4
+Requires-Dist: django-redis<7,>=6
+Requires-Dist: djangorestframework<4,>=3.16
+Requires-Dist: drf-spectacular<1,>=0.28
+Requires-Dist: gunicorn<24,>=23
+Requires-Dist: psycopg[binary]<4,>=3.2
+Requires-Dist: sentry-sdk[django]<3,>=2.33
+Provides-Extra: dev
+Requires-Dist: mypy<2,>=1.17; extra == "dev"
+Requires-Dist: pytest<9,>=8.4; extra == "dev"
+Requires-Dist: pytest-django<5,>=4.11; extra == "dev"
+Requires-Dist: ruff<1,>=0.12; extra == "dev"

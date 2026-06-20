@@ -1,0 +1,20 @@
+:root {
+  --color-canvas: #10100f;
+  --color-surface: #171714;
+  --color-ink: #f4efe5;
+  --color-muted: #b9b1a3;
+  --color-gold: #d5ad55;
+  --color-gold-soft: #ead08d;
+  --color-oxblood: #5f161c;
+  --color-rule: #3b3933;
+
+  --space-section: clamp(5rem, 10vw, 10rem);
+  --space-gutter: clamp(1.25rem, 4vw, 4.5rem);
+  --text-display: clamp(4rem, 12vw, 11rem);
+  --text-heading: clamp(2.5rem, 6vw, 6rem);
+  --text-body: clamp(1rem, 1.2vw, 1.125rem);
+
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --focus-ring: 0 0 0 3px rgb(213 173 85 / 45%);
+}
