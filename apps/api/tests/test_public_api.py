@@ -73,7 +73,7 @@ def test_theme_sample_uses_published_sample_only(client):
     response = client.get(reverse("theme-sample", kwargs={"slug": theme.slug}))
 
     assert response.status_code == 200
-    assert response.json()["renderer_key"] == "elegant-classic"
+    assert response.json()["rendererKey"] == "elegant-classic"
 
 
 @pytest.mark.django_db
@@ -98,7 +98,8 @@ def test_weather_endpoint_exposes_safe_placeholder(client):
     assert response.status_code == 200
     assert response.json() == {
         "status": "unavailable",
-        "reason": "outside_forecast_window",
+        "reason": "location_unconfigured",
         "provider": "BMKG",
+        "attribution_url": "https://data.bmkg.go.id/prakiraan-cuaca/",
         "forecast": [],
     }

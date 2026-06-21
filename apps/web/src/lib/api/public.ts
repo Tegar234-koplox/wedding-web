@@ -1,11 +1,15 @@
 import "server-only";
 
 import {
+  invitationWeatherSchema,
+  publicInvitationSchema,
   publicPackageSchema,
   publicThemePageSchema,
   publicThemeSchema,
   type PublicPackage,
+  type PublicInvitation,
   type PublicTheme,
+  type InvitationWeather,
 } from "@/lib/api/contracts";
 import { env } from "@/lib/env";
 import type { Locale } from "@/lib/locales";
@@ -22,6 +26,30 @@ async function apiFetch(path: string): Promise<unknown> {
   }
 
   return response.json();
+}
+
+export async function fetchPublicInvitation(
+  publicSlug: string,
+): Promise<PublicInvitation | null> {
+  try {
+    return publicInvitationSchema.parse(
+      await apiFetch(`/invitations/${publicSlug}`),
+    );
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchInvitationWeather(
+  publicSlug: string,
+): Promise<InvitationWeather | null> {
+  try {
+    return invitationWeatherSchema.parse(
+      await apiFetch(`/invitations/${publicSlug}/weather`),
+    );
+  } catch {
+    return null;
+  }
 }
 
 export async function fetchPublicThemes(

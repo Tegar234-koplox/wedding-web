@@ -18,6 +18,10 @@ when Django is running.
 Public serializers intentionally exclude database UUIDs, draft records, guests,
 audit events, private settings, and provider credentials.
 
+The weather endpoint calls BMKG only from Django, caches normalized forecasts in
+Redis, persists snapshots in PostgreSQL, and returns stale saved data when the
+provider is temporarily unavailable.
+
 ## Staff endpoint
 
 - `POST /api/v1/admin/media/upload-signature`

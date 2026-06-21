@@ -2,12 +2,22 @@ import type {
   InvitationEnvelope,
   RendererKey,
 } from "@wedding/invitation-themes";
-import { CalendarDays, CloudSun, MapPin } from "lucide-react";
+import {
+  CalendarDays,
+  CloudRain,
+  CloudSun,
+  Droplets,
+  MapPin,
+  Wind,
+} from "lucide-react";
 import Image from "next/image";
 import type { ComponentType } from "react";
 
+import type { InvitationWeather } from "@/lib/api/contracts";
+
 type RendererProps = {
   invitation: InvitationEnvelope;
+  weather?: InvitationWeather | null;
 };
 
 type Design = {
@@ -365,8 +375,95 @@ function StorySection({
 function WeatherSection({
   invitation,
   design,
+  weather,
 }: RendererProps & { design: Design }) {
   const id = invitation.locale === "id";
+  const selected = weather?.selected;
+  const isAvailable =
+    weather?.status === "ready" || weather?.status === "stale";
+
+  if (isAvailable && selected) {
+    const description = selected.description[invitation.locale];
+    const isRain = selected.precipitation_mm > 0.4;
+    const updatedLabel = weather.updated_at
+      ? new Intl.DateTimeFormat(
+          invitation.locale === "id" ? "id-ID" : "en-US",
+          {
+            dateStyle: "medium",
+            timeStyle: "short",
+            timeZone: weather.location?.timezone || "Asia/Jakarta",
+          },
+        ).format(new Date(weather.updated_at))
+      : "";
+
+    return (
+      <section className="px-6 py-24 md:px-12 md:py-32">
+        <div className="mx-auto max-w-5xl border-y border-current/20 py-12">
+          <div className="grid gap-12 md:grid-cols-[0.8fr_1.2fr] md:items-end">
+            <div>
+              {isRain ? (
+                <CloudRain className={design.accent} size={36} />
+              ) : (
+                <CloudSun className={design.accent} size={36} />
+              )}
+              <p className="mt-7 text-[0.62rem] uppercase tracking-[0.24em] opacity-55">
+                {id ? "Prakiraan hari pernikahan" : "Wedding-day forecast"}
+              </p>
+              <h2 className={`${design.display} mt-5 text-5xl md:text-7xl`}>
+                {description}
+              </h2>
+              <p className={`mt-4 text-sm ${design.muted}`}>
+                {weather.location?.village}, {weather.location?.regency}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-3 gap-px bg-current/20">
+              <div className={`${design.page} p-5`}>
+                <p className={`${design.display} text-3xl`}>
+                  {selected.temperature_c}°
+                </p>
+                <p className="mt-3 text-[0.55rem] uppercase tracking-[0.16em] opacity-55">
+                  Celsius
+                </p>
+              </div>
+              <div className={`${design.page} p-5`}>
+                <Droplets size={18} />
+                <p className="mt-4 text-lg">{selected.humidity_percent}%</p>
+                <p className="mt-2 text-[0.55rem] uppercase tracking-[0.16em] opacity-55">
+                  {id ? "Kelembapan" : "Humidity"}
+                </p>
+              </div>
+              <div className={`${design.page} p-5`}>
+                <Wind size={18} />
+                <p className="mt-4 text-lg">{selected.wind.speed_kmh} km/h</p>
+                <p className="mt-2 text-[0.55rem] uppercase tracking-[0.16em] opacity-55">
+                  {id ? "Angin" : "Wind"}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-10 flex flex-wrap justify-between gap-4 border-t border-current/15 pt-5 text-[0.58rem] uppercase tracking-[0.16em] opacity-55">
+            <a
+              className="underline underline-offset-4"
+              href={weather.attribution_url}
+              rel="noreferrer"
+              target="_blank"
+            >
+              Data cuaca: BMKG
+            </a>
+            <span>
+              {weather.status === "stale"
+                ? id
+                  ? "Data tersimpan · pembaruan tertunda"
+                  : "Saved data · refresh delayed"
+                : `${id ? "Diperbarui" : "Updated"} ${updatedLabel}`}
+            </span>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="px-6 py-24 md:px-12 md:py-32">
@@ -383,13 +480,25 @@ function WeatherSection({
         <p
           className={`mx-auto mt-6 max-w-xl text-sm leading-7 ${design.muted}`}
         >
-          {id
-            ? "Prakiraan resmi BMKG akan tampil ketika tanggal pernikahan memasuki jangkauan prakiraan tiga hari."
-            : "The official BMKG forecast will appear when the wedding enters the three-day forecast window."}
+          {weather?.reason === "provider_unavailable"
+            ? id
+              ? "Layanan cuaca sedang tidak tersedia. Silakan periksa kembali beberapa saat lagi."
+              : "Weather information is temporarily unavailable. Please check again shortly."
+            : id
+              ? "Prakiraan resmi BMKG akan tampil ketika tanggal pernikahan memasuki jangkauan prakiraan tiga hari."
+              : "The official BMKG forecast will appear when the wedding enters the three-day forecast window."}
         </p>
-        <p className="mt-7 text-[0.58rem] uppercase tracking-[0.18em] opacity-45">
+        <a
+          className="mt-7 inline-block text-[0.58rem] uppercase tracking-[0.18em] opacity-45 underline underline-offset-4"
+          href={
+            weather?.attribution_url ??
+            "https://data.bmkg.go.id/prakiraan-cuaca/"
+          }
+          rel="noreferrer"
+          target="_blank"
+        >
           Data cuaca: BMKG
-        </p>
+        </a>
       </div>
     </section>
   );
@@ -427,13 +536,18 @@ function Closing({ invitation, design }: RendererProps & { design: Design }) {
 function InvitationDocument({
   invitation,
   design,
+  weather,
 }: RendererProps & { design: Design }) {
   return (
     <article className={`${design.page} min-h-screen`}>
       <Cover design={design} invitation={invitation} />
       <EventSection design={design} invitation={invitation} />
       <StorySection design={design} invitation={invitation} />
-      <WeatherSection design={design} invitation={invitation} />
+      <WeatherSection
+        design={design}
+        invitation={invitation}
+        weather={weather}
+      />
       <Closing design={design} invitation={invitation} />
     </article>
   );
@@ -461,7 +575,7 @@ export const rendererRegistry: Record<
   "javanese-traditional": { 1: createRenderer("javanese-traditional") },
 };
 
-export function InvitationRenderer({ invitation }: RendererProps) {
+export function InvitationRenderer({ invitation, weather }: RendererProps) {
   const Renderer =
     rendererRegistry[invitation.rendererKey]?.[invitation.rendererVersion];
 
@@ -484,5 +598,5 @@ export function InvitationRenderer({ invitation }: RendererProps) {
     );
   }
 
-  return <Renderer invitation={invitation} />;
+  return <Renderer invitation={invitation} weather={weather} />;
 }

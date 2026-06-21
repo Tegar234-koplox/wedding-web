@@ -159,6 +159,12 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_TIME_LIMIT = 60
 CELERY_TASK_SOFT_TIME_LIMIT = 50
 CELERY_TIMEZONE = TIME_ZONE
+CELERY_BEAT_SCHEDULE = {
+    "refresh-upcoming-wedding-weather": {
+        "task": "weather.tasks.schedule_upcoming_weather_refreshes",
+        "schedule": 21_600,
+    }
+}
 
 BMKG_API_BASE_URL = env("BMKG_API_BASE_URL", "https://api.bmkg.go.id")
 BMKG_REQUEST_TIMEOUT_SECONDS = int(env("BMKG_REQUEST_TIMEOUT_SECONDS", "5"))

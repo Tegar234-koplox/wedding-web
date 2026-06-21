@@ -2,7 +2,6 @@ import { ArrowDown, ArrowRight, CloudSun, MoveUpRight } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
-import { MotionScope } from "@/components/site/motion-scope";
 import { MobileWhatsApp } from "@/components/site/mobile-whatsapp";
 import { SiteFooter } from "@/components/site/site-footer";
 import { SiteNav } from "@/components/site/site-nav";
@@ -15,7 +14,7 @@ export function EditorialHome({ locale }: { locale: Locale }) {
   const id = locale === "id";
 
   return (
-    <MotionScope>
+    <>
       <SiteNav locale={locale} />
 
       <main>
@@ -411,6 +410,6 @@ export function EditorialHome({ locale }: { locale: Locale }) {
 
       <SiteFooter locale={locale} />
       <MobileWhatsApp locale={locale} />
-    </MotionScope>
+    </>
   );
 }

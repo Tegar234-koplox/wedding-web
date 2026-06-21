@@ -36,8 +36,18 @@ class WeddingEventSerializer(serializers.ModelSerializer[WeddingEvent]):
 class PublicInvitationSerializer(serializers.ModelSerializer[Invitation]):
     events = WeddingEventSerializer(many=True, read_only=True)
     theme_slug = serializers.CharField(source="theme.slug", read_only=True)
-    package_code = serializers.CharField(source="package.code", read_only=True)
+    package_code = serializers.CharField(
+        source="package.code",
+        read_only=True,
+        allow_null=True,
+    )
     locale = serializers.CharField(source="default_locale", read_only=True)
+    rendererKey = serializers.CharField(source="renderer_key", read_only=True)
+    rendererVersion = serializers.IntegerField(source="renderer_version", read_only=True)
+    contentSchemaVersion = serializers.IntegerField(
+        source="content_schema_version",
+        read_only=True,
+    )
 
     class Meta:
         model = Invitation
@@ -45,9 +55,9 @@ class PublicInvitationSerializer(serializers.ModelSerializer[Invitation]):
             "public_slug",
             "theme_slug",
             "package_code",
-            "renderer_key",
-            "renderer_version",
-            "content_schema_version",
+            "rendererKey",
+            "rendererVersion",
+            "contentSchemaVersion",
             "locale",
             "content",
             "events",

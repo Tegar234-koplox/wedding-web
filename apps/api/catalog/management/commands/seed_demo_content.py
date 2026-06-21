@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
@@ -11,7 +14,7 @@ from catalog.models import (
     Theme,
     ThemeTranslation,
 )
-from invitations.models import Invitation
+from invitations.models import EventLocation, Invitation, WeddingEvent
 
 THEMES = [
     ("elegant-classic", "Klasik Modern", "Elegant Classic"),
@@ -110,7 +113,7 @@ class Command(BaseCommand):
                     "feature_copy": ["Responsive", "Gallery", "Event details"],
                 },
             )
-            Invitation.objects.update_or_create(
+            invitation, _ = Invitation.objects.update_or_create(
                 public_slug=f"sample-{slug}",
                 defaults={
                     "theme": theme,
@@ -121,6 +124,36 @@ class Command(BaseCommand):
                     "is_sample": True,
                     "published_at": timezone.now(),
                     "content": sample_content("Alya", "Raka"),
+                },
+            )
+            event, _ = WeddingEvent.objects.update_or_create(
+                invitation=invitation,
+                event_type=WeddingEvent.EventType.CEREMONY,
+                defaults={
+                    "starts_at": datetime(
+                        2026,
+                        9,
+                        12,
+                        9,
+                        0,
+                        tzinfo=ZoneInfo("Asia/Jakarta"),
+                    ),
+                    "timezone": "Asia/Jakarta",
+                    "venue_name": "The Venue",
+                    "address": "Kemayoran, Jakarta Pusat",
+                    "map_url": "https://maps.google.com",
+                },
+            )
+            EventLocation.objects.update_or_create(
+                event=event,
+                defaults={
+                    "province": "DKI Jakarta",
+                    "regency": "Kota Adm. Jakarta Pusat",
+                    "district": "Kemayoran",
+                    "village": "Kemayoran",
+                    "bmkg_adm4": "31.71.03.1001",
+                    "latitude": "-6.164721",
+                    "longitude": "106.845384",
                 },
             )
 

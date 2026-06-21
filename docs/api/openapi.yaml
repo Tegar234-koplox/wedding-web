@@ -260,14 +260,32 @@ components:
           type: string
         provider:
           type: string
+        attribution_url:
+          type: string
+          format: uri
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        location:
+          nullable: true
+        event:
+          nullable: true
+        selected:
+          nullable: true
         forecast:
           type: array
           items: {}
       required:
+        - attribution_url
+        - event
         - forecast
+        - location
         - provider
         - reason
+        - selected
         - status
+        - updated_at
     NamespaceEnum:
       enum:
         - themes
@@ -365,19 +383,16 @@ components:
         package_code:
           type: string
           readOnly: true
-        renderer_key:
+          nullable: true
+        rendererKey:
           type: string
-          maxLength: 80
-        renderer_version:
+          readOnly: true
+        rendererVersion:
           type: integer
-          maximum: 9223372036854775807
-          minimum: 0
-          format: int64
-        content_schema_version:
+          readOnly: true
+        contentSchemaVersion:
           type: integer
-          maximum: 9223372036854775807
-          minimum: 0
-          format: int64
+          readOnly: true
         locale:
           type: string
           readOnly: true
@@ -392,11 +407,13 @@ components:
           format: date-time
           nullable: true
       required:
+        - contentSchemaVersion
         - events
         - locale
         - package_code
         - public_slug
-        - renderer_key
+        - rendererKey
+        - rendererVersion
         - theme_slug
     PublicMedia:
       type: object

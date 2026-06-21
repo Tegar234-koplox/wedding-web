@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 
+import { MotionScope } from "@/components/site/motion-scope";
 import { isLocale, locales } from "@/lib/locales";
 
 type LocaleLayoutProps = {
@@ -22,5 +23,5 @@ export default async function LocaleLayout({
     notFound();
   }
 
-  return children;
+  return <MotionScope>{children}</MotionScope>;
 }
