@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@sentry/nextjs": "10.42.0",
     "@wedding/invitation-themes": "workspace:*",
     "@wedding/ui": "workspace:*",
     "class-variance-authority": "^0.7.1",

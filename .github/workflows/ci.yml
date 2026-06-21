@@ -44,6 +44,8 @@ jobs:
       - run: python manage.py check --settings=config.settings.test
       - run: python manage.py makemigrations --check --dry-run --settings=config.settings.test
       - run: pytest
+      - run: python ../../infra/deployment/validate_config.py
+      - run: docker build --tag wedding-api-ci .
 
   security:
     runs-on: ubuntu-latest
