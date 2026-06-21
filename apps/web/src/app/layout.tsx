@@ -26,7 +26,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="id">
+    <html data-scroll-behavior="smooth" lang="id">
       <body>{children}</body>
     </html>
   );

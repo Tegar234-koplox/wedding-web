@@ -51,7 +51,7 @@ export function EditorialHome({ locale }: { locale: Locale }) {
                 className="hidden text-right text-[0.6rem] uppercase leading-5 tracking-[0.22em] text-white/50 md:block"
                 data-hero-detail
               >
-                Jakarta · Indonesia
+                Sidoarjo · Indonesia
                 <br />
                 Available Worldwide
               </p>
