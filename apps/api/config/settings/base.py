@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 import dj_database_url
+import sentry_sdk
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 
@@ -21,6 +22,10 @@ def env_list(name: str, default: str = "") -> list[str]:
 
 def env_bool(name: str, default: bool = False) -> bool:
     return env(name, str(default)).lower() in {"1", "true", "yes", "on"}
+
+
+def env_float(name: str, default: float) -> float:
+    return float(env(name, str(default)))
 
 
 SECRET_KEY = env("DJANGO_SECRET_KEY", "unsafe-local-development-key")
@@ -133,6 +138,10 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",
     ],
@@ -141,6 +150,7 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "anon": "60/minute",
         "user": "300/minute",
+        "conversion": "20/minute",
     },
 }
 
@@ -177,6 +187,36 @@ WHATSAPP_MESSAGE_TEMPLATE_EN = env("WHATSAPP_MESSAGE_TEMPLATE_EN", "")
 CLOUDINARY_CLOUD_NAME = env("CLOUDINARY_CLOUD_NAME", "")
 CLOUDINARY_API_KEY = env("CLOUDINARY_API_KEY", "")
 CLOUDINARY_API_SECRET = env("CLOUDINARY_API_SECRET", "")
+
+SENTRY_DSN = env("SENTRY_DSN", "")
+if SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        environment=env("SENTRY_ENVIRONMENT", "development"),
+        release=env("SENTRY_RELEASE", ""),
+        send_default_pii=False,
+        traces_sample_rate=env_float("SENTRY_TRACES_SAMPLE_RATE", 0.05),
+    )
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "json": {
+            "()": "common.logging.JsonFormatter",
+        }
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "json",
+        }
+    },
+    "loggers": {
+        "django": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "wedding": {"handlers": ["console"], "level": "INFO", "propagate": False},
+    },
+}
 
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
