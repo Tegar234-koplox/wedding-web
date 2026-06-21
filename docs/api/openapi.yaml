@@ -1,0 +1,630 @@
+openapi: 3.0.3
+info:
+  title: Wedding Invitation API
+  version: 1.0.0
+  description: Versioned API for the Wedding Invitation Studio.
+paths:
+  /api/v1/admin/media/upload-signature:
+    post:
+      operationId: v1_admin_media_upload_signature_create
+      tags:
+        - v1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UploadSignatureRequest"
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: "#/components/schemas/UploadSignatureRequest"
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/UploadSignatureRequest"
+        required: true
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadSignatureResponse"
+          description: ""
+  /api/v1/cta/whatsapp:
+    get:
+      operationId: v1_cta_whatsapp_retrieve
+      parameters:
+        - in: query
+          name: campaign
+          schema:
+            type: string
+        - in: query
+          name: locale
+          schema:
+            type: string
+            enum:
+              - en
+              - id
+        - in: query
+          name: package
+          schema:
+            type: string
+        - in: query
+          name: source
+          schema:
+            type: string
+        - in: query
+          name: theme
+          schema:
+            type: string
+      tags:
+        - v1
+      security:
+        - cookieAuth: []
+        - {}
+      responses:
+        "302":
+          description: Redirect to the configured wa.me URL
+  /api/v1/invitations/{public_slug}:
+    get:
+      operationId: v1_invitations_retrieve
+      parameters:
+        - in: path
+          name: public_slug
+          schema:
+            type: string
+          required: true
+      tags:
+        - v1
+      security:
+        - cookieAuth: []
+        - {}
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicInvitation"
+          description: ""
+  /api/v1/invitations/{public_slug}/weather:
+    get:
+      operationId: v1_invitations_weather_retrieve
+      parameters:
+        - in: path
+          name: public_slug
+          schema:
+            type: string
+          required: true
+      tags:
+        - v1
+      security:
+        - cookieAuth: []
+        - {}
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvitationWeather"
+          description: ""
+  /api/v1/packages:
+    get:
+      operationId: v1_packages_list
+      tags:
+        - packages
+      security:
+        - cookieAuth: []
+        - {}
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Package"
+          description: ""
+  /api/v1/public/site-config:
+    get:
+      operationId: v1_public_site_config_retrieve
+      tags:
+        - v1
+      security:
+        - cookieAuth: []
+        - {}
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicSiteConfig"
+          description: ""
+  /api/v1/themes:
+    get:
+      operationId: v1_themes_list
+      parameters:
+        - name: page
+          required: false
+          in: query
+          description: A page number within the paginated result set.
+          schema:
+            type: integer
+        - name: page_size
+          required: false
+          in: query
+          description: Number of results to return per page.
+          schema:
+            type: integer
+      tags:
+        - v1
+      security:
+        - cookieAuth: []
+        - {}
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedThemeList"
+          description: ""
+  /api/v1/themes/{slug}:
+    get:
+      operationId: v1_themes_retrieve
+      parameters:
+        - in: path
+          name: slug
+          schema:
+            type: string
+          required: true
+      tags:
+        - v1
+      security:
+        - cookieAuth: []
+        - {}
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Theme"
+          description: ""
+  /api/v1/themes/{slug}/sample:
+    get:
+      operationId: v1_themes_sample_retrieve
+      parameters:
+        - in: path
+          name: slug
+          schema:
+            type: string
+          required: true
+      tags:
+        - v1
+      security:
+        - cookieAuth: []
+        - {}
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicInvitation"
+          description: ""
+components:
+  schemas:
+    EventLocation:
+      type: object
+      properties:
+        province:
+          type: string
+          maxLength: 100
+        regency:
+          type: string
+          maxLength: 100
+        district:
+          type: string
+          maxLength: 100
+        village:
+          type: string
+          maxLength: 100
+        latitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          nullable: true
+        longitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          nullable: true
+      required:
+        - district
+        - province
+        - regency
+        - village
+    EventTypeEnum:
+      enum:
+        - ceremony
+        - reception
+        - other
+      type: string
+      description: |-
+        * `ceremony` - Ceremony
+        * `reception` - Reception
+        * `other` - Other
+    InvitationWeather:
+      type: object
+      properties:
+        status:
+          type: string
+        reason:
+          type: string
+        provider:
+          type: string
+        forecast:
+          type: array
+          items: {}
+      required:
+        - forecast
+        - provider
+        - reason
+        - status
+    NamespaceEnum:
+      enum:
+        - themes
+        - samples
+        - invitations
+      type: string
+      description: |-
+        * `themes` - themes
+        * `samples` - samples
+        * `invitations` - invitations
+    Package:
+      type: object
+      properties:
+        code:
+          type: string
+          maxLength: 40
+          pattern: ^[-a-zA-Z0-9_]+$
+        price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        currency:
+          type: string
+          maxLength: 3
+        is_featured:
+          type: boolean
+        name:
+          type: string
+          readOnly: true
+        summary:
+          type: string
+          readOnly: true
+        features:
+          type: array
+          items:
+            $ref: "#/components/schemas/PackageFeature"
+          readOnly: true
+      required:
+        - code
+        - features
+        - name
+        - price
+        - summary
+    PackageFeature:
+      type: object
+      properties:
+        feature_key:
+          type: string
+          maxLength: 80
+          pattern: ^[-a-zA-Z0-9_]+$
+        is_included:
+          type: boolean
+        value:
+          type: string
+          maxLength: 120
+        label:
+          type: string
+          readOnly: true
+      required:
+        - feature_key
+        - label
+    PaginatedThemeList:
+      type: object
+      required:
+        - count
+        - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/Theme"
+    PublicInvitation:
+      type: object
+      properties:
+        public_slug:
+          type: string
+          maxLength: 100
+          pattern: ^[-a-zA-Z0-9_]+$
+        theme_slug:
+          type: string
+          readOnly: true
+        package_code:
+          type: string
+          readOnly: true
+        renderer_key:
+          type: string
+          maxLength: 80
+        renderer_version:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        content_schema_version:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        locale:
+          type: string
+          readOnly: true
+        content: {}
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/WeddingEvent"
+          readOnly: true
+        published_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - events
+        - locale
+        - package_code
+        - public_slug
+        - renderer_key
+        - theme_slug
+    PublicMedia:
+      type: object
+      properties:
+        secure_url:
+          type: string
+          format: uri
+          maxLength: 500
+        resource_type:
+          $ref: "#/components/schemas/PublicMediaResourceTypeEnum"
+        width:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+        height:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+      required:
+        - secure_url
+    PublicMediaResourceTypeEnum:
+      enum:
+        - image
+        - video
+        - raw
+      type: string
+      description: |-
+        * `image` - Image
+        * `video` - Video
+        * `raw` - Raw
+    PublicSiteConfig:
+      type: object
+      properties:
+        brand: {}
+        whatsapp: {}
+      required:
+        - brand
+        - whatsapp
+    RoleEnum:
+      enum:
+        - cover
+        - gallery
+        - social
+        - poster
+      type: string
+      description: |-
+        * `cover` - Cover
+        * `gallery` - Gallery
+        * `social` - Social
+        * `poster` - Poster
+    Theme:
+      type: object
+      properties:
+        slug:
+          type: string
+          maxLength: 80
+          pattern: ^[-a-zA-Z0-9_]+$
+        renderer_key:
+          type: string
+          maxLength: 80
+        renderer_version:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          default: 1
+        content_schema_version:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        category:
+          type: string
+          maxLength: 80
+        is_featured:
+          type: boolean
+        name:
+          type: string
+          readOnly: true
+        tagline:
+          type: string
+          readOnly: true
+        description:
+          type: string
+          readOnly: true
+        feature_copy:
+          type: array
+          items:
+            type: string
+          readOnly: true
+        cover:
+          allOf:
+            - $ref: "#/components/schemas/PublicMedia"
+          readOnly: true
+        media:
+          type: array
+          items:
+            $ref: "#/components/schemas/ThemeMedia"
+          readOnly: true
+      required:
+        - category
+        - cover
+        - description
+        - feature_copy
+        - media
+        - name
+        - renderer_key
+        - slug
+        - tagline
+    ThemeMedia:
+      type: object
+      properties:
+        role:
+          $ref: "#/components/schemas/RoleEnum"
+        sort_order:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        focal_x:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+        focal_y:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+        alt:
+          type: string
+          readOnly: true
+        asset:
+          allOf:
+            - $ref: "#/components/schemas/PublicMedia"
+          readOnly: true
+      required:
+        - alt
+        - asset
+        - role
+    UploadSignatureRequest:
+      type: object
+      properties:
+        namespace:
+          $ref: "#/components/schemas/NamespaceEnum"
+        resource_type:
+          allOf:
+            - $ref: "#/components/schemas/UploadSignatureRequestResourceTypeEnum"
+          default: image
+      required:
+        - namespace
+    UploadSignatureRequestResourceTypeEnum:
+      enum:
+        - image
+        - video
+      type: string
+      description: |-
+        * `image` - image
+        * `video` - video
+    UploadSignatureResponse:
+      type: object
+      properties:
+        cloud_name:
+          type: string
+        api_key:
+          type: string
+        resource_type:
+          type: string
+        signature:
+          type: string
+        folder:
+          type: string
+        timestamp:
+          type: integer
+        use_filename:
+          type: boolean
+        unique_filename:
+          type: boolean
+        overwrite:
+          type: boolean
+      required:
+        - api_key
+        - cloud_name
+        - folder
+        - overwrite
+        - resource_type
+        - signature
+        - timestamp
+        - unique_filename
+        - use_filename
+    WeddingEvent:
+      type: object
+      properties:
+        event_type:
+          $ref: "#/components/schemas/EventTypeEnum"
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+          nullable: true
+        timezone:
+          type: string
+          maxLength: 64
+        venue_name:
+          type: string
+          maxLength: 180
+        address:
+          type: string
+        map_url:
+          type: string
+          format: uri
+          maxLength: 500
+        location:
+          allOf:
+            - $ref: "#/components/schemas/EventLocation"
+          readOnly: true
+      required:
+        - address
+        - event_type
+        - location
+        - starts_at
+        - venue_name
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sessionid

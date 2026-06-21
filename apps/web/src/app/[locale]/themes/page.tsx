@@ -6,7 +6,7 @@ import { MobileWhatsApp } from "@/components/site/mobile-whatsapp";
 import { SiteFooter } from "@/components/site/site-footer";
 import { SiteNav } from "@/components/site/site-nav";
 import { ThemeCard } from "@/components/site/theme-card";
-import { themes } from "@/content/site";
+import { getPublicThemes } from "@/content/public-content";
 import { isLocale } from "@/lib/locales";
 
 type ThemesPageProps = {
@@ -26,6 +26,7 @@ export default async function ThemesPage({ params }: ThemesPageProps) {
   }
 
   const id = locale === "id";
+  const themes = await getPublicThemes(locale);
 
   return (
     <>

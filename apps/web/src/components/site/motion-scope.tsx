@@ -13,10 +13,16 @@ export function MotionScope({ children }: { children: ReactNode }) {
       return;
     }
 
+    let disposed = false;
     let cleanup: () => void = () => undefined;
+    let refreshFrame: number | undefined;
 
     void Promise.all([import("gsap"), import("gsap/ScrollTrigger")]).then(
       ([gsapModule, scrollTriggerModule]) => {
+        if (disposed || !scope.current) {
+          return;
+        }
+
         const gsap = gsapModule.default;
         const ScrollTrigger = scrollTriggerModule.ScrollTrigger;
         gsap.registerPlugin(ScrollTrigger);
@@ -82,11 +88,25 @@ export function MotionScope({ children }: { children: ReactNode }) {
             });
         }, scope);
 
-        cleanup = () => context.revert();
+        refreshFrame = window.requestAnimationFrame(() => {
+          if (!disposed) {
+            ScrollTrigger.refresh();
+          }
+        });
+
+        cleanup = () => {
+          if (refreshFrame !== undefined) {
+            window.cancelAnimationFrame(refreshFrame);
+          }
+          context.revert();
+        };
       },
     );
 
-    return () => cleanup();
+    return () => {
+      disposed = true;
+      cleanup();
+    };
   }, []);
 
   return <div ref={scope}>{children}</div>;
