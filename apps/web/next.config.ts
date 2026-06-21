@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const apiOrigin = (() => {
   try {
@@ -10,10 +11,20 @@ const apiOrigin = (() => {
   }
 })();
 
+const sentryOrigin = (() => {
+  try {
+    return process.env.NEXT_PUBLIC_SENTRY_DSN
+      ? new URL(process.env.NEXT_PUBLIC_SENTRY_DSN).origin
+      : "";
+  } catch {
+    return "";
+  }
+})();
+
 const contentSecurityPolicy = [
   "default-src 'self'",
   "base-uri 'self'",
-  "connect-src 'self' " + apiOrigin,
+  ["connect-src 'self'", apiOrigin, sentryOrigin].filter(Boolean).join(" "),
   "font-src 'self' data:",
   "form-action 'self'",
   "frame-ancestors 'self'",
@@ -75,4 +86,11 @@ const nextConfig: NextConfig = {
   typedRoutes: true,
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: true,
+  widenClientFileUpload: true,
+  telemetry: false,
+});
