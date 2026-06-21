@@ -29,3 +29,10 @@ python apps/api/manage.py runserver
 ```
 
 Use `DJANGO_SETTINGS_MODULE=config.settings.local` for local development. Production services must use `config.settings.production`.
+
+To test scheduled weather refreshes locally, start Redis and run:
+
+```powershell
+celery -A config worker --loglevel=INFO
+celery -A config beat --loglevel=INFO
+```

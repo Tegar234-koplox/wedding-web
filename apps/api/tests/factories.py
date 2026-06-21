@@ -11,7 +11,7 @@ from catalog.models import (
     Theme,
     ThemeTranslation,
 )
-from invitations.models import Guest, Invitation
+from invitations.models import EventLocation, Guest, Invitation, WeddingEvent
 
 
 def invitation_content() -> dict[str, Any]:
@@ -126,3 +126,30 @@ def create_invitation(
         display_name="Private Guest",
     )
     return invitation
+
+
+def create_weather_event(
+    *,
+    invitation: Invitation,
+    starts_at,
+    adm4: str = "31.71.03.1001",
+) -> WeddingEvent:
+    event = WeddingEvent.objects.create(
+        invitation=invitation,
+        event_type=WeddingEvent.EventType.CEREMONY,
+        starts_at=starts_at,
+        timezone="Asia/Jakarta",
+        venue_name="The Venue",
+        address="Jakarta",
+    )
+    EventLocation.objects.create(
+        event=event,
+        province="DKI Jakarta",
+        regency="Kota Adm. Jakarta Pusat",
+        district="Kemayoran",
+        village="Kemayoran",
+        bmkg_adm4=adm4,
+        latitude="-6.164721",
+        longitude="106.845384",
+    )
+    return event

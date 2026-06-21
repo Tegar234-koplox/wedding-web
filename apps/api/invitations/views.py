@@ -8,6 +8,7 @@ from rest_framework.views import APIView
 
 from invitations.selectors import public_invitations
 from invitations.serializers import PublicInvitationSerializer
+from weather.services import weather_for_invitation
 
 
 class InvitationDetailView(RetrieveAPIView):
@@ -29,6 +30,11 @@ class InvitationWeatherView(APIView):
                 "status": serializers.CharField(),
                 "reason": serializers.CharField(),
                 "provider": serializers.CharField(),
+                "attribution_url": serializers.URLField(),
+                "updated_at": serializers.DateTimeField(allow_null=True),
+                "location": serializers.JSONField(allow_null=True),
+                "event": serializers.JSONField(allow_null=True),
+                "selected": serializers.JSONField(allow_null=True),
                 "forecast": serializers.ListField(child=serializers.JSONField()),
             },
         )
@@ -37,11 +43,4 @@ class InvitationWeatherView(APIView):
         invitation = public_invitations().filter(public_slug=public_slug).first()
         if invitation is None:
             raise Http404
-        return Response(
-            {
-                "status": "unavailable",
-                "reason": "outside_forecast_window",
-                "provider": "BMKG",
-                "forecast": [],
-            }
-        )
+        return Response(weather_for_invitation(invitation))

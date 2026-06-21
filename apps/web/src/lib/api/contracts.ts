@@ -59,5 +59,58 @@ export const publicInvitationSchema = invitationEnvelopeSchema.extend({
   published_at: z.string().nullable(),
 });
 
+const weatherEntrySchema = z.object({
+  at: z.string(),
+  local_at: z.string(),
+  analysis_at: z.string(),
+  temperature_c: z.number(),
+  humidity_percent: z.number(),
+  cloud_cover_percent: z.number(),
+  precipitation_mm: z.number(),
+  weather_code: z.number(),
+  description: z.object({ id: z.string(), en: z.string() }),
+  wind: z.object({
+    speed_kmh: z.number(),
+    from: z.string(),
+    to: z.string(),
+    degrees: z.number(),
+  }),
+  visibility_m: z.number(),
+  visibility_text: z.string(),
+});
+
+export const invitationWeatherSchema = z.object({
+  status: z.enum(["ready", "stale", "unavailable"]),
+  reason: z.string().nullable().optional(),
+  provider: z.literal("BMKG"),
+  attribution_url: z.url(),
+  updated_at: z.string().nullable().optional(),
+  location: z
+    .object({
+      adm4: z.string(),
+      province: z.string(),
+      regency: z.string(),
+      district: z.string(),
+      village: z.string(),
+      latitude: z.number(),
+      longitude: z.number(),
+      timezone: z.string(),
+    })
+    .nullable()
+    .optional(),
+  event: z
+    .object({
+      starts_at: z.string(),
+      timezone: z.string(),
+      venue: z.string(),
+    })
+    .nullable()
+    .optional(),
+  selected: weatherEntrySchema.nullable().optional(),
+  forecast: z.array(weatherEntrySchema),
+});
+
 export type PublicTheme = z.infer<typeof publicThemeSchema>;
 export type PublicPackage = z.infer<typeof publicPackageSchema>;
+export type PublicInvitation = z.infer<typeof publicInvitationSchema>;
+export type InvitationWeather = z.infer<typeof invitationWeatherSchema>;
