@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 
+import { DocumentLocale } from "@/components/site/document-locale";
 import { MotionScope } from "@/components/site/motion-scope";
 import { isLocale, locales } from "@/lib/locales";
 
@@ -23,5 +24,15 @@ export default async function LocaleLayout({
     notFound();
   }
 
-  return <MotionScope>{children}</MotionScope>;
+  return (
+    <>
+      <DocumentLocale locale={locale} />
+      <a className="skip-link" href="#main-content">
+        {locale === "id" ? "Lewati ke konten utama" : "Skip to main content"}
+      </a>
+      <div id="main-content" tabIndex={-1}>
+        <MotionScope>{children}</MotionScope>
+      </div>
+    </>
+  );
 }

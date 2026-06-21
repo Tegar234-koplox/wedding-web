@@ -2,6 +2,7 @@ from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.http import HttpResponseRedirect
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework.permissions import AllowAny
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from leads.models import WhatsAppIntent
@@ -10,6 +11,8 @@ from leads.services import whatsapp_redirect_url
 
 class WhatsAppRedirectView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "conversion"
 
     @extend_schema(
         parameters=[

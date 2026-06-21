@@ -36,3 +36,5 @@ To test scheduled weather refreshes locally, start Redis and run:
 celery -A config worker --loglevel=INFO
 celery -A config beat --loglevel=INFO
 ```
+
+Before production work, review the [production hardening runbook](production-hardening.md).

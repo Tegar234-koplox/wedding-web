@@ -34,7 +34,7 @@ export function WhatsAppLink({
         className,
       )}
       href={createWhatsAppUrl({ locale, theme, packageCode })}
-      rel="noreferrer"
+      rel="noopener noreferrer"
       target="_blank"
       {...props}
     >

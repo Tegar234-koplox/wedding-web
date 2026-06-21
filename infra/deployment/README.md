@@ -7,3 +7,5 @@
 - Cloudinary stores and transforms media.
 
 Provisioning scripts and provider-specific configuration are deferred to Phase 7. Secrets must be configured in provider secret stores, never committed.
+
+Production security, monitoring, backup, restore, rollback, and incident-response expectations are documented in [`docs/operations/production-hardening.md`](../../docs/operations/production-hardening.md).

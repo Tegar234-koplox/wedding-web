@@ -35,6 +35,25 @@ def test_whatsapp_redirect_validates_context_and_tracks_intent(client):
 
 
 @pytest.mark.django_db
+@override_settings(
+    WHATSAPP_BUSINESS_NUMBER="6281234567890",
+    WHATSAPP_MESSAGE_TEMPLATE_ID="Halo dari Niskala.",
+)
+def test_whatsapp_redirect_is_rate_limited(client):
+    responses = [
+        client.get(
+            reverse("whatsapp-redirect"),
+            {"locale": "id"},
+            REMOTE_ADDR="198.51.100.25",
+        )
+        for _ in range(21)
+    ]
+
+    assert all(response.status_code == 302 for response in responses[:20])
+    assert responses[20].status_code == 429
+
+
+@pytest.mark.django_db
 @override_settings(WHATSAPP_BUSINESS_NUMBER="6281234567890")
 def test_whatsapp_service_rejects_unknown_theme():
     with pytest.raises(ValidationError):

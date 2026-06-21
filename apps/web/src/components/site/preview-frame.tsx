@@ -65,6 +65,7 @@ export function PreviewFrame({ locale, slug, title }: PreviewFrameProps) {
               }
               className="grid size-11 place-items-center border border-white/15 text-white/55 transition hover:border-white/40 hover:text-white"
               href={previewUrl}
+              rel="noopener noreferrer"
               target="_blank"
             >
               <ExternalLink size={17} />
