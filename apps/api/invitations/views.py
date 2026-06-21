@@ -1,0 +1,47 @@
+from django.http import Http404
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import serializers
+from rest_framework.generics import RetrieveAPIView
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from invitations.selectors import public_invitations
+from invitations.serializers import PublicInvitationSerializer
+
+
+class InvitationDetailView(RetrieveAPIView):
+    permission_classes = [AllowAny]
+    serializer_class = PublicInvitationSerializer
+    lookup_field = "public_slug"
+
+    def get_queryset(self):
+        return public_invitations()
+
+
+class InvitationWeatherView(APIView):
+    permission_classes = [AllowAny]
+
+    @extend_schema(
+        responses=inline_serializer(
+            name="InvitationWeather",
+            fields={
+                "status": serializers.CharField(),
+                "reason": serializers.CharField(),
+                "provider": serializers.CharField(),
+                "forecast": serializers.ListField(child=serializers.JSONField()),
+            },
+        )
+    )
+    def get(self, request, public_slug: str) -> Response:
+        invitation = public_invitations().filter(public_slug=public_slug).first()
+        if invitation is None:
+            raise Http404
+        return Response(
+            {
+                "status": "unavailable",
+                "reason": "outside_forecast_window",
+                "provider": "BMKG",
+                "forecast": [],
+            }
+        )

@@ -6,7 +6,7 @@ import { MobileWhatsApp } from "@/components/site/mobile-whatsapp";
 import { SiteFooter } from "@/components/site/site-footer";
 import { SiteNav } from "@/components/site/site-nav";
 import { WhatsAppLink } from "@/components/site/whatsapp-link";
-import { packages } from "@/content/site";
+import { getPublicPackages } from "@/content/public-content";
 import { isLocale } from "@/lib/locales";
 
 type PackagesPageProps = {
@@ -26,6 +26,7 @@ export default async function PackagesPage({ params }: PackagesPageProps) {
   }
 
   const id = locale === "id";
+  const packages = await getPublicPackages(locale);
 
   return (
     <>

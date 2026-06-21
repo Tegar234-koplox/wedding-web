@@ -24,6 +24,7 @@ apps/api/.venv/Scripts/Activate.ps1
 python -m pip install --upgrade pip
 python -m pip install -e "apps/api[dev]"
 python apps/api/manage.py migrate
+python apps/api/manage.py seed_demo_content
 python apps/api/manage.py runserver
 ```
 

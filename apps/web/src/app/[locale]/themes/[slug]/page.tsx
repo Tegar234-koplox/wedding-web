@@ -9,6 +9,7 @@ import { PreviewFrame } from "@/components/site/preview-frame";
 import { SiteFooter } from "@/components/site/site-footer";
 import { SiteNav } from "@/components/site/site-nav";
 import { WhatsAppLink } from "@/components/site/whatsapp-link";
+import { getPublicThemes } from "@/content/public-content";
 import { getTheme, themes } from "@/content/site";
 import { isLocale, locales } from "@/lib/locales";
 
@@ -40,9 +41,15 @@ export async function generateMetadata({
 
 export default async function ThemePage({ params }: ThemePageProps) {
   const { locale, slug } = await params;
-  const theme = getTheme(slug);
 
-  if (!isLocale(locale) || !theme) {
+  if (!isLocale(locale)) {
+    notFound();
+  }
+  const theme =
+    (await getPublicThemes(locale)).find((item) => item.slug === slug) ||
+    getTheme(slug);
+
+  if (!theme) {
     notFound();
   }
 
