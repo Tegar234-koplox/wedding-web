@@ -14,7 +14,7 @@ from users.models import User
 
 @pytest.mark.django_db
 @override_settings(
-    WHATSAPP_BUSINESS_NUMBER="+62 812-3456-7890",
+    WHATSAPP_BUSINESS_NUMBER="+62 819-9745-2212",
     WHATSAPP_MESSAGE_TEMPLATE_ID="Halo dari Niskala.",
 )
 def test_whatsapp_redirect_validates_context_and_tracks_intent(client):
@@ -27,7 +27,7 @@ def test_whatsapp_redirect_validates_context_and_tracks_intent(client):
     )
 
     assert response.status_code == 302
-    assert response.url.startswith("https://wa.me/6281234567890?")
+    assert response.url.startswith("https://wa.me/6281997452212?")
     assert WhatsAppIntent.objects.filter(
         theme_slug="elegant-classic",
         package_code="signature",
@@ -36,7 +36,7 @@ def test_whatsapp_redirect_validates_context_and_tracks_intent(client):
 
 @pytest.mark.django_db
 @override_settings(
-    WHATSAPP_BUSINESS_NUMBER="6281234567890",
+    WHATSAPP_BUSINESS_NUMBER="",
     WHATSAPP_MESSAGE_TEMPLATE_ID="Halo dari Niskala.",
 )
 def test_whatsapp_redirect_is_rate_limited(client):
@@ -54,7 +54,7 @@ def test_whatsapp_redirect_is_rate_limited(client):
 
 
 @pytest.mark.django_db
-@override_settings(WHATSAPP_BUSINESS_NUMBER="6281234567890")
+@override_settings(WHATSAPP_BUSINESS_NUMBER="6281997452212")
 def test_whatsapp_service_rejects_unknown_theme():
     with pytest.raises(ValidationError):
         whatsapp_redirect_url(locale="id", theme_slug="unknown-theme")

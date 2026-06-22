@@ -43,9 +43,7 @@ export function EditorialHome({ locale }: { locale: Locale }) {
                 className="max-w-[14rem] text-[0.65rem] uppercase leading-5 tracking-[0.22em] text-[var(--color-gold-soft)]"
                 data-hero-detail
               >
-                {id
-                  ? "Undangan digital untuk kisah yang tak ingin terasa biasa."
-                  : "Digital invitations for stories that refuse to feel ordinary."}
+                {id ? "Selamanya Dimulai Hari ini." : "Forever Begins Today."}
               </p>
               <p
                 className="hidden text-right text-[0.6rem] uppercase leading-5 tracking-[0.22em] text-white/50 md:block"
@@ -63,7 +61,7 @@ export function EditorialHome({ locale }: { locale: Locale }) {
                   className="font-serif text-[clamp(4.7rem,12.5vw,12rem)] leading-[0.72] tracking-[-0.07em]"
                   data-hero-line
                 >
-                  Stories
+                  Love
                 </p>
               </div>
               <div className="overflow-hidden md:pl-[15vw]">
@@ -71,7 +69,7 @@ export function EditorialHome({ locale }: { locale: Locale }) {
                   className="font-serif text-[clamp(4.7rem,12.5vw,12rem)] italic leading-[0.86] tracking-[-0.07em] text-[var(--color-gold)]"
                   data-hero-line
                 >
-                  beautifully
+                  Begins
                 </p>
               </div>
               <div className="overflow-hidden">
@@ -79,7 +77,7 @@ export function EditorialHome({ locale }: { locale: Locale }) {
                   className="font-serif text-[clamp(4.7rem,12.5vw,12rem)] leading-[0.76] tracking-[-0.07em]"
                   data-hero-line
                 >
-                  invited.
+                  Here.
                 </p>
               </div>
             </div>
@@ -386,10 +384,10 @@ export function EditorialHome({ locale }: { locale: Locale }) {
                   : "Tell us what you are planning"}
               </p>
               <h2 className="mt-8 max-w-4xl font-serif text-[clamp(4rem,9vw,9rem)] leading-[0.82] tracking-[-0.06em]">
-                {id ? "Mari buat" : "Let us make"}
+                {id ? "Mari menebar" : "Let us make"}
                 <br />
                 <span className="italic text-[var(--color-gold-soft)]">
-                  {id ? "sesuatu yang terasa." : "something felt."}
+                  {id ? "agar tak memudar." : "something felt."}
                 </span>
               </h2>
             </div>

@@ -1,6 +1,6 @@
 import type { Locale } from "@/lib/locales";
 
-const fallbackNumber = "6281234567890";
+const fallbackNumber = "6281997452212";
 
 type WhatsAppContext = {
   locale: Locale;
