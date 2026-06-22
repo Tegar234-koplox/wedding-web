@@ -1,6 +1,7 @@
 from uuid import UUID
 
 import pytest
+from django.test import override_settings
 from django.urls import reverse
 
 
@@ -31,3 +32,24 @@ def test_request_id_replaces_unsafe_value(client):
     response = client.get(reverse("health-live"), headers={"X-Request-ID": "unsafe\nvalue"})
 
     UUID(response.headers["X-Request-ID"])
+
+
+@override_settings(
+    SECURE_SSL_REDIRECT=True,
+    SECURE_REDIRECT_EXEMPT=[r"^health/(live|ready)$"],
+)
+def test_liveness_is_exempt_from_internal_ssl_redirect(client):
+    response = client.get(reverse("health-live"), secure=False)
+
+    assert response.status_code == 200
+
+
+@override_settings(
+    SECURE_SSL_REDIRECT=True,
+    SECURE_REDIRECT_EXEMPT=[r"^health/(live|ready)$"],
+)
+def test_non_health_route_still_redirects_to_https(client):
+    response = client.get(reverse("api-root"), secure=False)
+
+    assert response.status_code == 301
+    assert response.headers["Location"].startswith("https://")

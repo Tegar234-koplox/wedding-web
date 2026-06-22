@@ -53,7 +53,9 @@ For all three application services:
 
 The web service builds `apps/api/Dockerfile`, runs migrations through the direct
 Neon URL, then starts Gunicorn on Railway's injected `PORT`. Its readiness
-healthcheck is `/health/ready`.
+healthcheck is `/health/ready`. The two health endpoints are exempt from Django's
+HTTPS redirect because Railway's internal healthcheck does not always include
+`X-Forwarded-Proto`; all other routes remain HTTPS-only.
 
 ### Railway variables
 
@@ -62,7 +64,7 @@ Set these values in Railway's secret store:
 ```text
 DJANGO_SETTINGS_MODULE=config.settings.production
 DJANGO_SECRET_KEY=<long-random-value>
-DJANGO_ALLOWED_HOSTS=<railway-host>,api.<domain>
+DJANGO_ALLOWED_HOSTS=<railway-host>,healthcheck.railway.app,api.<domain>
 DJANGO_CORS_ALLOWED_ORIGINS=https://<vercel-host>,https://<domain>
 DJANGO_CSRF_TRUSTED_ORIGINS=https://<vercel-host>,https://<domain>
 DJANGO_SECURE_SSL_REDIRECT=true
