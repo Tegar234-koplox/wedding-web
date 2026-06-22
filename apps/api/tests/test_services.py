@@ -36,7 +36,7 @@ def test_whatsapp_redirect_validates_context_and_tracks_intent(client):
 
 @pytest.mark.django_db
 @override_settings(
-    WHATSAPP_BUSINESS_NUMBER="",
+    WHATSAPP_BUSINESS_NUMBER="6281997452212",
     WHATSAPP_MESSAGE_TEMPLATE_ID="Halo dari Niskala.",
 )
 def test_whatsapp_redirect_is_rate_limited(client):
