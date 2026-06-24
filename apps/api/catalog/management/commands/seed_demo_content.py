@@ -32,6 +32,26 @@ PACKAGES = [
     ("couture", 1249000, False),
 ]
 
+PACKAGE_FEATURES = {
+    "essential": [
+        ("responsive", "Responsive", "Responsive"),
+        ("cover", "Cover undangan", "Invitation cover"),
+        ("audio", "Musik setelah undangan dibuka", "Music after opening"),
+    ],
+    "signature": [
+        ("essential", "Semua fitur Essential", "Everything in Essential"),
+        ("themed-visuals", "Overlay, dekorasi, dan motion sesuai tema", "Themed visuals"),
+        ("weather", "Prakiraan cuaca BMKG", "BMKG weather forecast"),
+        ("audio", "Backsound pilihan", "Selected background music"),
+    ],
+    "couture": [
+        ("signature", "Semua fitur Signature", "Everything in Signature"),
+        ("art-direction", "Art direction khusus", "Bespoke art direction"),
+        ("refined-motion", "Motion dan parallax premium", "Premium motion and parallax"),
+        ("audio", "Backsound pilihan", "Selected background music"),
+    ],
+}
+
 
 def sample_content(partner_one: str, partner_two: str) -> dict[str, object]:
     return {
@@ -85,7 +105,7 @@ class Command(BaseCommand):
                 slug=slug,
                 defaults={
                     "renderer_key": slug,
-                    "renderer_version": 1,
+                    "renderer_version": 2,
                     "content_schema_version": 1,
                     "status": Theme.Status.PUBLISHED,
                     "category": category,
@@ -118,7 +138,7 @@ class Command(BaseCommand):
                 defaults={
                     "theme": theme,
                     "renderer_key": slug,
-                    "renderer_version": 1,
+                    "renderer_version": 2,
                     "content_schema_version": 1,
                     "status": Invitation.Status.PUBLISHED,
                     "is_sample": True,
@@ -184,14 +204,23 @@ class Command(BaseCommand):
                     "summary": "A thoughtfully crafted digital invitation package.",
                 },
             )
-            PackageFeature.objects.update_or_create(
-                package=package,
-                feature_key="responsive",
-                defaults={
-                    "is_included": True,
-                    "labels": {"id": "Responsive", "en": "Responsive"},
-                    "sort_order": 0,
-                },
-            )
+            feature_keys = []
+            for feature_index, (feature_key, label_id, label_en) in enumerate(
+                PACKAGE_FEATURES[code]
+            ):
+                feature_keys.append(feature_key)
+                PackageFeature.objects.update_or_create(
+                    package=package,
+                    feature_key=feature_key,
+                    defaults={
+                        "is_included": True,
+                        "labels": {"id": label_id, "en": label_en},
+                        "sort_order": feature_index,
+                    },
+                )
+            package.features.exclude(feature_key__in=feature_keys).delete()
+
+        signature = Package.objects.get(code="signature")
+        Invitation.objects.filter(is_sample=True).update(package=signature)
 
         self.stdout.write(self.style.SUCCESS("Demo content is ready."))
