@@ -397,6 +397,11 @@ components:
           type: string
           readOnly: true
         content: {}
+        audio:
+          allOf:
+            - $ref: "#/components/schemas/PublicInvitationAudio"
+          nullable: true
+          readOnly: true
         events:
           type: array
           items:
@@ -407,6 +412,7 @@ components:
           format: date-time
           nullable: true
       required:
+        - audio
         - contentSchemaVersion
         - events
         - locale
@@ -415,6 +421,26 @@ components:
         - rendererKey
         - rendererVersion
         - theme_slug
+    PublicInvitationAudio:
+      type: object
+      properties:
+        secure_url:
+          type: string
+          format: uri
+        title:
+          type: string
+        loop:
+          type: boolean
+        default_volume:
+          type: number
+          format: double
+          maximum: 1
+          minimum: 0
+      required:
+        - default_volume
+        - loop
+        - secure_url
+        - title
     PublicMedia:
       type: object
       properties:
@@ -462,12 +488,14 @@ components:
         - gallery
         - social
         - poster
+        - audio
       type: string
       description: |-
         * `cover` - Cover
         * `gallery` - Gallery
         * `social` - Social
         * `poster` - Poster
+        * `audio` - Audio
     Theme:
       type: object
       properties:
@@ -483,7 +511,7 @@ components:
           maximum: 9223372036854775807
           minimum: 0
           format: int64
-          default: 1
+          default: 2
         content_schema_version:
           type: integer
           maximum: 9223372036854775807
