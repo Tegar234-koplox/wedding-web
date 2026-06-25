@@ -10,7 +10,7 @@ def public_invitations() -> QuerySet[Invitation]:
             archived_at__isnull=True,
         )
         .select_related("theme", "package")
-        .prefetch_related("events__location", "media__asset")
+        .prefetch_related("events__location", "media__asset", "theme__media__asset")
     )
 
 

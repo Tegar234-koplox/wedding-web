@@ -27,7 +27,7 @@ class Invitation(UUIDTimeStampedModel, ArchivableModel):
         related_name="invitations",
     )
     renderer_key = models.CharField(max_length=80, validators=[validate_renderer_key])
-    renderer_version = models.PositiveSmallIntegerField(default=1)
+    renderer_version = models.PositiveSmallIntegerField(default=2)
     content_schema_version = models.PositiveSmallIntegerField(default=1)
     default_locale = models.CharField(
         max_length=2,
@@ -99,6 +99,9 @@ class EventLocation(UUIDTimeStampedModel):
 
 
 class InvitationMedia(UUIDTimeStampedModel):
+    class Role(models.TextChoices):
+        BACKSOUND = "backsound", "Backsound"
+
     invitation = models.ForeignKey(Invitation, on_delete=models.CASCADE, related_name="media")
     asset = models.ForeignKey(
         "media_library.MediaAsset",

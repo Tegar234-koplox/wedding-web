@@ -55,7 +55,7 @@ def create_theme(
     theme = Theme.objects.create(
         slug=slug,
         renderer_key=slug,
-        renderer_version=1,
+        renderer_version=2,
         content_schema_version=1,
         status=status,
         category="classic",
@@ -113,7 +113,7 @@ def create_invitation(
         public_slug=public_slug,
         theme=theme,
         renderer_key=theme.renderer_key,
-        renderer_version=1,
+        renderer_version=theme.renderer_version,
         content_schema_version=1,
         status=status,
         is_sample=is_sample,
