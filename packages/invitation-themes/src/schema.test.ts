@@ -2,18 +2,28 @@ import { describe, expect, it } from "vitest";
 
 import {
   invitationEnvelopeSchema,
+  packageCapabilities,
+  packageCodes,
   rendererKeys,
   supportsRenderer,
 } from "./schema";
 
 describe("renderer manifest", () => {
-  it("registers all seven renderers at version one", () => {
+  it("registers all seven renderers at versions one and two", () => {
     expect(rendererKeys).toHaveLength(7);
     expect(rendererKeys.every((key) => supportsRenderer(key, 1, 1))).toBe(true);
+    expect(rendererKeys.every((key) => supportsRenderer(key, 2, 1))).toBe(true);
   });
 
   it("rejects unsupported versions", () => {
-    expect(supportsRenderer("elegant-classic", 2, 1)).toBe(false);
+    expect(supportsRenderer("elegant-classic", 3, 1)).toBe(false);
+  });
+
+  it("defines progressive capabilities for all packages", () => {
+    expect(packageCodes).toEqual(["essential", "signature", "couture"]);
+    expect(packageCapabilities.essential.weather).toBe(false);
+    expect(packageCapabilities.signature.weather).toBe(true);
+    expect(packageCapabilities.couture.motion).toBe("refined");
   });
 });
 
