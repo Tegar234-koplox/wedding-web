@@ -30,12 +30,12 @@ export function PreviewPackageSelector({
   }
 
   return (
-    <div className="fixed inset-x-3 bottom-3 z-[60] mx-auto flex max-w-xl flex-wrap items-center justify-center gap-1 border border-white/15 bg-black/80 p-2 text-white shadow-2xl backdrop-blur-md">
+    <div className="fixed inset-x-3 bottom-3 z-[60] mx-auto flex max-w-xl flex-wrap items-center justify-center gap-1 border border-white/15 bg-black/80 p-2 text-white shadow-2xl backdrop-blur-md md:inset-x-auto md:bottom-auto md:right-5 md:top-1/2 md:max-w-none md:-translate-y-1/2 md:flex-col md:gap-2">
       {packageCodes.map((packageCode) => (
         <button
           aria-pressed={selected === packageCode}
           className={cn(
-            "min-h-10 px-4 text-[0.6rem] font-semibold uppercase tracking-[0.18em] transition",
+            "min-h-10 px-4 text-[0.6rem] font-semibold uppercase tracking-[0.18em] transition md:min-w-32",
             selected === packageCode
               ? "bg-[#d5ad55] text-[#17140d]"
               : "hover:bg-white/10",

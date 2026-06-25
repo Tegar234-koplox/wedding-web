@@ -22,11 +22,11 @@ export function EditorialHome({ locale }: { locale: Locale }) {
           className="relative min-h-[calc(100svh-5rem)] overflow-hidden px-[var(--space-gutter)] pb-12 pt-10 md:pb-16 md:pt-14"
           data-hero
         >
-          <div className="pointer-events-none absolute right-[-5vw] top-[4vh] h-[72vh] w-[58vw] min-w-[34rem] opacity-90 max-md:right-[-44vw] max-md:top-[16vh] max-md:h-[62vh] max-md:w-[100vw] max-md:min-w-0">
+          <div className="pointer-events-none absolute right-[-5vw] top-[4vh] h-[72vh] w-[58vw] min-w-[34rem] opacity-90 max-md:right-0 max-md:top-[12vh] max-md:h-[68vh] max-md:w-[74vw] max-md:min-w-0">
             <div className="absolute inset-0 overflow-hidden" data-hero-image>
               <Image
                 alt="Editorial portrait of an Indonesian wedding couple"
-                className="object-cover object-center"
+                className="object-cover object-center max-md:object-[62%_center]"
                 fill
                 priority
                 sizes="(max-width: 767px) 100vw, 60vw"
