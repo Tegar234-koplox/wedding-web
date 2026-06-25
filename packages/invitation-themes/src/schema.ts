@@ -16,6 +16,46 @@ export type RendererKey = z.infer<typeof rendererKeySchema>;
 export const localeSchema = z.enum(["id", "en"]);
 export type InvitationLocale = z.infer<typeof localeSchema>;
 
+export const packageCodes = ["essential", "signature", "couture"] as const;
+export const packageCodeSchema = z.enum(packageCodes);
+export type PackageCode = z.infer<typeof packageCodeSchema>;
+
+export type PackageCapabilities = {
+  cover: true;
+  audio: true;
+  weather: boolean;
+  overlay: "restrained" | "themed" | "layered";
+  motion: "light" | "standard" | "refined";
+  parallax: "none" | "subtle" | "premium";
+};
+
+export const packageCapabilities: Record<PackageCode, PackageCapabilities> = {
+  essential: {
+    cover: true,
+    audio: true,
+    weather: false,
+    overlay: "restrained",
+    motion: "light",
+    parallax: "none",
+  },
+  signature: {
+    cover: true,
+    audio: true,
+    weather: true,
+    overlay: "themed",
+    motion: "standard",
+    parallax: "subtle",
+  },
+  couture: {
+    cover: true,
+    audio: true,
+    weather: true,
+    overlay: "layered",
+    motion: "refined",
+    parallax: "premium",
+  },
+};
+
 const safeText = z.string().trim().min(1).max(1200);
 const safeUrl = z
   .string()
@@ -108,12 +148,14 @@ const sections = [
 ] as const;
 
 export const rendererManifest: readonly RendererRegistration[] =
-  rendererKeys.map((key) => ({
-    key,
-    version: 1,
-    contentSchemaVersion: 1,
-    supportedSections: sections,
-  }));
+  rendererKeys.flatMap((key) =>
+    [1, 2].map((version) => ({
+      key,
+      version,
+      contentSchemaVersion: 1,
+      supportedSections: sections,
+    })),
+  );
 
 export function supportsRenderer(
   key: RendererKey,
