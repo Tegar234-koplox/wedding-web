@@ -1,7 +1,6 @@
-import type { Metadata, Route } from "next";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { PreviewBackButton } from "@/components/site/preview-back-button";
 import { PreviewPackageSelector } from "@/components/site/preview-package-selector";
 import { themes } from "@/content/site";
 import { InvitationRenderer } from "@/invitations/renderer-registry";
@@ -54,10 +53,6 @@ export default async function PreviewPage({
 
   return (
     <>
-      <PreviewBackButton
-        href={`/${locale}/themes/${slug}` as Route}
-        label={locale === "id" ? "Kembali ke tema" : "Back to theme"}
-      />
       <PreviewPackageSelector
         locale={locale}
         selected={packageCode}
