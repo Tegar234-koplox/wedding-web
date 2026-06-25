@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { InvitationRenderer } from "@/invitations/renderer-registry";
+import { resolvePackageCode } from "@/invitations/presentation";
 import {
   fetchInvitationWeather,
   fetchPublicInvitation,
@@ -55,6 +56,11 @@ export default async function PublicInvitationPage({
   };
 
   return (
-    <InvitationRenderer invitation={localizedInvitation} weather={weather} />
+    <InvitationRenderer
+      audio={invitation.audio}
+      invitation={localizedInvitation}
+      packageCode={resolvePackageCode(invitation.package_code)}
+      weather={weather}
+    />
   );
 }
