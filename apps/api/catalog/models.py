@@ -20,7 +20,7 @@ class Theme(UUIDTimeStampedModel, ArchivableModel):
         max_length=80,
         validators=[validate_renderer_key],
     )
-    renderer_version = models.PositiveSmallIntegerField(default=1)
+    renderer_version = models.PositiveSmallIntegerField(default=2)
     content_schema_version = models.PositiveSmallIntegerField(default=1)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT)
     category = models.CharField(max_length=80, db_index=True)
@@ -75,6 +75,7 @@ class ThemeMedia(UUIDTimeStampedModel):
         GALLERY = "gallery", "Gallery"
         SOCIAL = "social", "Social"
         POSTER = "poster", "Poster"
+        AUDIO = "audio", "Audio"
 
     theme = models.ForeignKey(Theme, on_delete=models.CASCADE, related_name="media")
     asset = models.ForeignKey(
