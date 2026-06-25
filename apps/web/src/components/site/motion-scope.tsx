@@ -85,7 +85,8 @@ export function MotionScope({ children }: { children: ReactNode }) {
             .filter((element) => {
               if (
                 element.closest("[data-hero]") ||
-                element.closest("[data-reveal]")
+                element.closest("[data-reveal]") ||
+                element.closest("[data-invitation-motion]")
               ) {
                 return false;
               }

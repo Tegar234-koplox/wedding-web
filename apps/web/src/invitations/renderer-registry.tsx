@@ -1,5 +1,6 @@
 import type {
   InvitationEnvelope,
+  PackageCode,
   RendererKey,
 } from "@wedding/invitation-themes";
 import {
@@ -13,10 +14,13 @@ import {
 import Image from "next/image";
 import type { ComponentType } from "react";
 
-import type { InvitationWeather } from "@/lib/api/contracts";
+import { RendererV2 } from "@/invitations/renderer-v2";
+import type { InvitationAudio, InvitationWeather } from "@/lib/api/contracts";
 
 type RendererProps = {
   invitation: InvitationEnvelope;
+  packageCode?: PackageCode;
+  audio?: InvitationAudio | null;
   weather?: InvitationWeather | null;
 };
 
@@ -566,16 +570,24 @@ export const rendererRegistry: Record<
   RendererKey,
   Record<number, ComponentType<RendererProps>>
 > = {
-  "elegant-classic": { 1: createRenderer("elegant-classic") },
-  "islamic-soft": { 1: createRenderer("islamic-soft") },
-  "luxury-gold": { 1: createRenderer("luxury-gold") },
-  "minimalist-white": { 1: createRenderer("minimalist-white") },
-  "dark-cinematic": { 1: createRenderer("dark-cinematic") },
-  "floral-romantic": { 1: createRenderer("floral-romantic") },
-  "javanese-traditional": { 1: createRenderer("javanese-traditional") },
+  "elegant-classic": { 1: createRenderer("elegant-classic"), 2: RendererV2 },
+  "islamic-soft": { 1: createRenderer("islamic-soft"), 2: RendererV2 },
+  "luxury-gold": { 1: createRenderer("luxury-gold"), 2: RendererV2 },
+  "minimalist-white": { 1: createRenderer("minimalist-white"), 2: RendererV2 },
+  "dark-cinematic": { 1: createRenderer("dark-cinematic"), 2: RendererV2 },
+  "floral-romantic": { 1: createRenderer("floral-romantic"), 2: RendererV2 },
+  "javanese-traditional": {
+    1: createRenderer("javanese-traditional"),
+    2: RendererV2,
+  },
 };
 
-export function InvitationRenderer({ invitation, weather }: RendererProps) {
+export function InvitationRenderer({
+  invitation,
+  packageCode,
+  audio,
+  weather,
+}: RendererProps) {
   const Renderer =
     rendererRegistry[invitation.rendererKey]?.[invitation.rendererVersion];
 
@@ -598,5 +610,13 @@ export function InvitationRenderer({ invitation, weather }: RendererProps) {
     );
   }
 
-  return <Renderer invitation={invitation} weather={weather} />;
+  return (
+    <Renderer
+      audio={audio}
+      invitation={invitation}
+      key={`${invitation.rendererKey}-${invitation.rendererVersion}-${packageCode ?? "essential"}`}
+      packageCode={packageCode ?? "essential"}
+      weather={weather}
+    />
+  );
 }

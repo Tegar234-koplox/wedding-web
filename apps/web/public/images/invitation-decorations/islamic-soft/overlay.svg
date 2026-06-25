@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1920" height="1080" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="diamondFill" cx="42%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="1"/>
+      <stop offset="28%" stop-color="#f7fbff" stop-opacity="0.95"/>
+      <stop offset="58%" stop-color="#dfe8f2" stop-opacity="0.82"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.18"/>
+    </radialGradient>
+
+    <linearGradient id="facetStroke" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="45%" stop-color="#d8e2ee"/>
+      <stop offset="100%" stop-color="#ffffff"/>
+    </linearGradient>
+
+    <filter id="softGlow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="3.2" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <filter id="sparkleGlow" x="-120%" y="-120%" width="340%" height="340%">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <symbol id="diamond" viewBox="-60 -60 120 120">
+      <path d="M0 -54 L44 -16 L28 44 L0 58 L-28 44 L-44 -16 Z"
+            fill="url(#diamondFill)"
+            stroke="url(#facetStroke)"
+            stroke-width="2"
+            opacity="0.92"/>
+      <path d="M0 -54 L0 58 M-44 -16 L44 -16 M-28 44 L0 -54 L28 44"
+            fill="none"
+            stroke="#ffffff"
+            stroke-width="1.2"
+            opacity="0.45"/>
+      <path d="M-26 -18 L0 -54 L26 -18 L0 -4 Z"
+            fill="#ffffff"
+            opacity="0.28"/>
+      <circle cx="-16" cy="-24" r="4" fill="#ffffff" opacity="0.85"/>
+    </symbol>
+
+    <symbol id="sparkle" viewBox="-32 -32 64 64">
+      <path d="M0 -30 L7 -7 L30 0 L7 7 L0 30 L-7 7 L-30 0 L-7 -7 Z"
+            fill="#ffffff"
+            opacity="0.92"/>
+      <circle cx="0" cy="0" r="3" fill="#ffffff"/>
+    </symbol>
+  </defs>
+
+  <g opacity="0.95" filter="url(#softGlow)">
+    <use href="#diamond" x="240" y="190" width="82" height="82" transform="rotate(-14 281 231)" opacity="0.78"/>
+    <use href="#diamond" x="520" y="120" width="56" height="56" transform="rotate(18 548 148)" opacity="0.62"/>
+    <use href="#diamond" x="870" y="210" width="95" height="95" transform="rotate(8 917 257)" opacity="0.84"/>
+    <use href="#diamond" x="1260" y="135" width="68" height="68" transform="rotate(-22 1294 169)" opacity="0.66"/>
+    <use href="#diamond" x="1590" y="245" width="105" height="105" transform="rotate(16 1642 297)" opacity="0.82"/>
+
+    <use href="#diamond" x="350" y="520" width="112" height="112" transform="rotate(12 406 576)" opacity="0.88"/>
+    <use href="#diamond" x="730" y="455" width="64" height="64" transform="rotate(-16 762 487)" opacity="0.58"/>
+    <use href="#diamond" x="1040" y="580" width="122" height="122" transform="rotate(-8 1101 641)" opacity="0.86"/>
+    <use href="#diamond" x="1430" y="500" width="76" height="76" transform="rotate(23 1468 538)" opacity="0.62"/>
+
+    <use href="#diamond" x="160" y="850" width="62" height="62" transform="rotate(24 191 881)" opacity="0.52"/>
+    <use href="#diamond" x="610" y="790" width="90" height="90" transform="rotate(-12 655 835)" opacity="0.72"/>
+    <use href="#diamond" x="1200" y="810" width="72" height="72" transform="rotate(10 1236 846)" opacity="0.56"/>
+    <use href="#diamond" x="1660" y="790" width="118" height="118" transform="rotate(-18 1719 849)" opacity="0.84"/>
+  </g>
+
+  <g filter="url(#sparkleGlow)">
+    <use href="#sparkle" x="420" y="255" width="38" height="38" opacity="0.82"/>
+    <use href="#sparkle" x="680" y="175" width="24" height="24" opacity="0.56"/>
+    <use href="#sparkle" x="1010" y="150" width="36" height="36" opacity="0.74"/>
+    <use href="#sparkle" x="1495" y="190" width="28" height="28" opacity="0.62"/>
+    <use href="#sparkle" x="1735" y="410" width="42" height="42" opacity="0.78"/>
+
+    <use href="#sparkle" x="225" y="615" width="30" height="30" opacity="0.58"/>
+    <use href="#sparkle" x="555" y="640" width="46" height="46" opacity="0.74"/>
+    <use href="#sparkle" x="910" y="500" width="26" height="26" opacity="0.52"/>
+    <use href="#sparkle" x="1320" y="660" width="38" height="38" opacity="0.70"/>
+    <use href="#sparkle" x="1540" y="650" width="22" height="22" opacity="0.48"/>
+
+    <use href="#sparkle" x="300" y="900" width="26" height="26" opacity="0.50"/>
+    <use href="#sparkle" x="805" y="875" width="34" height="34" opacity="0.65"/>
+    <use href="#sparkle" x="1385" y="900" width="30" height="30" opacity="0.58"/>
+    <use href="#sparkle" x="1810" y="930" width="42" height="42" opacity="0.72"/>
+  </g>
+
+  <g fill="#ffffff">
+    <circle cx="120" cy="260" r="2.8" opacity="0.42"/>
+    <circle cx="335" cy="360" r="2.2" opacity="0.38"/>
+    <circle cx="760" cy="320" r="2.5" opacity="0.44"/>
+    <circle cx="1140" cy="270" r="2.2" opacity="0.38"/>
+    <circle cx="1390" cy="350" r="2.8" opacity="0.45"/>
+    <circle cx="1830" cy="200" r="2.4" opacity="0.40"/>
+    <circle cx="110" cy="735" r="2.4" opacity="0.36"/>
+    <circle cx="500" cy="760" r="2.8" opacity="0.42"/>
+    <circle cx="970" cy="760" r="2.1" opacity="0.36"/>
+    <circle cx="1315" cy="455" r="2.7" opacity="0.44"/>
+    <circle cx="1520" cy="835" r="2.3" opacity="0.38"/>
+    <circle cx="1880" cy="720" r="2.6" opacity="0.40"/>
+  </g>
+</svg>

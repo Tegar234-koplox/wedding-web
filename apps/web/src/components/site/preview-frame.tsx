@@ -1,5 +1,6 @@
 "use client";
 
+import { packageCodes, type PackageCode } from "@wedding/invitation-themes";
 import { ExternalLink, Monitor, Smartphone } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
@@ -7,6 +8,7 @@ import { useState } from "react";
 
 import type { Locale } from "@/lib/locales";
 import { cn } from "@/lib/utils";
+import { WhatsAppLink } from "@/components/site/whatsapp-link";
 
 type PreviewFrameProps = {
   locale: Locale;
@@ -16,7 +18,9 @@ type PreviewFrameProps = {
 
 export function PreviewFrame({ locale, slug, title }: PreviewFrameProps) {
   const [device, setDevice] = useState<"mobile" | "desktop">("mobile");
-  const previewUrl = `/${locale}/preview/${slug}` as Route;
+  const [packageCode, setPackageCode] = useState<PackageCode>("signature");
+  const previewUrl =
+    `/${locale}/preview/${slug}?package=${packageCode}` as Route;
 
   return (
     <section className="bg-[#0d0d0c] px-[var(--space-gutter)] py-[var(--space-section)] text-[var(--color-ink)]">
@@ -73,6 +77,35 @@ export function PreviewFrame({ locale, slug, title }: PreviewFrameProps) {
           </div>
         </div>
 
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-4 border-y border-white/10 py-4">
+          <div className="flex flex-wrap gap-1">
+            {packageCodes.map((item) => (
+              <button
+                aria-pressed={packageCode === item}
+                className={cn(
+                  "min-h-10 px-4 text-[0.6rem] font-semibold uppercase tracking-[0.18em] transition",
+                  packageCode === item
+                    ? "bg-[var(--color-gold)] text-[#17140d]"
+                    : "border border-white/15 text-white/60 hover:text-white",
+                )}
+                key={item}
+                onClick={() => setPackageCode(item)}
+                type="button"
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+          <WhatsAppLink
+            locale={locale}
+            packageCode={packageCode}
+            theme={title}
+            variant="text"
+          >
+            {locale === "id" ? "Konsultasi paket ini" : "Consult this package"}
+          </WhatsAppLink>
+        </div>
+
         <div className="grid min-h-[46rem] place-items-center overflow-hidden border border-white/10 bg-[#1b1b19] p-3 md:p-8">
           <div
             className={cn(
@@ -83,7 +116,9 @@ export function PreviewFrame({ locale, slug, title }: PreviewFrameProps) {
             )}
           >
             <iframe
+              allow="autoplay"
               className="size-full bg-white"
+              key={`${slug}-${packageCode}`}
               loading="lazy"
               sandbox="allow-scripts allow-same-origin"
               src={`${previewUrl}#embed`}

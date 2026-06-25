@@ -1,5 +1,6 @@
 import {
   invitationEnvelopeSchema,
+  packageCodeSchema,
   rendererKeySchema,
 } from "@wedding/invitation-themes";
 import { z } from "zod";
@@ -54,7 +55,15 @@ export const publicPackageSchema = z.object({
 export const publicInvitationSchema = invitationEnvelopeSchema.extend({
   public_slug: z.string(),
   theme_slug: rendererKeySchema,
-  package_code: z.string().nullable(),
+  package_code: packageCodeSchema.nullable(),
+  audio: z
+    .object({
+      secure_url: z.url(),
+      title: z.string(),
+      loop: z.boolean(),
+      default_volume: z.number().min(0).max(1),
+    })
+    .nullable(),
   events: z.array(z.unknown()),
   published_at: z.string().nullable(),
 });
@@ -114,3 +123,4 @@ export type PublicTheme = z.infer<typeof publicThemeSchema>;
 export type PublicPackage = z.infer<typeof publicPackageSchema>;
 export type PublicInvitation = z.infer<typeof publicInvitationSchema>;
 export type InvitationWeather = z.infer<typeof invitationWeatherSchema>;
+export type InvitationAudio = NonNullable<PublicInvitation["audio"]>;

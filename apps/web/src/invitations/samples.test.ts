@@ -9,6 +9,7 @@ describe("sample invitation catalog", () => {
     const enSample = getSampleInvitation(key, "en");
 
     expect(idSample.rendererKey).toBe(key);
+    expect(idSample.rendererVersion).toBe(2);
     expect(enSample.rendererKey).toBe(key);
     expect(idSample.content.gallery).toHaveLength(3);
     expect(enSample.content.event.mapUrl).toMatch(/^https:/);
