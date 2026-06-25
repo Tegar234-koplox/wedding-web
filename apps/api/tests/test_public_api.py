@@ -1,8 +1,9 @@
 import pytest
 from django.urls import reverse
 
-from catalog.models import Theme
-from invitations.models import Invitation
+from catalog.models import Theme, ThemeMedia
+from invitations.models import Invitation, InvitationMedia
+from media_library.models import MediaAsset
 from tests.factories import create_invitation, create_package, create_theme
 
 
@@ -74,6 +75,89 @@ def test_theme_sample_uses_published_sample_only(client):
 
     assert response.status_code == 200
     assert response.json()["rendererKey"] == "elegant-classic"
+    assert response.json()["rendererVersion"] == 2
+
+
+@pytest.mark.django_db
+def test_public_invitation_exposes_allowlisted_cloudinary_audio(client):
+    theme = create_theme()
+    invitation = create_invitation(theme=theme)
+    asset = MediaAsset.objects.create(
+        public_id="wedding/invitations/alya-raka",
+        resource_type=MediaAsset.ResourceType.VIDEO,
+        format="mp3",
+        secure_url="https://res.cloudinary.com/demo/video/upload/alya-raka.mp3",
+        folder="wedding/invitations",
+        original_filename="Our song",
+    )
+    InvitationMedia.objects.create(
+        invitation=invitation,
+        asset=asset,
+        role=InvitationMedia.Role.BACKSOUND,
+    )
+
+    response = client.get(
+        reverse("invitation-detail", kwargs={"public_slug": invitation.public_slug})
+    )
+
+    assert response.status_code == 200
+    assert response.json()["audio"] == {
+        "secure_url": asset.secure_url,
+        "title": "Our song",
+        "loop": True,
+        "default_volume": 0.35,
+    }
+
+
+@pytest.mark.django_db
+def test_public_invitation_hides_untrusted_audio(client):
+    theme = create_theme()
+    invitation = create_invitation(theme=theme)
+    asset = MediaAsset.objects.create(
+        public_id="unsafe/audio",
+        resource_type=MediaAsset.ResourceType.RAW,
+        format="mp3",
+        secure_url="https://example.com/audio.mp3",
+        folder="wedding/invitations",
+    )
+    InvitationMedia.objects.create(
+        invitation=invitation,
+        asset=asset,
+        role=InvitationMedia.Role.BACKSOUND,
+    )
+
+    response = client.get(
+        reverse("invitation-detail", kwargs={"public_slug": invitation.public_slug})
+    )
+
+    assert response.status_code == 200
+    assert response.json()["audio"] is None
+
+
+@pytest.mark.django_db
+def test_sample_invitation_falls_back_to_theme_audio(client):
+    theme = create_theme()
+    invitation = create_invitation(theme=theme, is_sample=True)
+    asset = MediaAsset.objects.create(
+        public_id="wedding/themes/elegant-classic-preview",
+        resource_type=MediaAsset.ResourceType.RAW,
+        format="ogg",
+        secure_url="https://res.cloudinary.com/demo/raw/upload/elegant-classic.ogg",
+        folder="wedding/themes",
+        original_filename="Elegant Classic Preview",
+    )
+    ThemeMedia.objects.create(
+        theme=theme,
+        asset=asset,
+        role=ThemeMedia.Role.AUDIO,
+    )
+
+    response = client.get(
+        reverse("invitation-detail", kwargs={"public_slug": invitation.public_slug})
+    )
+
+    assert response.status_code == 200
+    assert response.json()["audio"]["secure_url"] == asset.secure_url
 
 
 @pytest.mark.django_db
