@@ -238,7 +238,7 @@ export function getSampleInvitation(
 ): InvitationEnvelope {
   return parseInvitationEnvelope({
     rendererKey: key,
-    rendererVersion: 1,
+    rendererVersion: 2,
     contentSchemaVersion: 1,
     locale,
     content: createContent(key, locale),

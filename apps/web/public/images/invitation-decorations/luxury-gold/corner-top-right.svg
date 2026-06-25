@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="900" height="900" viewBox="0 0 900 900" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+    <stop offset="0%" stop-color="#FFF9DC"/>
+    <stop offset="18%" stop-color="#FFE08A"/>
+    <stop offset="45%" stop-color="#D6A63C"/>
+    <stop offset="70%" stop-color="#8E6216"/>
+    <stop offset="100%" stop-color="#FFF0B2"/>
+  </linearGradient>
+
+  <filter id="emboss" x="-50%" y="-50%" width="200%" height="200%">
+    <feOffset dx="-2" dy="-2" result="highlight"/>
+    <feGaussianBlur in="highlight" stdDeviation="1.2"/>
+    <feColorMatrix type="matrix"
+      values="1 0 0 0 0.4
+              0 1 0 0 0.35
+              0 0 1 0 0.2
+              0 0 0 0.9 0"/>
+    <feOffset dx="3" dy="3" result="shadow"/>
+    <feGaussianBlur in="shadow" stdDeviation="2"/>
+    <feColorMatrix type="matrix"
+      values="0 0 0 0 0.15
+              0 0 0 0 0.08
+              0 0 0 0 0.01
+              0 0 0 0.7 0"/>
+    <feMerge>
+      <feMergeNode/>
+      <feMergeNode in="SourceGraphic"/>
+    </feMerge>
+  </filter>
+
+  <filter id="glow">
+    <feGaussianBlur stdDeviation="3"/>
+  </filter>
+</defs>
+
+<g transform="translate(900,0) scale(-1,1)" filter="url(#emboss)">
+  <path d="M70 700 C100 420,180 180,520 70"
+        fill="none" stroke="url(#gold)" stroke-width="22" stroke-linecap="round"/>
+
+  <path d="M180 520 C240 420,320 360,420 330
+           C350 360,310 420,350 500
+           C410 600,520 560,590 470"
+        fill="none" stroke="url(#gold)" stroke-width="9" stroke-linecap="round"/>
+
+  <path d="M300 420
+           C340 390,370 390,395 430
+           C355 445,325 445,300 420Z"
+        fill="url(#gold)"/>
+
+  <path d="M470 300
+           C510 270,540 270,565 310
+           C525 325,495 325,470 300Z"
+        fill="url(#gold)"/>
+
+  <path d="M92 692 C122 430,205 215,510 92"
+        fill="none" stroke="#fff7cf" stroke-width="4" opacity="0.65"/>
+
+  <g fill="#FFF7D0">
+    <path d="M600 120 l8 22 l22 8 l-22 8 l-8 22 l-8 -22 l-22 -8 l22 -8z"/>
+    <path d="M450 220 l6 16 l16 6 l-16 6 l-6 16 l-6 -16 l-16 -6 l16 -6z"/>
+  </g>
+</g>
+</svg>

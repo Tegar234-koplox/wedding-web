@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1920" height="1080" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="goldBrown" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFF0B8"/>
+      <stop offset="18%" stop-color="#D9A441"/>
+      <stop offset="42%" stop-color="#8A4E1F"/>
+      <stop offset="68%" stop-color="#C58A35"/>
+      <stop offset="100%" stop-color="#FFE5A0"/>
+    </linearGradient>
+
+    <linearGradient id="deepBrown" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#6B3518"/>
+      <stop offset="50%" stop-color="#B8792B"/>
+      <stop offset="100%" stop-color="#F3C66B"/>
+    </linearGradient>
+
+    <filter id="emboss" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="-2" dy="-2" stdDeviation="1.2" flood-color="#fff2bf" flood-opacity="0.75"/>
+      <feDropShadow dx="3" dy="4" stdDeviation="2.5" flood-color="#3b1f0f" flood-opacity="0.55"/>
+      <feGaussianBlur stdDeviation="0.15"/>
+    </filter>
+
+    <filter id="softGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <symbol id="megaCloud" viewBox="0 0 620 260">
+      <path d="M40 190
+               C110 110,170 105,230 150
+               C245 85,330 58,390 104
+               C450 28,555 78,575 162
+               C520 130,475 142,440 184
+               C385 130,310 142,280 202
+               C215 158,150 164,95 230"
+            fill="none"
+            stroke="url(#goldBrown)"
+            stroke-width="18"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            filter="url(#emboss)"/>
+
+      <path d="M80 176
+               C138 125,180 128,226 166
+               C250 118,314 96,362 128
+               C420 75,500 100,534 158"
+            fill="none"
+            stroke="url(#deepBrown)"
+            stroke-width="9"
+            stroke-linecap="round"
+            opacity="0.82"
+            filter="url(#emboss)"/>
+
+      <path d="M118 168
+               C165 145,200 150,238 184
+               C275 144,326 132,374 154
+               C415 130,466 132,512 168"
+            fill="none"
+            stroke="#FFE9A8"
+            stroke-width="4"
+            stroke-linecap="round"
+            opacity="0.75"/>
+
+      <path d="M135 218
+               C205 185,265 196,318 232
+               C370 190,450 188,530 220"
+            fill="none"
+            stroke="url(#goldBrown)"
+            stroke-width="7"
+            stroke-linecap="round"
+            opacity="0.72"
+            filter="url(#softGlow)"/>
+    </symbol>
+  </defs>
+
+  <g opacity="0.96">
+    <use href="#megaCloud" x="35" y="35" width="520" height="220"/>
+    <use href="#megaCloud" x="480" y="70" width="430" height="180" opacity="0.78"/>
+    <use href="#megaCloud" x="1040" y="45" width="500" height="210" opacity="0.85"/>
+    <use href="#megaCloud" x="1450" y="72" width="420" height="176" opacity="0.74"/>
+  </g>
+
+  <g opacity="0.72">
+    <use href="#megaCloud" x="-80" y="410" width="420" height="176" transform="rotate(-8 130 498)"/>
+    <use href="#megaCloud" x="1590" y="420" width="420" height="176" transform="rotate(8 1800 508)"/>
+  </g>
+
+  <g opacity="0.9" transform="translate(0,1080) scale(1,-1)">
+    <use href="#megaCloud" x="70" y="50" width="500" height="210"/>
+    <use href="#megaCloud" x="540" y="82" width="410" height="172" opacity="0.75"/>
+    <use href="#megaCloud" x="1030" y="64" width="460" height="194" opacity="0.82"/>
+    <use href="#megaCloud" x="1455" y="54" width="430" height="180" opacity="0.78"/>
+  </g>
+
+  <g fill="#F3C66B" opacity="0.55" filter="url(#softGlow)">
+    <circle cx="620" cy="285" r="4"/>
+    <circle cx="720" cy="250" r="3"/>
+    <circle cx="1320" cy="280" r="4"/>
+    <circle cx="1415" cy="245" r="3"/>
+    <circle cx="480" cy="820" r="3.5"/>
+    <circle cx="840" cy="855" r="3"/>
+    <circle cx="1180" cy="835" r="4"/>
+    <circle cx="1510" cy="790" r="3"/>
+  </g>
+</svg>
