@@ -72,7 +72,8 @@ class StaffLoginView(APIView):
         user = authenticate(request, username=username, password=password)
         if user is None:
             return Response({"detail": "Kredensial staff tidak valid."}, status=400)
-        if not user.is_active or not user.is_staff or getattr(user, "role", "") not in STAFF_ROLES:
+        has_staff_role = getattr(user, "role", "") in STAFF_ROLES
+        if not user.is_active or not user.is_staff or not (user.is_superuser or has_staff_role):
             return Response({"detail": "Akun ini tidak memiliki akses staff."}, status=403)
 
         login(request, user)
