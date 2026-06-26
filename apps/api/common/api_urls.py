@@ -2,7 +2,13 @@ from django.http import JsonResponse
 from django.urls import include, path
 from django.views.decorators.http import require_GET
 
-from common.views import CsrfTokenView, StaffAuditEventListView
+from common.views import (
+    CsrfTokenView,
+    StaffAuditEventListView,
+    StaffLoginView,
+    StaffLogoutView,
+    StaffSessionMeView,
+)
 
 
 @require_GET
@@ -13,6 +19,9 @@ def api_root(_: object) -> JsonResponse:
 urlpatterns = [
     path("", api_root, name="api-root"),
     path("auth/csrf", CsrfTokenView.as_view(), name="api-csrf-token"),
+    path("auth/login", StaffLoginView.as_view(), name="api-staff-login"),
+    path("auth/logout", StaffLogoutView.as_view(), name="api-staff-logout"),
+    path("auth/me", StaffSessionMeView.as_view(), name="api-staff-session-me"),
     path("", include("site_settings.urls")),
     path("admin/audit-events", StaffAuditEventListView.as_view(), name="admin-audit-event-list"),
     path("", include("catalog.urls")),

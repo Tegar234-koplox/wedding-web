@@ -16,6 +16,11 @@ def env(name: str, default: str | None = None) -> str:
     return value
 
 
+def env_optional(name: str) -> str | None:
+    value = os.environ.get(name, "").strip()
+    return value or None
+
+
 def env_list(name: str, default: str = "") -> list[str]:
     return [item.strip() for item in env(name, default).split(",") if item.strip()]
 
@@ -237,8 +242,10 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SAMESITE = "Lax"
-CSRF_COOKIE_SAMESITE = "Lax"
+SESSION_COOKIE_SAMESITE = env("DJANGO_SESSION_COOKIE_SAMESITE", "Lax")
+CSRF_COOKIE_SAMESITE = env("DJANGO_CSRF_COOKIE_SAMESITE", "Lax")
+SESSION_COOKIE_DOMAIN = env_optional("DJANGO_SESSION_COOKIE_DOMAIN")
+CSRF_COOKIE_DOMAIN = env_optional("DJANGO_CSRF_COOKIE_DOMAIN")
 
 CONTENT_SECURITY_POLICY = {
     "DIRECTIVES": {

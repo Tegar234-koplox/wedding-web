@@ -1,6 +1,8 @@
 "use client";
 
-import { Plus, RefreshCw, Save } from "lucide-react";
+import { LogOut, Plus, RefreshCw, Save } from "lucide-react";
+import type { Route } from "next";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { env } from "@/lib/env";
@@ -56,6 +58,15 @@ type StaffUser = {
   username: string;
   email: string;
   role: string;
+};
+
+type StaffSession = {
+  user: {
+    username: string;
+    email: string;
+    role: string;
+    display_name: string;
+  };
 };
 
 const orderStatuses = [
@@ -173,6 +184,7 @@ export function AdminOperations() {
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
   const [orderAuditEvents, setOrderAuditEvents] = useState<AuditEvent[]>([]);
   const [staffUsers, setStaffUsers] = useState<StaffUser[]>([]);
+  const [staffSession, setStaffSession] = useState<StaffSession["user"] | null>(null);
   const [selectedReference, setSelectedReference] = useState<string>("");
   const [draftStatus, setDraftStatus] = useState<string>("");
   const [draftStaff, setDraftStaff] = useState<string>("");
@@ -209,14 +221,23 @@ export function AdminOperations() {
     setLoading(true);
     setError("");
     try {
-      const [nextMetrics, nextOrders, nextLeads, nextAuditEvents, nextStaffUsers] =
+      const [
+        nextSession,
+        nextMetrics,
+        nextOrders,
+        nextLeads,
+        nextAuditEvents,
+        nextStaffUsers,
+      ] =
         await Promise.all([
+          staffFetch<StaffSession>("/auth/me"),
           staffFetch<Metrics>("/admin/dashboard/metrics"),
           staffFetch<Order[]>("/admin/orders"),
           staffFetch<Lead[]>("/admin/leads"),
           staffFetch<AuditEvent[]>("/admin/audit-events"),
           staffFetch<StaffUser[]>("/admin/staff-users"),
         ]);
+      setStaffSession(nextSession.user);
       setMetrics(nextMetrics);
       setOrders(nextOrders);
       setLeads(nextLeads);
@@ -243,6 +264,26 @@ export function AdminOperations() {
       setLoading(false);
     }
   }, []);
+
+  async function logoutStaff() {
+    setSaving(true);
+    setError("");
+    try {
+      await staffFetch<{ ok: boolean }>("/auth/logout", { method: "POST" });
+      setStaffSession(null);
+      setMetrics(null);
+      setOrders([]);
+      setLeads([]);
+      setAuditEvents([]);
+      setOrderAuditEvents([]);
+      setSelectedReference("");
+      setError("Session staff sudah logout. Login ulang untuk membuka dashboard.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Logout staff gagal.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -329,20 +370,44 @@ export function AdminOperations() {
             Kelola order, lead, assignment, dan riwayat perubahan dari frontend.
           </p>
         </div>
-        <button
-          className="inline-flex min-h-11 items-center gap-3 border border-white/15 px-4 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-white/70 transition hover:border-[var(--color-gold)] hover:text-[var(--color-gold)]"
-          disabled={loading}
-          onClick={() => void loadDashboard(selectedReference)}
-          type="button"
-        >
-          <RefreshCw size={15} />
-          Refresh
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          {staffSession ? (
+            <p className="text-xs uppercase tracking-[0.14em] text-white/45">
+              {staffSession.display_name} / {staffSession.role}
+            </p>
+          ) : null}
+          <button
+            className="inline-flex min-h-11 items-center gap-3 border border-white/15 px-4 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-white/70 transition hover:border-[var(--color-gold)] hover:text-[var(--color-gold)]"
+            disabled={loading}
+            onClick={() => void loadDashboard(selectedReference)}
+            type="button"
+          >
+            <RefreshCw size={15} />
+            Refresh
+          </button>
+          {staffSession ? (
+            <button
+              className="inline-flex min-h-11 items-center gap-3 border border-white/15 px-4 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-white/70 transition hover:border-[var(--color-gold)] hover:text-[var(--color-gold)]"
+              disabled={saving}
+              onClick={() => void logoutStaff()}
+              type="button"
+            >
+              <LogOut size={15} />
+              Logout
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {error ? (
         <div className="border border-[#d5ad55]/40 bg-[#d5ad55]/10 p-5 text-sm leading-6 text-[#f4ddb0]">
-          {error}. Pastikan sudah login di Django admin pada host yang sama dan Redis aktif.
+          {error}. Pastikan sudah login sebagai staff dan Redis aktif.{" "}
+          <Link
+            className="font-semibold underline decoration-[#d5ad55]/50 underline-offset-4"
+            href={"/admin/login" as Route}
+          >
+            Buka staff login
+          </Link>
         </div>
       ) : null}
 

@@ -22,6 +22,36 @@ def create_user(*, username: str, email: str, role: str = "client", is_staff: bo
 
 
 @pytest.mark.django_db
+def test_staff_can_login_from_frontend_session_endpoint(client):
+    create_user(username="staff", email="staff@example.com", role="admin", is_staff=True)
+
+    response = client.post(
+        reverse("api-staff-login"),
+        {"username": "staff", "password": "password"},
+        content_type="application/json",
+    )
+    me_response = client.get(reverse("api-staff-session-me"))
+
+    assert response.status_code == 200
+    assert response.json()["user"]["role"] == "admin"
+    assert me_response.status_code == 200
+    assert me_response.json()["user"]["username"] == "staff"
+
+
+@pytest.mark.django_db
+def test_non_staff_cannot_login_to_staff_session_endpoint(client):
+    create_user(username="client", email="client@example.com")
+
+    response = client.post(
+        reverse("api-staff-login"),
+        {"username": "client", "password": "password"},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 403
+
+
+@pytest.mark.django_db
 def test_staff_creates_manual_order_from_lead_and_writes_audit(client):
     staff = create_user(username="staff", email="staff@example.com", role="admin", is_staff=True)
     theme = create_theme()
