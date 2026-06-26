@@ -1,6 +1,6 @@
 "use client";
 
-import { RefreshCw, Save } from "lucide-react";
+import { Plus, RefreshCw, Save } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { env } from "@/lib/env";
@@ -48,6 +48,7 @@ type AuditEvent = {
   action: string;
   resource_type: string;
   resource_reference: string;
+  metadata?: Record<string, unknown>;
   created_at: string;
 };
 
@@ -70,13 +71,39 @@ const orderStatuses = [
   "cancelled",
 ];
 
-let cachedCsrfToken = "";
+const emptyOrderForm = {
+  client_email: "",
+  client_name: "",
+  client_phone: "",
+  currency: "IDR",
+  event_date: "",
+  package_code: "",
+  reference: "",
+  theme_slug: "",
+  total_amount: "",
+};
+
+type OrderForm = typeof emptyOrderForm;
+type OrderFormField = keyof OrderForm;
+
+const orderFormFields: Array<{
+  field: OrderFormField;
+  label: string;
+  placeholder: string;
+}> = [
+  { field: "reference", label: "Reference", placeholder: "ord-001" },
+  { field: "client_name", label: "Client name", placeholder: "Alya & Raka" },
+  { field: "client_email", label: "Client email", placeholder: "client@example.com" },
+  { field: "client_phone", label: "Client phone", placeholder: "+62812" },
+  { field: "theme_slug", label: "Theme slug", placeholder: "elegant-classic" },
+  { field: "package_code", label: "Package code", placeholder: "signature" },
+  { field: "event_date", label: "Event date", placeholder: "2026-09-12" },
+  { field: "total_amount", label: "Total amount", placeholder: "649000" },
+];
 
 async function csrfToken(): Promise<string> {
-  if (cachedCsrfToken) {
-    return cachedCsrfToken;
-  }
   const response = await fetch(`${env.NEXT_PUBLIC_API_URL}/auth/csrf`, {
+    cache: "no-store",
     credentials: "include",
     headers: { Accept: "application/json" },
   });
@@ -84,8 +111,7 @@ async function csrfToken(): Promise<string> {
     throw new Error(`CSRF request failed with ${response.status}`);
   }
   const payload = (await response.json()) as { csrfToken: string };
-  cachedCsrfToken = payload.csrfToken;
-  return cachedCsrfToken;
+  return payload.csrfToken;
 }
 
 async function staffFetch<T>(path: string, init?: RequestInit): Promise<T> {
@@ -108,7 +134,26 @@ async function staffFetch<T>(path: string, init?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
-    throw new Error(`Staff API failed with ${response.status}`);
+    let detail = "";
+    try {
+      const payload = (await response.json()) as {
+        error?: { details?: unknown; message?: string };
+      };
+      detail =
+        payload.error?.message ??
+        (payload.error?.details
+          ? JSON.stringify(payload.error.details)
+          : "");
+    } catch {
+      detail = response.statusText;
+    }
+    const label =
+      response.status === 401 || response.status === 403
+        ? "Session staff tidak valid atau CSRF kedaluwarsa"
+        : response.status >= 500
+          ? "Backend staff API sedang error"
+          : "Request staff API ditolak";
+    throw new Error(`${label} (${response.status})${detail ? `: ${detail}` : ""}`);
   }
   return response.json() as Promise<T>;
 }
@@ -126,11 +171,14 @@ export function AdminOperations() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
+  const [orderAuditEvents, setOrderAuditEvents] = useState<AuditEvent[]>([]);
   const [staffUsers, setStaffUsers] = useState<StaffUser[]>([]);
   const [selectedReference, setSelectedReference] = useState<string>("");
   const [draftStatus, setDraftStatus] = useState<string>("");
   const [draftStaff, setDraftStaff] = useState<string>("");
+  const [orderForm, setOrderForm] = useState(emptyOrderForm);
   const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>("");
 
@@ -139,10 +187,22 @@ export function AdminOperations() {
     [orders, selectedReference],
   );
 
+  async function loadOrderAudit(reference: string) {
+    if (!reference) {
+      setOrderAuditEvents([]);
+      return;
+    }
+    const nextAuditEvents = await staffFetch<AuditEvent[]>(
+      `/admin/audit-events?resource_type=order&resource_reference=${reference}`,
+    );
+    setOrderAuditEvents(nextAuditEvents);
+  }
+
   function selectOrder(order: Order) {
     setSelectedReference(order.reference);
     setDraftStatus(order.status);
     setDraftStaff(order.assigned_staff_username ?? "");
+    void loadOrderAudit(order.reference);
   }
 
   const loadDashboard = useCallback(async (preferredReference = "") => {
@@ -169,6 +229,9 @@ export function AdminOperations() {
         setSelectedReference(nextSelected.reference);
         setDraftStatus(nextSelected.status);
         setDraftStaff(nextSelected.assigned_staff_username ?? "");
+        await loadOrderAudit(nextSelected.reference);
+      } else {
+        setOrderAuditEvents([]);
       }
     } catch (caught) {
       setError(
@@ -210,14 +273,48 @@ export function AdminOperations() {
           order.reference === updated.reference ? updated : order,
         ),
       );
-      const nextAuditEvents = await staffFetch<AuditEvent[]>(
-        `/admin/audit-events?resource_type=order&resource_reference=${updated.reference}`,
-      );
-      setAuditEvents(nextAuditEvents);
+      await loadOrderAudit(updated.reference);
+      const nextMetrics = await staffFetch<Metrics>("/admin/dashboard/metrics");
+      setMetrics(nextMetrics);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Order gagal disimpan.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function createOrder() {
+    setCreating(true);
+    setError("");
+    try {
+      const created = await staffFetch<Order>("/admin/orders", {
+        body: JSON.stringify({
+          client_email: orderForm.client_email,
+          client_name: orderForm.client_name,
+          client_phone: orderForm.client_phone,
+          currency: orderForm.currency || "IDR",
+          event_date: orderForm.event_date || null,
+          package_code: orderForm.package_code || null,
+          reference: orderForm.reference,
+          status: "lead",
+          theme_slug: orderForm.theme_slug || null,
+          total_amount: orderForm.total_amount || "0",
+        }),
+        method: "POST",
+      });
+      setOrders((current) => [created, ...current]);
+      setOrderForm(emptyOrderForm);
+      selectOrder(created);
+      const [nextMetrics, nextAuditEvents] = await Promise.all([
+        staffFetch<Metrics>("/admin/dashboard/metrics"),
+        staffFetch<AuditEvent[]>("/admin/audit-events"),
+      ]);
+      setMetrics(nextMetrics);
+      setAuditEvents(nextAuditEvents);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Order gagal dibuat.");
+    } finally {
+      setCreating(false);
     }
   }
 
@@ -229,7 +326,7 @@ export function AdminOperations() {
             Live Staff Data
           </p>
           <p className="mt-2 text-sm text-white/55">
-            Membutuhkan session staff Django yang aktif.
+            Kelola order, lead, assignment, dan riwayat perubahan dari frontend.
           </p>
         </div>
         <button
@@ -245,7 +342,7 @@ export function AdminOperations() {
 
       {error ? (
         <div className="border border-[#d5ad55]/40 bg-[#d5ad55]/10 p-5 text-sm leading-6 text-[#f4ddb0]">
-          {error}. Login ke Django admin/API sebagai staff, lalu refresh halaman ini.
+          {error}. Pastikan sudah login di Django admin pada host yang sama dan Redis aktif.
         </div>
       ) : null}
 
@@ -264,6 +361,52 @@ export function AdminOperations() {
           </article>
         ))}
       </div>
+
+      <section
+        className="grid gap-6 border border-white/12 bg-[#181815] p-5 lg:grid-cols-[0.7fr_1.3fr]"
+        id="create-order"
+      >
+        <div>
+          <p className="text-[0.65rem] uppercase tracking-[0.2em] text-[var(--color-gold)]">
+            Create order
+          </p>
+          <h2 className="mt-4 font-serif text-4xl">Input manual staff.</h2>
+          <p className="mt-5 text-sm leading-6 text-white/55">
+            Pakai reference unik. Theme/package boleh dikosongkan dulu kalau lead
+            belum menentukan pilihan.
+          </p>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2">
+          {orderFormFields.map(({ field, label, placeholder }) => (
+            <label className="grid gap-2" key={field}>
+              <span className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">
+                {label}
+              </span>
+              <input
+                className="min-h-11 border border-white/15 bg-black/30 px-3 text-sm outline-none transition focus:border-[var(--color-gold)]"
+                onChange={(event) =>
+                  setOrderForm((current) => ({
+                    ...current,
+                    [field]: event.target.value,
+                  }))
+                }
+                placeholder={placeholder}
+                type={field === "event_date" ? "date" : "text"}
+                value={orderForm[field]}
+              />
+            </label>
+          ))}
+          <button
+            className="inline-flex min-h-11 items-center justify-center gap-3 bg-[var(--color-gold)] px-4 text-[0.65rem] font-bold uppercase tracking-[0.16em] text-[#17140d] transition hover:brightness-110 disabled:opacity-50 md:col-span-2"
+            disabled={creating || !orderForm.reference || !orderForm.client_name}
+            onClick={() => void createOrder()}
+            type="button"
+          >
+            <Plus size={15} />
+            {creating ? "Creating" : "Create order"}
+          </button>
+        </div>
+      </section>
 
       <div className="grid gap-8 xl:grid-cols-[1fr_24rem]">
         <section id="orders">
@@ -307,10 +450,17 @@ export function AdminOperations() {
                     </td>
                   </tr>
                 ))}
+                {loading ? (
+                  <tr>
+                    <td className="px-4 py-8 text-white/45" colSpan={5}>
+                      Memuat order staff...
+                    </td>
+                  </tr>
+                ) : null}
                 {!loading && orders.length === 0 ? (
                   <tr>
                     <td className="px-4 py-8 text-white/45" colSpan={5}>
-                      Belum ada order.
+                      Belum ada order. Buat order pertama lewat form di atas.
                     </td>
                   </tr>
                 ) : null}
@@ -376,6 +526,27 @@ export function AdminOperations() {
                 <Save size={15} />
                 {saving ? "Saving" : "Save order"}
               </button>
+              <div className="border-t border-white/10 pt-5">
+                <p className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">
+                  Order audit
+                </p>
+                <div className="mt-3 grid gap-2">
+                  {orderAuditEvents.slice(0, 5).map((event) => (
+                    <article className="border border-white/10 p-3" key={event.id}>
+                      <p className="text-sm text-white/75">{event.action}</p>
+                      <p className="mt-2 text-[0.62rem] uppercase tracking-[0.12em] text-white/40">
+                        {event.actor_email ?? "system"} /{" "}
+                        {new Date(event.created_at).toLocaleString("id-ID")}
+                      </p>
+                    </article>
+                  ))}
+                  {orderAuditEvents.length === 0 ? (
+                    <p className="text-sm text-white/45">
+                      Belum ada audit event untuk order ini.
+                    </p>
+                  ) : null}
+                </div>
+              </div>
             </div>
           ) : (
             <p className="mt-6 text-sm text-white/45">Pilih order dari queue.</p>
@@ -400,6 +571,11 @@ export function AdminOperations() {
                 </p>
               </article>
             ))}
+            {!loading && leads.length === 0 ? (
+              <article className="bg-[#181815] p-4 text-sm text-white/45">
+                Belum ada lead WhatsApp.
+              </article>
+            ) : null}
           </div>
         </section>
 
@@ -418,6 +594,11 @@ export function AdminOperations() {
                 </p>
               </article>
             ))}
+            {!loading && auditEvents.length === 0 ? (
+              <article className="bg-[#181815] p-4 text-sm text-white/45">
+                Belum ada audit event global.
+              </article>
+            ) : null}
           </div>
         </section>
       </div>

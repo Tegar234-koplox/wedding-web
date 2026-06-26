@@ -26,11 +26,11 @@ export function DashboardShell({
           </Link>
           <nav className="flex flex-wrap gap-5 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-white/55">
             {nav.map((item) => (
-          <Link
-            className="transition hover:text-[var(--color-gold)]"
-            href={item.href}
-            key={item.href}
-          >
+              <Link
+                className="transition hover:text-[var(--color-gold)]"
+                href={item.href}
+                key={item.href}
+              >
                 {item.label}
               </Link>
             ))}
