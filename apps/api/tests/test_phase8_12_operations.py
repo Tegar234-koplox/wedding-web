@@ -52,6 +52,24 @@ def test_non_staff_cannot_login_to_staff_session_endpoint(client):
 
 
 @pytest.mark.django_db
+def test_superuser_can_login_to_staff_session_endpoint_with_default_role(client):
+    get_user_model().objects.create_superuser(
+        username="owner",
+        email="owner@example.com",
+        password="password",
+    )
+
+    response = client.post(
+        reverse("api-staff-login"),
+        {"username": "owner", "password": "password"},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200
+    assert response.json()["user"]["username"] == "owner"
+
+
+@pytest.mark.django_db
 def test_staff_creates_manual_order_from_lead_and_writes_audit(client):
     staff = create_user(username="staff", email="staff@example.com", role="admin", is_staff=True)
     theme = create_theme()
