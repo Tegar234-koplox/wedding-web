@@ -1,7 +1,7 @@
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
-from invitations.models import EventLocation, Invitation, WeddingEvent
+from invitations.models import EventLocation, Guest, Invitation, WeddingEvent
 from media_library.services import public_audio_payload
 
 
@@ -98,3 +98,55 @@ class PublicInvitationSerializer(serializers.ModelSerializer[Invitation]):
             "events",
             "published_at",
         ]
+
+
+class ClientInvitationSerializer(serializers.ModelSerializer[Invitation]):
+    theme_slug = serializers.CharField(source="theme.slug", read_only=True)
+    package_code = serializers.CharField(
+        source="package.code",
+        read_only=True,
+        allow_null=True,
+    )
+
+    class Meta:
+        model = Invitation
+        fields = [
+            "public_slug",
+            "theme_slug",
+            "package_code",
+            "status",
+            "approval_status",
+            "default_locale",
+            "content",
+            "updated_at",
+        ]
+        read_only_fields = ["public_slug", "theme_slug", "package_code", "status", "updated_at"]
+
+
+class GuestSerializer(serializers.ModelSerializer[Guest]):
+    class Meta:
+        model = Guest
+        fields = [
+            "display_name",
+            "email",
+            "phone",
+            "party_size",
+            "rsvp_status",
+            "attendance_count",
+            "wishes",
+            "responded_at",
+            "retention_expires_at",
+        ]
+        read_only_fields = ["responded_at", "retention_expires_at"]
+
+
+class PublicRSVPSerializer(serializers.Serializer):
+    token = serializers.CharField(write_only=True)
+    rsvp_status = serializers.ChoiceField(choices=Guest.RSVPStatus.choices)
+    attendance_count = serializers.IntegerField(min_value=0)
+    wishes = serializers.CharField(required=False, allow_blank=True, max_length=2000)
+
+    def validate(self, attrs):
+        if attrs["rsvp_status"] == Guest.RSVPStatus.DECLINED and attrs["attendance_count"] != 0:
+            raise serializers.ValidationError({"attendance_count": "Declined RSVP must use 0."})
+        return attrs

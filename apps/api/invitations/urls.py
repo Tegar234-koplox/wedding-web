@@ -1,6 +1,17 @@
 from django.urls import path
 
-from invitations.views import InvitationDetailView, InvitationWeatherView
+from invitations.views import (
+    ClientGuestExportView,
+    ClientInvitationApprovePublishView,
+    ClientInvitationDetailView,
+    ClientInvitationListView,
+    ClientInvitationSubmitRevisionView,
+    InvitationDetailView,
+    InvitationRSVPView,
+    InvitationWeatherView,
+    StaffGuestAnonymizeView,
+    StaffInvitationPublishView,
+)
 
 urlpatterns = [
     path(
@@ -12,5 +23,41 @@ urlpatterns = [
         "invitations/<slug:public_slug>/weather",
         InvitationWeatherView.as_view(),
         name="invitation-weather",
+    ),
+    path(
+        "invitations/<slug:public_slug>/rsvp",
+        InvitationRSVPView.as_view(),
+        name="invitation-rsvp",
+    ),
+    path("client/invitations", ClientInvitationListView.as_view(), name="client-invitation-list"),
+    path(
+        "client/invitations/<slug:public_slug>",
+        ClientInvitationDetailView.as_view(),
+        name="client-invitation-detail",
+    ),
+    path(
+        "client/invitations/<slug:public_slug>/submit-revision",
+        ClientInvitationSubmitRevisionView.as_view(),
+        name="client-invitation-submit-revision",
+    ),
+    path(
+        "client/invitations/<slug:public_slug>/approve-publish",
+        ClientInvitationApprovePublishView.as_view(),
+        name="client-invitation-approve-publish",
+    ),
+    path(
+        "client/invitations/<slug:public_slug>/guests/export",
+        ClientGuestExportView.as_view(),
+        name="client-guest-export",
+    ),
+    path(
+        "admin/invitations/<slug:public_slug>/publish",
+        StaffInvitationPublishView.as_view(),
+        name="admin-invitation-publish",
+    ),
+    path(
+        "admin/guests/<uuid:guest_id>/anonymize",
+        StaffGuestAnonymizeView.as_view(),
+        name="admin-guest-anonymize",
     ),
 ]
