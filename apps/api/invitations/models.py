@@ -13,6 +13,14 @@ class Invitation(UUIDTimeStampedModel, ArchivableModel):
         PUBLISHED = "published", "Published"
         EXPIRED = "expired", "Expired"
 
+    class ApprovalStatus(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        SUBMITTED = "submitted", "Submitted"
+        STAFF_REVIEW = "staff_review", "Staff review"
+        CLIENT_REVIEW = "client_review", "Client review"
+        APPROVED_FOR_PUBLISH = "approved_for_publish", "Approved for publish"
+        PUBLISHED = "published", "Published"
+
     public_slug = models.SlugField(max_length=100, unique=True)
     theme = models.ForeignKey(
         "catalog.Theme",
@@ -35,6 +43,19 @@ class Invitation(UUIDTimeStampedModel, ArchivableModel):
         default="id",
     )
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT)
+    approval_status = models.CharField(
+        max_length=24,
+        choices=ApprovalStatus.choices,
+        default=ApprovalStatus.DRAFT,
+        db_index=True,
+    )
+    client_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
+        related_name="client_invitations",
+    )
     is_sample = models.BooleanField(default=False, db_index=True)
     published_at = models.DateTimeField(blank=True, null=True)
     expires_at = models.DateTimeField(blank=True, null=True)
@@ -123,11 +144,39 @@ class InvitationMedia(UUIDTimeStampedModel):
 
 
 class Guest(UUIDTimeStampedModel, ArchivableModel):
+    class RSVPStatus(models.TextChoices):
+        PENDING = "pending", "Pending"
+        ACCEPTED = "accepted", "Accepted"
+        DECLINED = "declined", "Declined"
+
     invitation = models.ForeignKey(Invitation, on_delete=models.CASCADE, related_name="guests")
     access_token_hash = models.CharField(max_length=128, unique=True)
     display_name = models.CharField(max_length=120)
+    email = models.EmailField(blank=True)
+    phone = models.CharField(max_length=40, blank=True)
     party_size = models.PositiveSmallIntegerField(default=1)
+    rsvp_status = models.CharField(
+        max_length=16,
+        choices=RSVPStatus.choices,
+        default=RSVPStatus.PENDING,
+        db_index=True,
+    )
+    attendance_count = models.PositiveSmallIntegerField(default=0)
+    wishes = models.TextField(blank=True)
+    responded_at = models.DateTimeField(blank=True, null=True)
+    anonymized_at = models.DateTimeField(blank=True, null=True)
+    retention_expires_at = models.DateTimeField(blank=True, null=True, db_index=True)
     metadata = models.JSONField(default=dict, blank=True)
+
+    def anonymize(self) -> None:
+        self.display_name = "Anonymized guest"
+        self.email = ""
+        self.phone = ""
+        self.wishes = ""
+        self.metadata = {}
+        from django.utils import timezone
+
+        self.anonymized_at = timezone.now()
 
 
 class InvitationRevision(UUIDTimeStampedModel):
