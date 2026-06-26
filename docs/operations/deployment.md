@@ -92,6 +92,10 @@ GUNICORN_THREADS=2
 GUNICORN_TIMEOUT_SECONDS=60
 ```
 
+Cloudinary and WhatsApp values are required for their respective media/CTA
+features, but an empty integration value must not prevent the API from booting.
+Keep them populated before enabling production media upload workflows.
+
 `PORT` is injected by Railway and must not be hardcoded.
 
 After the first successful deployment, run the idempotent demo seeder only when
