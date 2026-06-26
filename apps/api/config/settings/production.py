@@ -14,10 +14,6 @@ required_environment = (
     "REDIS_URL",
     "CELERY_BROKER_URL",
     "CELERY_RESULT_BACKEND",
-    "WHATSAPP_BUSINESS_NUMBER",
-    "CLOUDINARY_CLOUD_NAME",
-    "CLOUDINARY_API_KEY",
-    "CLOUDINARY_API_SECRET",
 )
 missing_environment = [name for name in required_environment if not os.environ.get(name)]  # noqa: F405
 if missing_environment:
