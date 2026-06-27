@@ -112,6 +112,26 @@ const orderFormFields: Array<{
   { field: "total_amount", label: "Total amount", placeholder: "649000" },
 ];
 
+const adminLoginPath = "/admin/login";
+
+class StaffFetchError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = "StaffFetchError";
+  }
+
+  get isAuthError(): boolean {
+    return this.status === 401 || this.status === 403;
+  }
+}
+
+function redirectToLogin() {
+  window.location.replace(adminLoginPath);
+}
+
 async function csrfToken(): Promise<string> {
   const response = await fetch(`${env.NEXT_PUBLIC_API_URL}/auth/csrf`, {
     cache: "no-store",
@@ -164,7 +184,10 @@ async function staffFetch<T>(path: string, init?: RequestInit): Promise<T> {
         : response.status >= 500
           ? "Backend staff API sedang error"
           : "Request staff API ditolak";
-    throw new Error(`${label} (${response.status})${detail ? `: ${detail}` : ""}`);
+    throw new StaffFetchError(
+      `${label} (${response.status})${detail ? `: ${detail}` : ""}`,
+      response.status,
+    );
   }
   return response.json() as Promise<T>;
 }
@@ -255,6 +278,10 @@ export function AdminOperations() {
         setOrderAuditEvents([]);
       }
     } catch (caught) {
+      if (caught instanceof StaffFetchError && caught.isAuthError) {
+        redirectToLogin();
+        return;
+      }
       setError(
         caught instanceof Error
           ? caught.message
@@ -277,11 +304,13 @@ export function AdminOperations() {
       setAuditEvents([]);
       setOrderAuditEvents([]);
       setSelectedReference("");
-      setError("Session staff sudah logout. Login ulang untuk membuka dashboard.");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Logout staff gagal.");
+      if (!(caught instanceof StaffFetchError && caught.isAuthError)) {
+        setError(caught instanceof Error ? caught.message : "Logout staff gagal.");
+      }
     } finally {
       setSaving(false);
+      redirectToLogin();
     }
   }
 
@@ -318,6 +347,10 @@ export function AdminOperations() {
       const nextMetrics = await staffFetch<Metrics>("/admin/dashboard/metrics");
       setMetrics(nextMetrics);
     } catch (caught) {
+      if (caught instanceof StaffFetchError && caught.isAuthError) {
+        redirectToLogin();
+        return;
+      }
       setError(caught instanceof Error ? caught.message : "Order gagal disimpan.");
     } finally {
       setSaving(false);
@@ -353,6 +386,10 @@ export function AdminOperations() {
       setMetrics(nextMetrics);
       setAuditEvents(nextAuditEvents);
     } catch (caught) {
+      if (caught instanceof StaffFetchError && caught.isAuthError) {
+        redirectToLogin();
+        return;
+      }
       setError(caught instanceof Error ? caught.message : "Order gagal dibuat.");
     } finally {
       setCreating(false);
