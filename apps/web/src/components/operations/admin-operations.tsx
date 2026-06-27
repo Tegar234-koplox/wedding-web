@@ -86,6 +86,11 @@ type StaffSession = {
   };
 };
 
+type PendingPublishItem = {
+  slug: string;
+  approvedAt: string;
+};
+
 const orderStatuses = [
   "lead",
   "consulting",
@@ -243,6 +248,26 @@ function formatCurrency(value: string | number): string {
   }).format(Number(value));
 }
 
+function publishQueueFromAudit(events: AuditEvent[]): PendingPublishItem[] {
+  const published = new Set(
+    events
+      .filter((event) => event.action === "invitation.published")
+      .map((event) => event.resource_reference),
+  );
+  const approved = new Map<string, PendingPublishItem>();
+  events
+    .filter((event) => event.action === "invitation.publish_approved")
+    .forEach((event) => {
+      if (!published.has(event.resource_reference) && !approved.has(event.resource_reference)) {
+        approved.set(event.resource_reference, {
+          approvedAt: event.created_at,
+          slug: event.resource_reference,
+        });
+      }
+    });
+  return [...approved.values()];
+}
+
 export function AdminOperations() {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -267,11 +292,8 @@ export function AdminOperations() {
     () => orders.find((order) => order.reference === selectedReference) ?? orders[0],
     [orders, selectedReference],
   );
-  const pendingPublishEvents = useMemo(
-    () =>
-      auditEvents.filter(
-        (event) => event.action === "invitation.publish_approved",
-      ),
+  const pendingPublishItems = useMemo(
+    () => publishQueueFromAudit(auditEvents),
     [auditEvents],
   );
 
@@ -416,6 +438,26 @@ export function AdminOperations() {
     }
   }
 
+  async function publishInvitation(publicSlug: string) {
+    setSaving(true);
+    setError("");
+    try {
+      await staffFetch<{ status: string; approval_status: string }>(
+        `/admin/invitations/${publicSlug}/publish`,
+        { method: "POST" },
+      );
+      await loadDashboard(selectedReference);
+    } catch (caught) {
+      if (caught instanceof StaffFetchError && caught.isAuthError) {
+        redirectToLogin();
+        return;
+      }
+      setError(caught instanceof Error ? caught.message : "Invitation gagal dipublish.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function createOrder() {
     const validationMessages = validateOrderForm(orderForm);
     if (validationMessages.length > 0) {
@@ -549,24 +591,41 @@ export function AdminOperations() {
         </div>
       ) : null}
 
-      {pendingPublishEvents.length > 0 ? (
+      {pendingPublishItems.length > 0 ? (
         <section className="border border-[#d5ad55]/40 bg-[#d5ad55]/10 p-5">
-          <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
             <div>
               <p className="text-[0.65rem] uppercase tracking-[0.2em] text-[var(--color-gold)]">
                 Publish queue
               </p>
               <p className="mt-2 text-sm leading-6 text-[#f4ddb0]">
-                {pendingPublishEvents.length} invitation sudah approved by client dan
+                {pendingPublishItems.length} invitation sudah approved by client dan
                 menunggu staff publish final.
               </p>
             </div>
-            <a
-              className="text-xs font-semibold uppercase tracking-[0.16em] text-[#f4ddb0] underline decoration-[#d5ad55]/50 underline-offset-4"
-              href="#audit"
-            >
-              Review audit
-            </a>
+            <div className="grid gap-2">
+              {pendingPublishItems.map((item) => (
+                <article
+                  className="flex flex-wrap items-center justify-between gap-3 border border-[#d5ad55]/25 bg-black/20 p-3"
+                  key={item.slug}
+                >
+                  <div>
+                    <p className="font-semibold text-[#f4ddb0]">{item.slug}</p>
+                    <p className="mt-1 text-[0.62rem] uppercase tracking-[0.12em] text-white/45">
+                      Approved {new Date(item.approvedAt).toLocaleString("id-ID")}
+                    </p>
+                  </div>
+                  <button
+                    className="min-h-10 bg-[var(--color-gold)] px-4 text-[0.62rem] font-bold uppercase tracking-[0.14em] text-[#17140d] transition hover:brightness-110 disabled:opacity-50"
+                    disabled={saving}
+                    onClick={() => void publishInvitation(item.slug)}
+                    type="button"
+                  >
+                    Publish final
+                  </button>
+                </article>
+              ))}
+            </div>
           </div>
         </section>
       ) : null}
