@@ -160,6 +160,52 @@ class ClientInvitationSerializer(serializers.ModelSerializer[Invitation]):
         return invitation
 
 
+class StaffInvitationOperationSerializer(serializers.ModelSerializer[Invitation]):
+    theme_slug = serializers.CharField(source="theme.slug", read_only=True)
+    package_code = serializers.CharField(
+        source="package.code",
+        read_only=True,
+        allow_null=True,
+    )
+    client_email = serializers.CharField(
+        source="client_user.email",
+        read_only=True,
+        allow_null=True,
+    )
+    order_reference = serializers.SerializerMethodField()
+    order_status = serializers.SerializerMethodField()
+    order_client_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Invitation
+        fields = [
+            "public_slug",
+            "theme_slug",
+            "package_code",
+            "status",
+            "approval_status",
+            "default_locale",
+            "client_email",
+            "order_reference",
+            "order_status",
+            "order_client_name",
+            "published_at",
+            "updated_at",
+        ]
+
+    def get_order_reference(self, obj: Invitation) -> str | None:
+        order = getattr(obj, "order", None)
+        return order.reference if order else None
+
+    def get_order_status(self, obj: Invitation) -> str | None:
+        order = getattr(obj, "order", None)
+        return order.status if order else None
+
+    def get_order_client_name(self, obj: Invitation) -> str:
+        order = getattr(obj, "order", None)
+        return order.client_name if order else ""
+
+
 class GuestSerializer(serializers.ModelSerializer[Guest]):
     class Meta:
         model = Guest

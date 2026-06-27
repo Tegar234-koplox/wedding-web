@@ -20,7 +20,9 @@ from invitations.serializers import (
     ClientInvitationSerializer,
     PublicInvitationSerializer,
     PublicRSVPSerializer,
+    StaffInvitationOperationSerializer,
 )
+from orders.models import Order
 from orders.permissions import IsClientOwner, IsStaffRole
 from weather.services import weather_for_invitation
 
@@ -197,6 +199,31 @@ class ClientInvitationApprovePublishView(APIView):
         return Response({"approval_status": invitation.approval_status})
 
 
+class StaffInvitationOperationListView(ListAPIView):
+    permission_classes = [IsStaffRole]
+    serializer_class = StaffInvitationOperationSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        queryset = Invitation.objects.select_related(
+            "theme",
+            "package",
+            "client_user",
+            "order",
+        )
+        state = self.request.query_params.get("state")
+        if state == "pending_publish":
+            queryset = queryset.filter(
+                approval_status=Invitation.ApprovalStatus.APPROVED_FOR_PUBLISH
+            ).exclude(status=Invitation.Status.PUBLISHED)
+        elif state == "published":
+            queryset = queryset.filter(
+                status=Invitation.Status.PUBLISHED,
+                approval_status=Invitation.ApprovalStatus.PUBLISHED,
+            )
+        return queryset
+
+
 class StaffInvitationPublishView(APIView):
     permission_classes = [IsStaffRole]
     minimum_role = "editor"
@@ -209,6 +236,18 @@ class StaffInvitationPublishView(APIView):
         invitation.approval_status = Invitation.ApprovalStatus.PUBLISHED
         invitation.published_at = timezone.now()
         invitation.save(update_fields=["status", "approval_status", "published_at", "updated_at"])
+        order = getattr(invitation, "order", None)
+        if order is not None and order.status != Order.Status.PUBLISHED:
+            old_status = order.status
+            order.status = Order.Status.PUBLISHED
+            order.save(update_fields=["status", "updated_at"])
+            AuditEvent.objects.create(
+                actor=request.user,
+                action="order.status_changed",
+                resource_type="order",
+                resource_reference=order.reference,
+                metadata={"old_status": old_status, "status": order.status},
+            )
         AuditEvent.objects.create(
             actor=request.user,
             action="invitation.published",

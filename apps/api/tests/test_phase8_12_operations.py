@@ -274,6 +274,13 @@ def test_staff_publishes_client_approved_invitation(client):
     invitation = create_invitation(theme=theme, status="draft")
     invitation.approval_status = "approved_for_publish"
     invitation.save(update_fields=["approval_status", "updated_at"])
+    order = Order.objects.create(
+        reference="ord-ready",
+        client_name="Ready",
+        invitation=invitation,
+        theme=theme,
+        status=Order.Status.APPROVED,
+    )
     client.force_login(staff)
 
     response = client.post(
@@ -281,11 +288,32 @@ def test_staff_publishes_client_approved_invitation(client):
     )
 
     invitation.refresh_from_db()
+    order.refresh_from_db()
     assert response.status_code == 200
     assert invitation.status == "published"
     assert invitation.approval_status == "published"
     assert invitation.published_at is not None
+    assert order.status == Order.Status.PUBLISHED
+    assert AuditEvent.objects.filter(action="order.status_changed").exists()
     assert AuditEvent.objects.filter(action="invitation.published").exists()
+
+
+@pytest.mark.django_db
+def test_staff_lists_pending_publish_invitations_by_state(client):
+    staff = create_user(username="editor", email="editor@example.com", role="editor", is_staff=True)
+    theme = create_theme()
+    pending = create_invitation(theme=theme, status="draft", public_slug="pending")
+    pending.approval_status = "approved_for_publish"
+    pending.save(update_fields=["approval_status", "updated_at"])
+    published = create_invitation(theme=theme, status="published", public_slug="published")
+    published.approval_status = "published"
+    published.save(update_fields=["approval_status", "updated_at"])
+    client.force_login(staff)
+
+    response = client.get(reverse("admin-invitation-list"), {"state": "pending_publish"})
+
+    assert response.status_code == 200
+    assert [item["public_slug"] for item in response.json()] == ["pending"]
 
 
 @pytest.mark.django_db

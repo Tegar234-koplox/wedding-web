@@ -10,6 +10,7 @@ from invitations.views import (
     InvitationRSVPView,
     InvitationWeatherView,
     StaffGuestAnonymizeView,
+    StaffInvitationOperationListView,
     StaffInvitationPublishView,
 )
 
@@ -49,6 +50,11 @@ urlpatterns = [
         "client/invitations/<slug:public_slug>/guests/export",
         ClientGuestExportView.as_view(),
         name="client-guest-export",
+    ),
+    path(
+        "admin/invitations",
+        StaffInvitationOperationListView.as_view(),
+        name="admin-invitation-list",
     ),
     path(
         "admin/invitations/<slug:public_slug>/publish",
