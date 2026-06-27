@@ -268,6 +268,27 @@ def test_client_cannot_edit_invitation_after_publish_approval(client):
 
 
 @pytest.mark.django_db
+def test_staff_publishes_client_approved_invitation(client):
+    staff = create_user(username="editor", email="editor@example.com", role="editor", is_staff=True)
+    theme = create_theme()
+    invitation = create_invitation(theme=theme, status="draft")
+    invitation.approval_status = "approved_for_publish"
+    invitation.save(update_fields=["approval_status", "updated_at"])
+    client.force_login(staff)
+
+    response = client.post(
+        reverse("admin-invitation-publish", kwargs={"public_slug": invitation.public_slug})
+    )
+
+    invitation.refresh_from_db()
+    assert response.status_code == 200
+    assert invitation.status == "published"
+    assert invitation.approval_status == "published"
+    assert invitation.published_at is not None
+    assert AuditEvent.objects.filter(action="invitation.published").exists()
+
+
+@pytest.mark.django_db
 def test_public_rsvp_requires_personal_token_and_records_event(client):
     theme = create_theme()
     invitation = create_invitation(theme=theme)
