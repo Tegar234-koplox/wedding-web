@@ -15,6 +15,17 @@ class StaffSessionUserSerializer(serializers.ModelSerializer[User]):
         return user.get_full_name() or user.username
 
 
+class ClientSessionUserSerializer(serializers.ModelSerializer[User]):
+    display_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ["id", "username", "email", "role", "display_name"]
+
+    def get_display_name(self, user: User) -> str:
+        return user.get_full_name() or user.username
+
+
 class StaffAuditEventSerializer(serializers.ModelSerializer[AuditEvent]):
     actor_email = serializers.CharField(source="actor.email", read_only=True, allow_null=True)
 
