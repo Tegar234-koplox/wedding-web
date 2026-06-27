@@ -4,12 +4,17 @@ from invitations.views import (
     ClientGuestExportView,
     ClientInvitationApprovePublishView,
     ClientInvitationDetailView,
+    ClientInvitationGuestListView,
     ClientInvitationListView,
+    ClientInvitationMusicView,
     ClientInvitationSubmitRevisionView,
     InvitationDetailView,
     InvitationRSVPView,
     InvitationWeatherView,
     StaffGuestAnonymizeView,
+    StaffGuestArchiveView,
+    StaffInvitationGuestListCreateView,
+    StaffInvitationMusicView,
     StaffInvitationOperationListView,
     StaffInvitationPublishView,
 )
@@ -52,6 +57,16 @@ urlpatterns = [
         name="client-guest-export",
     ),
     path(
+        "client/invitations/<slug:public_slug>/guests",
+        ClientInvitationGuestListView.as_view(),
+        name="client-guest-list",
+    ),
+    path(
+        "client/invitations/<slug:public_slug>/music",
+        ClientInvitationMusicView.as_view(),
+        name="client-invitation-music",
+    ),
+    path(
         "admin/invitations",
         StaffInvitationOperationListView.as_view(),
         name="admin-invitation-list",
@@ -60,6 +75,21 @@ urlpatterns = [
         "admin/invitations/<slug:public_slug>/publish",
         StaffInvitationPublishView.as_view(),
         name="admin-invitation-publish",
+    ),
+    path(
+        "admin/invitations/<slug:public_slug>/guests",
+        StaffInvitationGuestListCreateView.as_view(),
+        name="admin-invitation-guest-list",
+    ),
+    path(
+        "admin/invitations/<slug:public_slug>/music",
+        StaffInvitationMusicView.as_view(),
+        name="admin-invitation-music",
+    ),
+    path(
+        "admin/guests/<uuid:guest_id>/archive",
+        StaffGuestArchiveView.as_view(),
+        name="admin-guest-archive",
     ),
     path(
         "admin/guests/<uuid:guest_id>/anonymize",

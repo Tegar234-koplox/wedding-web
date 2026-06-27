@@ -4,8 +4,9 @@ from django.urls import reverse
 
 from analytics.models import AnalyticsEvent
 from common.models import AuditEvent
-from invitations.models import Guest
+from invitations.models import Guest, InvitationMedia
 from leads.models import WhatsAppIntent
+from media_library.models import MediaAsset
 from orders.models import Order
 from payments.models import PaymentInvoice, PaymentWebhookEvent
 from tests.factories import create_invitation, create_package, create_theme
@@ -360,6 +361,124 @@ def test_client_guest_export_excludes_anonymized_records(client):
 
     assert response.status_code == 200
     assert "Private Guest" not in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_staff_creates_guest_and_client_can_list_owned_guest(client):
+    staff = create_user(username="staff", email="staff@example.com", role="support", is_staff=True)
+    client_user = create_user(username="client", email="client@example.com")
+    theme = create_theme()
+    invitation = create_invitation(theme=theme, public_slug="guest-list")
+    invitation.client_user = client_user
+    invitation.save(update_fields=["client_user", "updated_at"])
+    client.force_login(staff)
+
+    create_response = client.post(
+        reverse("admin-invitation-guest-list", kwargs={"public_slug": invitation.public_slug}),
+        {
+            "display_name": "Budi Family",
+            "email": "budi@example.com",
+            "phone": "+62812",
+            "party_size": 2,
+        },
+        content_type="application/json",
+    )
+
+    assert create_response.status_code == 201
+    assert create_response.json()["personal_token"]
+    assert Guest.objects.filter(invitation=invitation, display_name="Budi Family").exists()
+
+    client.force_login(client_user)
+    list_response = client.get(
+        reverse("client-guest-list", kwargs={"public_slug": invitation.public_slug})
+    )
+
+    assert list_response.status_code == 200
+    assert "personal_token" not in list_response.json()[0]
+    assert {item["display_name"] for item in list_response.json()} == {
+        "Private Guest",
+        "Budi Family",
+    }
+
+
+@pytest.mark.django_db
+def test_staff_archives_guest_and_export_excludes_it(client):
+    staff = create_user(username="staff", email="staff@example.com", role="support", is_staff=True)
+    client_user = create_user(username="client", email="client@example.com")
+    theme = create_theme()
+    invitation = create_invitation(theme=theme, public_slug="archive-guest")
+    invitation.client_user = client_user
+    invitation.save(update_fields=["client_user", "updated_at"])
+    guest = invitation.guests.get()
+    client.force_login(staff)
+
+    archive_response = client.post(reverse("admin-guest-archive", kwargs={"guest_id": guest.id}))
+
+    assert archive_response.status_code == 200
+    guest.refresh_from_db()
+    assert guest.archived_at is not None
+    assert AuditEvent.objects.filter(action="guest.archived").exists()
+
+    client.force_login(client_user)
+    export_response = client.get(
+        reverse("client-guest-export", kwargs={"public_slug": invitation.public_slug})
+    )
+
+    assert export_response.status_code == 200
+    assert "Private Guest" not in export_response.content.decode()
+
+
+@pytest.mark.django_db
+def test_client_sets_backsound_for_owned_invitation(client):
+    client_user = create_user(username="client", email="client@example.com")
+    theme = create_theme()
+    invitation = create_invitation(theme=theme, status="draft", public_slug="music-client")
+    invitation.client_user = client_user
+    invitation.approval_status = "draft"
+    invitation.save(update_fields=["client_user", "approval_status", "updated_at"])
+    client.force_login(client_user)
+
+    response = client.patch(
+        reverse("client-invitation-music", kwargs={"public_slug": invitation.public_slug}),
+        {
+            "secure_url": "https://res.cloudinary.com/demo/raw/upload/music-client.mp3",
+            "title": "Client song",
+        },
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200
+    assert response.json()["current"]["asset"]["original_filename"] == "Client song"
+    assert InvitationMedia.objects.filter(
+        invitation=invitation,
+        role=InvitationMedia.Role.BACKSOUND,
+    ).exists()
+
+
+@pytest.mark.django_db
+def test_staff_sets_existing_backsound_asset(client):
+    staff = create_user(username="staff", email="staff@example.com", role="support", is_staff=True)
+    theme = create_theme()
+    invitation = create_invitation(theme=theme, status="draft", public_slug="music-staff")
+    asset = MediaAsset.objects.create(
+        public_id="audio/staff",
+        resource_type=MediaAsset.ResourceType.RAW,
+        format="ogg",
+        secure_url="https://res.cloudinary.com/demo/raw/upload/staff.ogg",
+        folder="wedding/invitations",
+        original_filename="Staff song",
+    )
+    client.force_login(staff)
+
+    response = client.patch(
+        reverse("admin-invitation-music", kwargs={"public_slug": invitation.public_slug}),
+        {"asset_id": str(asset.id)},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200
+    assert response.json()["current"]["asset"]["public_id"] == "audio/staff"
+    assert AuditEvent.objects.filter(action="invitation.backsound_updated").exists()
 
 
 @pytest.mark.django_db

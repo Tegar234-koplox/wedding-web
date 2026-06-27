@@ -2,6 +2,7 @@ import type { InvitationEnvelope } from "@wedding/invitation-themes";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { PublicRSVPForm } from "@/components/invitations/public-rsvp-form";
 import { InvitationRenderer } from "@/invitations/renderer-registry";
 import { resolvePackageCode } from "@/invitations/presentation";
 import {
@@ -12,6 +13,7 @@ import { isLocale } from "@/lib/locales";
 
 type PublicInvitationPageProps = {
   params: Promise<{ locale: string; publicSlug: string }>;
+  searchParams?: Promise<{ guest?: string }>;
 };
 
 export async function generateMetadata({
@@ -33,8 +35,10 @@ export async function generateMetadata({
 
 export default async function PublicInvitationPage({
   params,
+  searchParams,
 }: PublicInvitationPageProps) {
   const { locale, publicSlug } = await params;
+  const query = await searchParams;
   if (!isLocale(locale)) {
     notFound();
   }
@@ -56,11 +60,14 @@ export default async function PublicInvitationPage({
   };
 
   return (
-    <InvitationRenderer
-      audio={invitation.audio}
-      invitation={localizedInvitation}
-      packageCode={resolvePackageCode(invitation.package_code)}
-      weather={weather}
-    />
+    <>
+      <InvitationRenderer
+        audio={invitation.audio}
+        invitation={localizedInvitation}
+        packageCode={resolvePackageCode(invitation.package_code)}
+        weather={weather}
+      />
+      <PublicRSVPForm initialToken={query?.guest} publicSlug={publicSlug} />
+    </>
   );
 }
