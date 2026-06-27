@@ -1,7 +1,6 @@
 "use client";
 
 import { LogIn } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { FormEvent } from "react";
@@ -170,12 +169,6 @@ export function AdminLogin() {
         </button>
       </form>
 
-      <Link
-        className="mt-6 inline-flex text-xs uppercase tracking-[0.16em] text-white/45 transition hover:text-[var(--color-gold)]"
-        href="/admin"
-      >
-        Kembali ke admin
-      </Link>
     </div>
   );
 }
