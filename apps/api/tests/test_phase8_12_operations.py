@@ -247,6 +247,27 @@ def test_client_can_update_owned_invitation_content_without_changing_approval(cl
 
 
 @pytest.mark.django_db
+def test_client_cannot_edit_invitation_after_publish_approval(client):
+    client_user = create_user(username="client", email="client@example.com")
+    theme = create_theme()
+    invitation = create_invitation(theme=theme, status="draft")
+    invitation.client_user = client_user
+    invitation.approval_status = "approved_for_publish"
+    invitation.save(update_fields=["client_user", "approval_status", "updated_at"])
+    client.force_login(client_user)
+
+    response = client.patch(
+        reverse("client-invitation-detail", kwargs={"public_slug": invitation.public_slug}),
+        {"content": {**invitation.content, "couple": {"partnerOne": "Changed"}}},
+        content_type="application/json",
+    )
+
+    invitation.refresh_from_db()
+    assert response.status_code == 400
+    assert invitation.content["couple"]["partnerOne"] == "Alya"
+
+
+@pytest.mark.django_db
 def test_public_rsvp_requires_personal_token_and_records_event(client):
     theme = create_theme()
     invitation = create_invitation(theme=theme)

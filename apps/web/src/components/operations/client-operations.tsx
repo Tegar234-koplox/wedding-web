@@ -167,6 +167,13 @@ function formatCurrency(value: string): string {
   }).format(Number(value));
 }
 
+function isInvitationLocked(invitation: ClientInvitation | undefined): boolean {
+  return (
+    invitation?.approval_status === "approved_for_publish" ||
+    invitation?.approval_status === "published"
+  );
+}
+
 export function ClientOperations() {
   const [profile, setProfile] = useState<ClientProfile["user"] | null>(null);
   const [orders, setOrders] = useState<ClientOrder[]>([]);
@@ -193,6 +200,7 @@ export function ClientOperations() {
       ) ?? orders[0],
     [orders, selectedInvitation],
   );
+  const selectedInvitationLocked = isInvitationLocked(selectedInvitation);
 
   const loadClientData = useCallback(async () => {
     setLoading(true);
@@ -257,6 +265,10 @@ export function ClientOperations() {
     if (!selectedInvitation) {
       return;
     }
+    if (selectedInvitationLocked) {
+      setError("Draft sudah approved dan menunggu staff publish final.");
+      return;
+    }
     setSavingDraft(true);
     setError("");
     try {
@@ -305,6 +317,10 @@ export function ClientOperations() {
 
   async function runInvitationAction(action: "submit-revision" | "approve-publish") {
     if (!selectedInvitation) {
+      return;
+    }
+    if (selectedInvitationLocked) {
+      setError("Draft sudah approved dan menunggu staff publish final.");
       return;
     }
     setSavingAction(action);
@@ -389,7 +405,10 @@ export function ClientOperations() {
         {[
           ["Orders", orders.length],
           ["Invitations", invitations.length],
-          ["Draft", invitations.filter((item) => item.status === "draft").length],
+          [
+            "Editable",
+            invitations.filter((item) => !isInvitationLocked(item)).length,
+          ],
           [
             "Approved",
             invitations.filter(
@@ -478,6 +497,12 @@ export function ClientOperations() {
                   {selectedInvitation.content.event?.dateLabel ?? "Belum diisi"}
                 </p>
               </div>
+              {selectedInvitationLocked ? (
+                <div className="border border-[#d5ad55]/40 bg-[#d5ad55]/10 p-4 text-sm leading-6 text-[#f4ddb0]">
+                  Approved for publish. Staff akan melakukan publish final; draft
+                  client dikunci untuk mencegah perubahan setelah approval.
+                </div>
+              ) : null}
               <div className="grid gap-3 border-t border-white/10 pt-5">
                 {[
                   ["partnerOne", "Partner one"],
@@ -493,6 +518,7 @@ export function ClientOperations() {
                     </span>
                     <input
                       className="min-h-11 border border-white/15 bg-black/30 px-3 text-sm outline-none transition focus:border-[var(--color-gold)]"
+                      disabled={selectedInvitationLocked}
                       onChange={(event) =>
                         updateDraftForm(field as keyof DraftForm, event.target.value)
                       }
@@ -506,6 +532,7 @@ export function ClientOperations() {
                   </span>
                   <textarea
                     className="min-h-28 resize-y border border-white/15 bg-black/30 px-3 py-3 text-sm outline-none transition focus:border-[var(--color-gold)]"
+                    disabled={selectedInvitationLocked}
                     onChange={(event) =>
                       updateDraftForm("storyBody", event.target.value)
                     }
@@ -514,7 +541,7 @@ export function ClientOperations() {
                 </label>
                 <button
                   className="inline-flex min-h-11 w-full items-center justify-center gap-3 border border-white/15 px-4 text-[0.65rem] font-bold uppercase tracking-[0.16em] text-white/75 transition hover:border-[var(--color-gold)] hover:text-[var(--color-gold)] disabled:opacity-50"
-                  disabled={savingDraft}
+                  disabled={savingDraft || selectedInvitationLocked}
                   onClick={() => void saveDraftContent()}
                   type="button"
                 >
@@ -531,7 +558,7 @@ export function ClientOperations() {
               ) : null}
               <button
                 className="inline-flex min-h-11 w-full items-center justify-center gap-3 border border-white/15 px-4 text-[0.65rem] font-bold uppercase tracking-[0.16em] text-white/75 transition hover:border-[var(--color-gold)] hover:text-[var(--color-gold)] disabled:opacity-50"
-                disabled={Boolean(savingAction)}
+                disabled={Boolean(savingAction) || selectedInvitationLocked}
                 onClick={() => void runInvitationAction("submit-revision")}
                 type="button"
               >
@@ -540,7 +567,7 @@ export function ClientOperations() {
               </button>
               <button
                 className="inline-flex min-h-11 w-full items-center justify-center gap-3 bg-[var(--color-gold)] px-4 text-[0.65rem] font-bold uppercase tracking-[0.16em] text-[#17140d] transition hover:brightness-110 disabled:opacity-50"
-                disabled={Boolean(savingAction)}
+                disabled={Boolean(savingAction) || selectedInvitationLocked}
                 onClick={() => void runInvitationAction("approve-publish")}
                 type="button"
               >
