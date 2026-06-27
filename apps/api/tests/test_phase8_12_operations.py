@@ -364,6 +364,46 @@ def test_client_guest_export_excludes_anonymized_records(client):
 
 
 @pytest.mark.django_db
+def test_client_guest_list_and_export_accept_order_owned_invitation(client):
+    client_user = create_user(username="client", email="client@example.com")
+    other_user = create_user(username="other", email="other@example.com")
+    theme = create_theme()
+    invitation = create_invitation(theme=theme, public_slug="order-owned-guest")
+    Order.objects.create(
+        reference="order-owned",
+        client_name="Order Owned",
+        client_user=client_user,
+        invitation=invitation,
+        theme=theme,
+    )
+    guest = invitation.guests.get()
+    guest.rsvp_status = Guest.RSVPStatus.ACCEPTED
+    guest.attendance_count = 1
+    guest.wishes = "Selamat membuka lembaran baru"
+    guest.save(update_fields=["rsvp_status", "attendance_count", "wishes", "updated_at"])
+
+    client.force_login(client_user)
+    list_response = client.get(
+        reverse("client-guest-list", kwargs={"public_slug": invitation.public_slug})
+    )
+    export_response = client.get(
+        reverse("client-guest-export", kwargs={"public_slug": invitation.public_slug})
+    )
+
+    assert list_response.status_code == 200
+    assert list_response.json()[0]["rsvp_status"] == Guest.RSVPStatus.ACCEPTED
+    assert export_response.status_code == 200
+    assert "Selamat membuka lembaran baru" in export_response.content.decode()
+
+    client.force_login(other_user)
+    denied_response = client.get(
+        reverse("client-guest-list", kwargs={"public_slug": invitation.public_slug})
+    )
+
+    assert denied_response.status_code == 404
+
+
+@pytest.mark.django_db
 def test_staff_creates_guest_and_client_can_list_owned_guest(client):
     staff = create_user(username="staff", email="staff@example.com", role="support", is_staff=True)
     client_user = create_user(username="client", email="client@example.com")

@@ -383,7 +383,9 @@ export function ClientOperations() {
       const anchor = document.createElement("a");
       anchor.href = href;
       anchor.download = `${invitation.public_slug}-guests.csv`;
+      document.body.appendChild(anchor);
       anchor.click();
+      anchor.remove();
       URL.revokeObjectURL(href);
     } catch (caught) {
       if (caught instanceof ClientFetchError && caught.isAuthError) {
