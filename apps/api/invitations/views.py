@@ -88,9 +88,7 @@ def _active_guests(invitation: Invitation):
 
 
 def _client_owned_invitations(user):
-    return Invitation.objects.filter(
-        Q(client_user=user) | Q(order__client_user=user)
-    ).distinct()
+    return Invitation.objects.filter(Q(client_user=user) | Q(order__client_user=user)).distinct()
 
 
 def _client_owned_invitation(user, public_slug: str) -> Invitation | None:
