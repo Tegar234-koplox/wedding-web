@@ -135,6 +135,17 @@ class ClientInvitationSerializer(serializers.ModelSerializer[Invitation]):
             raise serializers.ValidationError("Invitation content must be an object.")
         return value
 
+    def validate(self, attrs):
+        locked_statuses = {
+            Invitation.ApprovalStatus.APPROVED_FOR_PUBLISH,
+            Invitation.ApprovalStatus.PUBLISHED,
+        }
+        if self.instance and self.instance.approval_status in locked_statuses:
+            raise serializers.ValidationError(
+                {"content": "Approved invitations cannot be edited by the client."}
+            )
+        return attrs
+
     def update(self, instance, validated_data):
         invitation = super().update(instance, validated_data)
         request = self.context.get("request")

@@ -267,6 +267,13 @@ export function AdminOperations() {
     () => orders.find((order) => order.reference === selectedReference) ?? orders[0],
     [orders, selectedReference],
   );
+  const pendingPublishEvents = useMemo(
+    () =>
+      auditEvents.filter(
+        (event) => event.action === "invitation.publish_approved",
+      ),
+    [auditEvents],
+  );
 
   async function loadOrderAudit(reference: string) {
     if (!reference) {
@@ -540,6 +547,28 @@ export function AdminOperations() {
             Buka staff login
           </Link>
         </div>
+      ) : null}
+
+      {pendingPublishEvents.length > 0 ? (
+        <section className="border border-[#d5ad55]/40 bg-[#d5ad55]/10 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-[0.65rem] uppercase tracking-[0.2em] text-[var(--color-gold)]">
+                Publish queue
+              </p>
+              <p className="mt-2 text-sm leading-6 text-[#f4ddb0]">
+                {pendingPublishEvents.length} invitation sudah approved by client dan
+                menunggu staff publish final.
+              </p>
+            </div>
+            <a
+              className="text-xs font-semibold uppercase tracking-[0.16em] text-[#f4ddb0] underline decoration-[#d5ad55]/50 underline-offset-4"
+              href="#audit"
+            >
+              Review audit
+            </a>
+          </div>
+        </section>
       ) : null}
 
       <div className="grid gap-px bg-white/12 md:grid-cols-4">
