@@ -4,6 +4,7 @@ from datetime import timedelta
 from urllib.parse import urlparse
 
 from django.contrib.auth.hashers import check_password, make_password
+from django.db.models import Q
 from django.http import Http404, HttpResponse
 from django.utils import timezone
 from django.utils.crypto import constant_time_compare, get_random_string
@@ -84,6 +85,16 @@ def _rsvp_retention_date(invitation: Invitation):
 
 def _active_guests(invitation: Invitation):
     return invitation.guests.filter(archived_at__isnull=True, anonymized_at__isnull=True)
+
+
+def _client_owned_invitations(user):
+    return Invitation.objects.filter(
+        Q(client_user=user) | Q(order__client_user=user)
+    ).distinct()
+
+
+def _client_owned_invitation(user, public_slug: str) -> Invitation | None:
+    return _client_owned_invitations(user).filter(public_slug=public_slug).first()
 
 
 def _audio_format_from_url(secure_url: str) -> str:
@@ -276,7 +287,7 @@ class ClientInvitationListView(ListAPIView):
     pagination_class = None
 
     def get_queryset(self):
-        return Invitation.objects.filter(client_user=self.request.user).select_related(
+        return _client_owned_invitations(self.request.user).select_related(
             "theme",
             "package",
         )
@@ -288,7 +299,7 @@ class ClientInvitationDetailView(RetrieveUpdateAPIView):
     lookup_field = "public_slug"
 
     def get_queryset(self):
-        return Invitation.objects.filter(client_user=self.request.user).select_related(
+        return _client_owned_invitations(self.request.user).select_related(
             "theme",
             "package",
         )
@@ -298,10 +309,7 @@ class ClientInvitationSubmitRevisionView(APIView):
     permission_classes = [IsClientOwner]
 
     def post(self, request, public_slug: str) -> Response:
-        invitation = Invitation.objects.filter(
-            client_user=request.user,
-            public_slug=public_slug,
-        ).first()
+        invitation = _client_owned_invitation(request.user, public_slug)
         if invitation is None:
             raise Http404
         invitation.approval_status = Invitation.ApprovalStatus.SUBMITTED
@@ -322,10 +330,7 @@ class ClientInvitationApprovePublishView(APIView):
     permission_classes = [IsClientOwner]
 
     def post(self, request, public_slug: str) -> Response:
-        invitation = Invitation.objects.filter(
-            client_user=request.user,
-            public_slug=public_slug,
-        ).first()
+        invitation = _client_owned_invitation(request.user, public_slug)
         if invitation is None:
             raise Http404
         invitation.approval_status = Invitation.ApprovalStatus.APPROVED_FOR_PUBLISH
@@ -343,10 +348,7 @@ class ClientInvitationGuestListView(APIView):
     permission_classes = [IsClientOwner]
 
     def get(self, request, public_slug: str) -> Response:
-        invitation = Invitation.objects.filter(
-            client_user=request.user,
-            public_slug=public_slug,
-        ).first()
+        invitation = _client_owned_invitation(request.user, public_slug)
         if invitation is None:
             raise Http404
         return Response(GuestSerializer(_active_guests(invitation), many=True).data)
@@ -356,19 +358,13 @@ class ClientInvitationMusicView(APIView):
     permission_classes = [IsClientOwner]
 
     def get(self, request, public_slug: str) -> Response:
-        invitation = Invitation.objects.filter(
-            client_user=request.user,
-            public_slug=public_slug,
-        ).first()
+        invitation = _client_owned_invitation(request.user, public_slug)
         if invitation is None:
             raise Http404
         return Response(_backsound_response(invitation))
 
     def patch(self, request, public_slug: str) -> Response:
-        invitation = Invitation.objects.filter(
-            client_user=request.user,
-            public_slug=public_slug,
-        ).first()
+        invitation = _client_owned_invitation(request.user, public_slug)
         if invitation is None:
             raise Http404
         if invitation.approval_status in {
@@ -452,6 +448,10 @@ class StaffInvitationGuestListCreateView(APIView):
     permission_classes = [IsStaffRole]
     minimum_role = "support"
 
+    def get_permissions(self):
+        self.minimum_role = "viewer" if self.request.method == "GET" else "support"
+        return super().get_permissions()
+
     def get(self, request, public_slug: str) -> Response:
         invitation = Invitation.objects.filter(public_slug=public_slug).first()
         if invitation is None:
@@ -493,6 +493,10 @@ class StaffInvitationMusicView(APIView):
     permission_classes = [IsStaffRole]
     minimum_role = "support"
 
+    def get_permissions(self):
+        self.minimum_role = "viewer" if self.request.method == "GET" else "support"
+        return super().get_permissions()
+
     def get(self, request, public_slug: str) -> Response:
         invitation = Invitation.objects.filter(public_slug=public_slug).first()
         if invitation is None:
@@ -517,10 +521,7 @@ class ClientGuestExportView(APIView):
     permission_classes = [IsClientOwner]
 
     def get(self, request, public_slug: str) -> HttpResponse:
-        invitation = Invitation.objects.filter(
-            client_user=request.user,
-            public_slug=public_slug,
-        ).first()
+        invitation = _client_owned_invitation(request.user, public_slug)
         if invitation is None:
             raise Http404
         response = HttpResponse(content_type="text/csv")
