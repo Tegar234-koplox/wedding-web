@@ -52,6 +52,15 @@ def test_non_staff_cannot_login_to_staff_session_endpoint(client):
 
 
 @pytest.mark.django_db
+def test_staff_admin_endpoints_deny_anonymous_users(client):
+    orders_response = client.get(reverse("admin-order-list"))
+    metrics_response = client.get(reverse("admin-dashboard-metrics"))
+
+    assert orders_response.status_code in {401, 403}
+    assert metrics_response.status_code in {401, 403}
+
+
+@pytest.mark.django_db
 def test_superuser_can_login_to_staff_session_endpoint_with_default_role(client):
     get_user_model().objects.create_superuser(
         username="owner",

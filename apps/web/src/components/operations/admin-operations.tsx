@@ -44,6 +44,23 @@ type Lead = {
   created_at: string;
 };
 
+type ThemeOption = {
+  slug: string;
+  name: string;
+  category: string;
+};
+
+type ThemePage = {
+  results: ThemeOption[];
+};
+
+type PackageOption = {
+  code: string;
+  name: string;
+  price: string;
+  currency: string;
+};
+
 type AuditEvent = {
   id: string;
   actor_email: string | null;
@@ -92,6 +109,7 @@ const emptyOrderForm = {
   reference: "",
   theme_slug: "",
   total_amount: "",
+  whatsapp_intent_id: "",
 };
 
 type OrderForm = typeof emptyOrderForm;
@@ -101,14 +119,18 @@ const orderFormFields: Array<{
   field: OrderFormField;
   label: string;
   placeholder: string;
+  type?: "date" | "email" | "tel" | "text";
 }> = [
   { field: "reference", label: "Reference", placeholder: "ord-001" },
   { field: "client_name", label: "Client name", placeholder: "Alya & Raka" },
-  { field: "client_email", label: "Client email", placeholder: "client@example.com" },
-  { field: "client_phone", label: "Client phone", placeholder: "+62812" },
-  { field: "theme_slug", label: "Theme slug", placeholder: "elegant-classic" },
-  { field: "package_code", label: "Package code", placeholder: "signature" },
-  { field: "event_date", label: "Event date", placeholder: "2026-09-12" },
+  {
+    field: "client_email",
+    label: "Client email",
+    placeholder: "client@example.com",
+    type: "email",
+  },
+  { field: "client_phone", label: "Client phone", placeholder: "+62812", type: "tel" },
+  { field: "event_date", label: "Event date", placeholder: "2026-09-12", type: "date" },
   { field: "total_amount", label: "Total amount", placeholder: "649000" },
 ];
 
@@ -130,6 +152,27 @@ class StaffFetchError extends Error {
 
 function redirectToLogin() {
   window.location.replace(adminLoginPath);
+}
+
+function nextLeadReference(lead: Lead): string {
+  return `lead-${lead.id.slice(0, 8)}`;
+}
+
+function validateOrderForm(form: OrderForm): string[] {
+  const messages: string[] = [];
+  if (!form.reference.trim()) {
+    messages.push("Reference wajib diisi.");
+  }
+  if (!form.client_name.trim()) {
+    messages.push("Client name wajib diisi.");
+  }
+  if (form.client_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.client_email)) {
+    messages.push("Client email belum valid.");
+  }
+  if (form.total_amount && Number.isNaN(Number(form.total_amount))) {
+    messages.push("Total amount harus berupa angka.");
+  }
+  return messages;
 }
 
 async function csrfToken(): Promise<string> {
@@ -207,11 +250,14 @@ export function AdminOperations() {
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
   const [orderAuditEvents, setOrderAuditEvents] = useState<AuditEvent[]>([]);
   const [staffUsers, setStaffUsers] = useState<StaffUser[]>([]);
+  const [themes, setThemes] = useState<ThemeOption[]>([]);
+  const [packages, setPackages] = useState<PackageOption[]>([]);
   const [staffSession, setStaffSession] = useState<StaffSession["user"] | null>(null);
   const [selectedReference, setSelectedReference] = useState<string>("");
   const [draftStatus, setDraftStatus] = useState<string>("");
   const [draftStaff, setDraftStaff] = useState<string>("");
   const [orderForm, setOrderForm] = useState(emptyOrderForm);
+  const [formError, setFormError] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -251,6 +297,8 @@ export function AdminOperations() {
         nextLeads,
         nextAuditEvents,
         nextStaffUsers,
+        nextThemes,
+        nextPackages,
       ] =
         await Promise.all([
           staffFetch<StaffSession>("/auth/me"),
@@ -259,6 +307,8 @@ export function AdminOperations() {
           staffFetch<Lead[]>("/admin/leads"),
           staffFetch<AuditEvent[]>("/admin/audit-events"),
           staffFetch<StaffUser[]>("/admin/staff-users"),
+          staffFetch<ThemePage>("/themes?locale=id&page_size=50"),
+          staffFetch<PackageOption[]>("/packages?locale=id"),
         ]);
       setStaffSession(nextSession.user);
       setMetrics(nextMetrics);
@@ -266,6 +316,8 @@ export function AdminOperations() {
       setLeads(nextLeads);
       setAuditEvents(nextAuditEvents);
       setStaffUsers(nextStaffUsers);
+      setThemes(nextThemes.results);
+      setPackages(nextPackages);
       const nextSelected =
         nextOrders.find((order) => order.reference === preferredReference) ??
         nextOrders[0];
@@ -358,21 +410,28 @@ export function AdminOperations() {
   }
 
   async function createOrder() {
+    const validationMessages = validateOrderForm(orderForm);
+    if (validationMessages.length > 0) {
+      setFormError(validationMessages.join(" "));
+      return;
+    }
     setCreating(true);
     setError("");
+    setFormError("");
     try {
       const created = await staffFetch<Order>("/admin/orders", {
         body: JSON.stringify({
-          client_email: orderForm.client_email,
-          client_name: orderForm.client_name,
-          client_phone: orderForm.client_phone,
+          client_email: orderForm.client_email.trim(),
+          client_name: orderForm.client_name.trim(),
+          client_phone: orderForm.client_phone.trim(),
           currency: orderForm.currency || "IDR",
           event_date: orderForm.event_date || null,
           package_code: orderForm.package_code || null,
-          reference: orderForm.reference,
+          reference: orderForm.reference.trim(),
           status: "lead",
           theme_slug: orderForm.theme_slug || null,
           total_amount: orderForm.total_amount || "0",
+          whatsapp_intent_id: orderForm.whatsapp_intent_id || null,
         }),
         method: "POST",
       });
@@ -394,6 +453,41 @@ export function AdminOperations() {
     } finally {
       setCreating(false);
     }
+  }
+
+  function updateOrderForm(field: OrderFormField, value: string) {
+    setFormError("");
+    setOrderForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function updatePackage(value: string) {
+    const selectedPackage = packages.find((item) => item.code === value);
+    setFormError("");
+    setOrderForm((current) => ({
+      ...current,
+      package_code: value,
+      total_amount:
+        selectedPackage && !current.total_amount
+          ? selectedPackage.price
+          : current.total_amount,
+    }));
+  }
+
+  function applyLeadToOrder(lead: Lead) {
+    const selectedPackage = packages.find((item) => item.code === lead.package_code);
+    setFormError("");
+    setOrderForm((current) => ({
+      ...current,
+      package_code: lead.package_code || current.package_code,
+      reference: current.reference || nextLeadReference(lead),
+      theme_slug: lead.theme_slug || current.theme_slug,
+      total_amount:
+        selectedPackage && !current.total_amount
+          ? selectedPackage.price
+          : current.total_amount,
+      whatsapp_intent_id: lead.id,
+    }));
+    document.getElementById("create-order")?.scrollIntoView({ behavior: "smooth" });
   }
 
   return (
@@ -479,25 +573,64 @@ export function AdminOperations() {
           </p>
         </div>
         <div className="grid gap-3 md:grid-cols-2">
-          {orderFormFields.map(({ field, label, placeholder }) => (
+          {orderFormFields.map(({ field, label, placeholder, type }) => (
             <label className="grid gap-2" key={field}>
               <span className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">
                 {label}
               </span>
               <input
                 className="min-h-11 border border-white/15 bg-black/30 px-3 text-sm outline-none transition focus:border-[var(--color-gold)]"
-                onChange={(event) =>
-                  setOrderForm((current) => ({
-                    ...current,
-                    [field]: event.target.value,
-                  }))
-                }
+                onChange={(event) => updateOrderForm(field, event.target.value)}
                 placeholder={placeholder}
-                type={field === "event_date" ? "date" : "text"}
+                type={type ?? "text"}
                 value={orderForm[field]}
               />
             </label>
           ))}
+          <label className="grid gap-2">
+            <span className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">
+              Theme
+            </span>
+            <select
+              className="min-h-11 border border-white/15 bg-black/30 px-3 text-sm outline-none transition focus:border-[var(--color-gold)]"
+              onChange={(event) => updateOrderForm("theme_slug", event.target.value)}
+              value={orderForm.theme_slug}
+            >
+              <option value="">Belum dipilih</option>
+              {themes.map((theme) => (
+                <option key={theme.slug} value={theme.slug}>
+                  {theme.name} / {theme.category}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="grid gap-2">
+            <span className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">
+              Package
+            </span>
+            <select
+              className="min-h-11 border border-white/15 bg-black/30 px-3 text-sm outline-none transition focus:border-[var(--color-gold)]"
+              onChange={(event) => updatePackage(event.target.value)}
+              value={orderForm.package_code}
+            >
+              <option value="">Belum dipilih</option>
+              {packages.map((item) => (
+                <option key={item.code} value={item.code}>
+                  {item.name} / {formatCurrency(item.price)}
+                </option>
+              ))}
+            </select>
+          </label>
+          {orderForm.whatsapp_intent_id ? (
+            <div className="border border-white/10 bg-black/20 p-3 text-xs uppercase tracking-[0.12em] text-white/45 md:col-span-2">
+              Linked lead: {orderForm.whatsapp_intent_id}
+            </div>
+          ) : null}
+          {formError ? (
+            <div className="border border-[#d5ad55]/40 bg-[#d5ad55]/10 p-3 text-sm leading-6 text-[#f4ddb0] md:col-span-2">
+              {formError}
+            </div>
+          ) : null}
           <button
             className="inline-flex min-h-11 items-center justify-center gap-3 bg-[var(--color-gold)] px-4 text-[0.65rem] font-bold uppercase tracking-[0.16em] text-[#17140d] transition hover:brightness-110 disabled:opacity-50 md:col-span-2"
             disabled={creating || !orderForm.reference || !orderForm.client_name}
@@ -668,9 +801,18 @@ export function AdminOperations() {
                     {lead.package_code || "package unset"}
                   </span>
                 </div>
-                <p className="mt-3 text-xs uppercase tracking-[0.14em] text-white/40">
-                  {lead.source || "direct"} / {lead.campaign || "no campaign"}
-                </p>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-xs uppercase tracking-[0.14em] text-white/40">
+                    {lead.source || "direct"} / {lead.campaign || "no campaign"}
+                  </p>
+                  <button
+                    className="min-h-9 border border-white/15 px-3 text-[0.6rem] font-semibold uppercase tracking-[0.14em] text-white/65 transition hover:border-[var(--color-gold)] hover:text-[var(--color-gold)]"
+                    onClick={() => applyLeadToOrder(lead)}
+                    type="button"
+                  >
+                    Use lead
+                  </button>
+                </div>
               </article>
             ))}
             {!loading && leads.length === 0 ? (
