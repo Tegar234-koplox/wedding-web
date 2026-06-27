@@ -1,6 +1,14 @@
 "use client";
 
-import { CheckCircle2, LogOut, RefreshCw, Save, Send } from "lucide-react";
+import {
+  CheckCircle2,
+  Download,
+  LogOut,
+  Music2,
+  RefreshCw,
+  Save,
+  Send,
+} from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -55,6 +63,36 @@ type ClientProfile = {
   };
 };
 
+type Guest = {
+  id: string;
+  display_name: string;
+  email: string;
+  phone: string;
+  party_size: number;
+  rsvp_status: string;
+  attendance_count: number;
+  wishes: string;
+  responded_at: string | null;
+  retention_expires_at: string | null;
+};
+
+type MusicAsset = {
+  id: string;
+  public_id: string;
+  resource_type: string;
+  format: string;
+  secure_url: string;
+  original_filename: string;
+};
+
+type InvitationMusic = {
+  current: {
+    id: string;
+    asset: MusicAsset;
+  } | null;
+  available_assets: MusicAsset[];
+};
+
 type DraftForm = {
   partnerOne: string;
   partnerTwo: string;
@@ -63,6 +101,12 @@ type DraftForm = {
   address: string;
   mapUrl: string;
   storyBody: string;
+};
+
+type MusicForm = {
+  assetId: string;
+  secureUrl: string;
+  title: string;
 };
 
 const clientLoginPath = "/client/login";
@@ -187,9 +231,18 @@ export function ClientOperations() {
   const [selectedSlug, setSelectedSlug] = useState("");
   const selectedSlugRef = useRef("");
   const [draftForm, setDraftForm] = useState<DraftForm>(formFromInvitation(undefined));
+  const [guests, setGuests] = useState<Guest[]>([]);
+  const [music, setMusic] = useState<InvitationMusic | null>(null);
+  const [musicForm, setMusicForm] = useState<MusicForm>({
+    assetId: "",
+    secureUrl: "",
+    title: "",
+  });
   const [loading, setLoading] = useState(true);
+  const [loadingInvitationOps, setLoadingInvitationOps] = useState(false);
   const [savingAction, setSavingAction] = useState("");
   const [savingDraft, setSavingDraft] = useState(false);
+  const [savingMusic, setSavingMusic] = useState(false);
   const [error, setError] = useState("");
 
   const selectedInvitation = useMemo(
@@ -242,12 +295,52 @@ export function ClientOperations() {
     }
   }, []);
 
+  const loadInvitationOperations = useCallback(async (publicSlug: string) => {
+    setLoadingInvitationOps(true);
+    setError("");
+    try {
+      const [nextGuests, nextMusic] = await Promise.all([
+        clientFetch<Guest[]>(`/client/invitations/${publicSlug}/guests`),
+        clientFetch<InvitationMusic>(`/client/invitations/${publicSlug}/music`),
+      ]);
+      setGuests(nextGuests);
+      setMusic(nextMusic);
+      setMusicForm({
+        assetId: nextMusic.current?.asset.id ?? "",
+        secureUrl: "",
+        title: "",
+      });
+    } catch (caught) {
+      if (caught instanceof ClientFetchError && caught.isAuthError) {
+        redirectToClientLogin();
+        return;
+      }
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Data tamu atau musik gagal dimuat.",
+      );
+    } finally {
+      setLoadingInvitationOps(false);
+    }
+  }, []);
+
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void loadClientData();
     }, 0);
     return () => window.clearTimeout(timer);
   }, [loadClientData]);
+
+  useEffect(() => {
+    if (!selectedInvitation?.public_slug) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void loadInvitationOperations(selectedInvitation.public_slug);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadInvitationOperations, selectedInvitation?.public_slug]);
 
   async function logoutClient() {
     setSavingAction("logout");
@@ -269,6 +362,35 @@ export function ClientOperations() {
       await navigator.clipboard.writeText(publicInvitationUrl(invitation));
     } catch {
       setError("Public link gagal disalin. Buka link lalu copy dari address bar.");
+    }
+  }
+
+  async function exportGuestCsv(invitation: ClientInvitation) {
+    setError("");
+    try {
+      const response = await fetch(
+        `${env.NEXT_PUBLIC_API_URL}/client/invitations/${invitation.public_slug}/guests/export`,
+        {
+          credentials: "include",
+          headers: { Accept: "text/csv" },
+        },
+      );
+      if (!response.ok) {
+        throw new ClientFetchError("Export guest CSV gagal", response.status);
+      }
+      const blob = await response.blob();
+      const href = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = href;
+      anchor.download = `${invitation.public_slug}-guests.csv`;
+      anchor.click();
+      URL.revokeObjectURL(href);
+    } catch (caught) {
+      if (caught instanceof ClientFetchError && caught.isAuthError) {
+        redirectToClientLogin();
+        return;
+      }
+      setError(caught instanceof Error ? caught.message : "Export CSV gagal.");
     }
   }
 
@@ -364,6 +486,47 @@ export function ClientOperations() {
     }
   }
 
+  async function saveMusicSelection() {
+    if (!selectedInvitation) {
+      return;
+    }
+    if (selectedInvitationLocked) {
+      setError("Draft sudah approved dan musik dikunci sampai staff publish final.");
+      return;
+    }
+    setSavingMusic(true);
+    setError("");
+    try {
+      const payload = musicForm.secureUrl.trim()
+        ? {
+            secure_url: musicForm.secureUrl.trim(),
+            title: musicForm.title.trim() || "Background music",
+          }
+        : { asset_id: musicForm.assetId || null };
+      const nextMusic = await clientFetch<InvitationMusic>(
+        `/client/invitations/${selectedInvitation.public_slug}/music`,
+        {
+          body: JSON.stringify(payload),
+          method: "PATCH",
+        },
+      );
+      setMusic(nextMusic);
+      setMusicForm({
+        assetId: nextMusic.current?.asset.id ?? "",
+        secureUrl: "",
+        title: "",
+      });
+    } catch (caught) {
+      if (caught instanceof ClientFetchError && caught.isAuthError) {
+        redirectToClientLogin();
+        return;
+      }
+      setError(caught instanceof Error ? caught.message : "Backsound gagal disimpan.");
+    } finally {
+      setSavingMusic(false);
+    }
+  }
+
   return (
     <div className="space-y-12">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -420,10 +583,7 @@ export function ClientOperations() {
         {[
           ["Orders", orders.length],
           ["Invitations", invitations.length],
-          [
-            "Editable",
-            invitations.filter((item) => !isInvitationLocked(item)).length,
-          ],
+          ["Guests", guests.length],
           [
             "Published",
             invitations.filter(
@@ -438,6 +598,151 @@ export function ClientOperations() {
             <p className="mt-5 font-serif text-4xl">{value}</p>
           </article>
         ))}
+      </div>
+
+      <div className="grid gap-8 lg:grid-cols-2" id="rsvp">
+        <section className="border border-white/12 bg-[#181815] p-5">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-[0.65rem] uppercase tracking-[0.2em] text-[var(--color-gold)]">
+                Guest & RSVP
+              </p>
+              <h2 className="mt-3 font-serif text-3xl">Daftar tamu.</h2>
+            </div>
+            {selectedInvitation ? (
+              <button
+                className="inline-flex min-h-10 items-center gap-2 border border-white/15 px-3 text-[0.62rem] font-bold uppercase tracking-[0.14em] text-white/70 transition hover:border-[var(--color-gold)] hover:text-[var(--color-gold)]"
+                onClick={() => void exportGuestCsv(selectedInvitation)}
+                type="button"
+              >
+                <Download size={14} />
+                Export CSV
+              </button>
+            ) : null}
+          </div>
+          <div className="grid gap-px bg-white/12">
+            {guests.map((guest) => (
+              <article
+                className="grid gap-3 bg-black/20 p-4 md:grid-cols-[1fr_auto]"
+                key={guest.id}
+              >
+                <div>
+                  <p className="font-semibold">{guest.display_name}</p>
+                  <p className="mt-2 text-sm text-white/55">
+                    {guest.email || guest.phone || "Kontak belum diisi"}
+                  </p>
+                  {guest.wishes ? (
+                    <p className="mt-3 text-sm leading-6 text-white/60">
+                      {guest.wishes}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="text-left text-xs uppercase tracking-[0.13em] text-white/45 md:text-right">
+                  <p className="text-[var(--color-gold)]">{guest.rsvp_status}</p>
+                  <p className="mt-2">
+                    {guest.attendance_count}/{guest.party_size} hadir
+                  </p>
+                </div>
+              </article>
+            ))}
+            {loadingInvitationOps ? (
+              <article className="bg-black/20 p-4 text-sm text-white/45">
+                Memuat tamu RSVP...
+              </article>
+            ) : null}
+            {!loadingInvitationOps && guests.length === 0 ? (
+              <article className="bg-black/20 p-4 text-sm text-white/45">
+                Belum ada tamu pada invitation ini.
+              </article>
+            ) : null}
+          </div>
+        </section>
+
+        <section className="border border-white/12 bg-[#181815] p-5" id="music">
+          <p className="text-[0.65rem] uppercase tracking-[0.2em] text-[var(--color-gold)]">
+            Backsound
+          </p>
+          <h2 className="mt-3 font-serif text-3xl">Musik undangan.</h2>
+          <div className="mt-5 grid gap-3">
+            <div className="border border-white/10 bg-black/20 p-4 text-sm text-white/60">
+              {music?.current ? (
+                <>
+                  <p className="font-semibold text-white/80">
+                    {music.current.asset.original_filename || "Background music"}
+                  </p>
+                  <p className="mt-2 break-all">{music.current.asset.secure_url}</p>
+                </>
+              ) : (
+                <p>Belum ada backsound yang dipilih.</p>
+              )}
+            </div>
+            <label className="grid gap-2">
+              <span className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">
+                Pilih asset tersedia
+              </span>
+              <select
+                className="min-h-11 border border-white/15 bg-black/30 px-3 text-sm outline-none transition focus:border-[var(--color-gold)]"
+                disabled={selectedInvitationLocked}
+                onChange={(event) =>
+                  setMusicForm((current) => ({
+                    ...current,
+                    assetId: event.target.value,
+                    secureUrl: "",
+                  }))
+                }
+                value={musicForm.assetId}
+              >
+                <option value="">Tidak memakai asset tersimpan</option>
+                {music?.available_assets.map((asset) => (
+                  <option key={asset.id} value={asset.id}>
+                    {asset.original_filename || asset.public_id}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-2">
+              <span className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">
+                Atau Cloudinary audio URL
+              </span>
+              <input
+                className="min-h-11 border border-white/15 bg-black/30 px-3 text-sm outline-none transition focus:border-[var(--color-gold)]"
+                disabled={selectedInvitationLocked}
+                onChange={(event) =>
+                  setMusicForm((current) => ({
+                    ...current,
+                    assetId: "",
+                    secureUrl: event.target.value,
+                  }))
+                }
+                placeholder="https://res.cloudinary.com/.../song.mp3"
+                value={musicForm.secureUrl}
+              />
+            </label>
+            <label className="grid gap-2">
+              <span className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">
+                Judul musik
+              </span>
+              <input
+                className="min-h-11 border border-white/15 bg-black/30 px-3 text-sm outline-none transition focus:border-[var(--color-gold)]"
+                disabled={selectedInvitationLocked || !musicForm.secureUrl}
+                onChange={(event) =>
+                  setMusicForm((current) => ({ ...current, title: event.target.value }))
+                }
+                placeholder="Background music"
+                value={musicForm.title}
+              />
+            </label>
+            <button
+              className="inline-flex min-h-11 items-center justify-center gap-3 bg-[var(--color-gold)] px-4 text-[0.65rem] font-bold uppercase tracking-[0.16em] text-[#17140d] transition hover:brightness-110 disabled:opacity-50"
+              disabled={savingMusic || selectedInvitationLocked || !selectedInvitation}
+              onClick={() => void saveMusicSelection()}
+              type="button"
+            >
+              <Music2 size={15} />
+              {savingMusic ? "Saving music" : "Save backsound"}
+            </button>
+          </div>
+        </section>
       </div>
 
       <div className="grid gap-8 xl:grid-cols-[1fr_24rem]">

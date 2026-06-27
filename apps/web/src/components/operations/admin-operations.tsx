@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOut, Plus, RefreshCw, Save } from "lucide-react";
+import { Archive, EyeOff, LogOut, Music2, Plus, RefreshCw, Save } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -101,6 +101,40 @@ type StaffInvitation = {
   updated_at: string;
 };
 
+type Guest = {
+  id: string;
+  display_name: string;
+  email: string;
+  phone: string;
+  party_size: number;
+  rsvp_status: string;
+  attendance_count: number;
+  wishes: string;
+  responded_at: string | null;
+  retention_expires_at: string | null;
+};
+
+type CreatedGuest = Guest & {
+  personal_token: string;
+};
+
+type MusicAsset = {
+  id: string;
+  public_id: string;
+  resource_type: string;
+  format: string;
+  secure_url: string;
+  original_filename: string;
+};
+
+type InvitationMusic = {
+  current: {
+    id: string;
+    asset: MusicAsset;
+  } | null;
+  available_assets: MusicAsset[];
+};
+
 const orderStatuses = [
   "lead",
   "consulting",
@@ -129,6 +163,22 @@ const emptyOrderForm = {
 
 type OrderForm = typeof emptyOrderForm;
 type OrderFormField = keyof OrderForm;
+
+const emptyGuestForm = {
+  display_name: "",
+  email: "",
+  phone: "",
+  party_size: "1",
+};
+
+type GuestForm = typeof emptyGuestForm;
+type GuestFormField = keyof GuestForm;
+
+type MusicForm = {
+  assetId: string;
+  secureUrl: string;
+  title: string;
+};
 
 const orderFormFields: Array<{
   field: OrderFormField;
@@ -270,6 +320,8 @@ export function AdminOperations() {
   const [orderAuditEvents, setOrderAuditEvents] = useState<AuditEvent[]>([]);
   const [pendingPublishItems, setPendingPublishItems] = useState<StaffInvitation[]>([]);
   const [publishedInvitations, setPublishedInvitations] = useState<StaffInvitation[]>([]);
+  const [staffGuests, setStaffGuests] = useState<Guest[]>([]);
+  const [staffMusic, setStaffMusic] = useState<InvitationMusic | null>(null);
   const [staffUsers, setStaffUsers] = useState<StaffUser[]>([]);
   const [themes, setThemes] = useState<ThemeOption[]>([]);
   const [packages, setPackages] = useState<PackageOption[]>([]);
@@ -278,10 +330,20 @@ export function AdminOperations() {
   const [draftStatus, setDraftStatus] = useState<string>("");
   const [draftStaff, setDraftStaff] = useState<string>("");
   const [orderForm, setOrderForm] = useState(emptyOrderForm);
+  const [guestForm, setGuestForm] = useState(emptyGuestForm);
+  const [musicForm, setMusicForm] = useState<MusicForm>({
+    assetId: "",
+    secureUrl: "",
+    title: "",
+  });
+  const [lastGuestLink, setLastGuestLink] = useState("");
   const [formError, setFormError] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [loadingInvitationOps, setLoadingInvitationOps] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [creatingGuest, setCreatingGuest] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [savingMusic, setSavingMusic] = useState(false);
   const [error, setError] = useState<string>("");
 
   const selectedOrder = useMemo(
@@ -300,10 +362,45 @@ export function AdminOperations() {
     setOrderAuditEvents(nextAuditEvents);
   }
 
+  const loadStaffInvitationOps = useCallback(async (publicSlug: string) => {
+    setLoadingInvitationOps(true);
+    setError("");
+    try {
+      const [nextGuests, nextMusic] = await Promise.all([
+        staffFetch<Guest[]>(`/admin/invitations/${publicSlug}/guests`),
+        staffFetch<InvitationMusic>(`/admin/invitations/${publicSlug}/music`),
+      ]);
+      setStaffGuests(nextGuests);
+      setStaffMusic(nextMusic);
+      setMusicForm({
+        assetId: nextMusic.current?.asset.id ?? "",
+        secureUrl: "",
+        title: "",
+      });
+    } catch (caught) {
+      if (caught instanceof StaffFetchError && caught.isAuthError) {
+        redirectToLogin();
+        return;
+      }
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Data RSVP atau backsound staff gagal dimuat.",
+      );
+    } finally {
+      setLoadingInvitationOps(false);
+    }
+  }, []);
+
   function selectOrder(order: Order) {
     setSelectedReference(order.reference);
     setDraftStatus(order.status);
     setDraftStaff(order.assigned_staff_username ?? "");
+    if (!order.invitation_slug) {
+      setStaffGuests([]);
+      setStaffMusic(null);
+      setLastGuestLink("");
+    }
     void loadOrderAudit(order.reference);
   }
 
@@ -352,9 +449,17 @@ export function AdminOperations() {
         setSelectedReference(nextSelected.reference);
         setDraftStatus(nextSelected.status);
         setDraftStaff(nextSelected.assigned_staff_username ?? "");
+        if (!nextSelected.invitation_slug) {
+          setStaffGuests([]);
+          setStaffMusic(null);
+          setLastGuestLink("");
+        }
         await loadOrderAudit(nextSelected.reference);
       } else {
         setOrderAuditEvents([]);
+        setStaffGuests([]);
+        setStaffMusic(null);
+        setLastGuestLink("");
       }
     } catch (caught) {
       if (caught instanceof StaffFetchError && caught.isAuthError) {
@@ -382,6 +487,8 @@ export function AdminOperations() {
       setLeads([]);
       setAuditEvents([]);
       setOrderAuditEvents([]);
+      setStaffGuests([]);
+      setStaffMusic(null);
       setSelectedReference("");
     } catch (caught) {
       if (!(caught instanceof StaffFetchError && caught.isAuthError)) {
@@ -399,6 +506,17 @@ export function AdminOperations() {
     }, 0);
     return () => window.clearTimeout(timer);
   }, [loadDashboard]);
+
+  useEffect(() => {
+    if (!selectedOrder?.invitation_slug) {
+      return;
+    }
+    const invitationSlug = selectedOrder.invitation_slug;
+    const timer = window.setTimeout(() => {
+      void loadStaffInvitationOps(invitationSlug);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadStaffInvitationOps, selectedOrder?.invitation_slug]);
 
   async function saveSelectedOrder() {
     if (!selectedOrder) {
@@ -465,6 +583,15 @@ export function AdminOperations() {
     }
   }
 
+  async function copyText(value: string) {
+    setError("");
+    try {
+      await navigator.clipboard.writeText(value);
+    } catch {
+      setError("Teks gagal disalin. Copy manual dari field yang tersedia.");
+    }
+  }
+
   async function createOrder() {
     const validationMessages = validateOrderForm(orderForm);
     if (validationMessages.length > 0) {
@@ -514,6 +641,120 @@ export function AdminOperations() {
   function updateOrderForm(field: OrderFormField, value: string) {
     setFormError("");
     setOrderForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function updateGuestForm(field: GuestFormField, value: string) {
+    setFormError("");
+    setGuestForm((current) => ({ ...current, [field]: value }));
+  }
+
+  async function createGuest() {
+    if (!selectedOrder?.invitation_slug) {
+      setError("Order belum terhubung ke invitation.");
+      return;
+    }
+    if (!guestForm.display_name.trim()) {
+      setFormError("Nama tamu wajib diisi.");
+      return;
+    }
+    setCreatingGuest(true);
+    setFormError("");
+    setError("");
+    try {
+      const created = await staffFetch<CreatedGuest>(
+        `/admin/invitations/${selectedOrder.invitation_slug}/guests`,
+        {
+          body: JSON.stringify({
+            display_name: guestForm.display_name.trim(),
+            email: guestForm.email.trim(),
+            party_size: Number(guestForm.party_size || 1),
+            phone: guestForm.phone.trim(),
+          }),
+          method: "POST",
+        },
+      );
+      setStaffGuests((current) => [created, ...current]);
+      setGuestForm(emptyGuestForm);
+      setLastGuestLink(
+        `${env.NEXT_PUBLIC_SITE_URL}/id/i/${selectedOrder.invitation_slug}?guest=${created.personal_token}`,
+      );
+      const nextAuditEvents = await staffFetch<AuditEvent[]>("/admin/audit-events");
+      setAuditEvents(nextAuditEvents);
+    } catch (caught) {
+      if (caught instanceof StaffFetchError && caught.isAuthError) {
+        redirectToLogin();
+        return;
+      }
+      setError(caught instanceof Error ? caught.message : "Guest gagal dibuat.");
+    } finally {
+      setCreatingGuest(false);
+    }
+  }
+
+  async function runGuestPrivacyAction(guestId: string, action: "archive" | "anonymize") {
+    if (!selectedOrder?.invitation_slug) {
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      await staffFetch(`/admin/guests/${guestId}/${action}`, { method: "POST" });
+      await loadStaffInvitationOps(selectedOrder.invitation_slug);
+      const nextAuditEvents = await staffFetch<AuditEvent[]>("/admin/audit-events");
+      setAuditEvents(nextAuditEvents);
+    } catch (caught) {
+      if (caught instanceof StaffFetchError && caught.isAuthError) {
+        redirectToLogin();
+        return;
+      }
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Aksi privacy guest gagal disimpan.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function saveStaffMusicSelection() {
+    if (!selectedOrder?.invitation_slug) {
+      setError("Order belum terhubung ke invitation.");
+      return;
+    }
+    setSavingMusic(true);
+    setError("");
+    try {
+      const payload = musicForm.secureUrl.trim()
+        ? {
+            secure_url: musicForm.secureUrl.trim(),
+            title: musicForm.title.trim() || "Background music",
+          }
+        : { asset_id: musicForm.assetId || null };
+      const nextMusic = await staffFetch<InvitationMusic>(
+        `/admin/invitations/${selectedOrder.invitation_slug}/music`,
+        {
+          body: JSON.stringify(payload),
+          method: "PATCH",
+        },
+      );
+      setStaffMusic(nextMusic);
+      setMusicForm({
+        assetId: nextMusic.current?.asset.id ?? "",
+        secureUrl: "",
+        title: "",
+      });
+      const nextAuditEvents = await staffFetch<AuditEvent[]>("/admin/audit-events");
+      setAuditEvents(nextAuditEvents);
+    } catch (caught) {
+      if (caught instanceof StaffFetchError && caught.isAuthError) {
+        redirectToLogin();
+        return;
+      }
+      setError(caught instanceof Error ? caught.message : "Backsound gagal disimpan.");
+    } finally {
+      setSavingMusic(false);
+    }
   }
 
   function updatePackage(value: string) {
@@ -933,6 +1174,228 @@ export function AdminOperations() {
             <p className="mt-6 text-sm text-white/45">Pilih order dari queue.</p>
           )}
         </aside>
+      </div>
+
+      <div className="grid gap-8 lg:grid-cols-2" id="rsvp">
+        <section className="border border-white/12 bg-[#181815] p-5">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-[0.65rem] uppercase tracking-[0.2em] text-[var(--color-gold)]">
+                Guest management
+              </p>
+              <h2 className="mt-3 font-serif text-3xl">RSVP tamu.</h2>
+            </div>
+            <span className="text-xs uppercase tracking-[0.16em] text-white/45">
+              {staffGuests.length} active
+            </span>
+          </div>
+          {selectedOrder?.invitation_slug ? (
+            <div className="space-y-5">
+              <div className="grid gap-3 md:grid-cols-2">
+                {[
+                  ["display_name", "Nama tamu", "Keluarga Budi"],
+                  ["email", "Email", "guest@example.com"],
+                  ["phone", "Phone", "+62812"],
+                  ["party_size", "Party size", "2"],
+                ].map(([field, label, placeholder]) => (
+                  <label className="grid gap-2" key={field}>
+                    <span className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">
+                      {label}
+                    </span>
+                    <input
+                      className="min-h-11 border border-white/15 bg-black/30 px-3 text-sm outline-none transition focus:border-[var(--color-gold)]"
+                      min={field === "party_size" ? 1 : undefined}
+                      onChange={(event) =>
+                        updateGuestForm(field as GuestFormField, event.target.value)
+                      }
+                      placeholder={placeholder}
+                      type={field === "party_size" ? "number" : "text"}
+                      value={guestForm[field as GuestFormField]}
+                    />
+                  </label>
+                ))}
+                <button
+                  className="inline-flex min-h-11 items-center justify-center gap-3 bg-[var(--color-gold)] px-4 text-[0.65rem] font-bold uppercase tracking-[0.16em] text-[#17140d] transition hover:brightness-110 disabled:opacity-50 md:col-span-2"
+                  disabled={creatingGuest || !guestForm.display_name.trim()}
+                  onClick={() => void createGuest()}
+                  type="button"
+                >
+                  <Plus size={15} />
+                  {creatingGuest ? "Creating guest" : "Create guest link"}
+                </button>
+              </div>
+              {lastGuestLink ? (
+                <div className="border border-[#d5ad55]/40 bg-[#d5ad55]/10 p-4">
+                  <p className="text-[0.62rem] uppercase tracking-[0.16em] text-[var(--color-gold)]">
+                    Personal link baru
+                  </p>
+                  <p className="mt-2 break-all text-sm leading-6 text-[#f4ddb0]">
+                    {lastGuestLink}
+                  </p>
+                  <button
+                    className="mt-3 min-h-10 border border-[#d5ad55]/40 px-4 text-[0.62rem] font-bold uppercase tracking-[0.14em] text-[#f4ddb0] transition hover:bg-[#d5ad55]/10"
+                    onClick={() => void copyText(lastGuestLink)}
+                    type="button"
+                  >
+                    Copy personal link
+                  </button>
+                </div>
+              ) : null}
+              <div className="grid gap-px bg-white/12">
+                {staffGuests.map((guest) => (
+                  <article className="bg-black/20 p-4" key={guest.id}>
+                    <div className="grid gap-3 md:grid-cols-[1fr_auto]">
+                      <div>
+                        <p className="font-semibold">{guest.display_name}</p>
+                        <p className="mt-2 text-sm text-white/55">
+                          {guest.email || guest.phone || "Kontak belum diisi"}
+                        </p>
+                        <p className="mt-2 text-xs uppercase tracking-[0.13em] text-white/40">
+                          {guest.rsvp_status} / {guest.attendance_count} dari{" "}
+                          {guest.party_size}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          className="inline-flex min-h-9 items-center gap-2 border border-white/15 px-3 text-[0.6rem] font-semibold uppercase tracking-[0.14em] text-white/65 transition hover:border-[var(--color-gold)] hover:text-[var(--color-gold)] disabled:opacity-50"
+                          disabled={saving}
+                          onClick={() =>
+                            void runGuestPrivacyAction(guest.id, "archive")
+                          }
+                          type="button"
+                        >
+                          <Archive size={13} />
+                          Archive
+                        </button>
+                        <button
+                          className="inline-flex min-h-9 items-center gap-2 border border-white/15 px-3 text-[0.6rem] font-semibold uppercase tracking-[0.14em] text-white/65 transition hover:border-[var(--color-gold)] hover:text-[var(--color-gold)] disabled:opacity-50"
+                          disabled={saving}
+                          onClick={() =>
+                            void runGuestPrivacyAction(guest.id, "anonymize")
+                          }
+                          type="button"
+                        >
+                          <EyeOff size={13} />
+                          Anonymize
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+                {loadingInvitationOps ? (
+                  <article className="bg-black/20 p-4 text-sm text-white/45">
+                    Memuat RSVP tamu...
+                  </article>
+                ) : null}
+                {!loadingInvitationOps && staffGuests.length === 0 ? (
+                  <article className="bg-black/20 p-4 text-sm text-white/45">
+                    Belum ada guest aktif untuk invitation ini.
+                  </article>
+                ) : null}
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm leading-6 text-white/45">
+              Pilih order yang sudah terhubung ke invitation untuk mengelola RSVP.
+            </p>
+          )}
+        </section>
+
+        <section className="border border-white/12 bg-[#181815] p-5" id="music">
+          <p className="text-[0.65rem] uppercase tracking-[0.2em] text-[var(--color-gold)]">
+            Backsound
+          </p>
+          <h2 className="mt-3 font-serif text-3xl">Musik undangan.</h2>
+          {selectedOrder?.invitation_slug ? (
+            <div className="mt-5 grid gap-3">
+              <div className="border border-white/10 bg-black/20 p-4 text-sm text-white/60">
+                {staffMusic?.current ? (
+                  <>
+                    <p className="font-semibold text-white/80">
+                      {staffMusic.current.asset.original_filename ||
+                        "Background music"}
+                    </p>
+                    <p className="mt-2 break-all">
+                      {staffMusic.current.asset.secure_url}
+                    </p>
+                  </>
+                ) : (
+                  <p>Belum ada backsound yang dipilih.</p>
+                )}
+              </div>
+              <label className="grid gap-2">
+                <span className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">
+                  Pilih asset tersedia
+                </span>
+                <select
+                  className="min-h-11 border border-white/15 bg-black/30 px-3 text-sm outline-none transition focus:border-[var(--color-gold)]"
+                  onChange={(event) =>
+                    setMusicForm((current) => ({
+                      ...current,
+                      assetId: event.target.value,
+                      secureUrl: "",
+                    }))
+                  }
+                  value={musicForm.assetId}
+                >
+                  <option value="">Tidak memakai asset tersimpan</option>
+                  {staffMusic?.available_assets.map((asset) => (
+                    <option key={asset.id} value={asset.id}>
+                      {asset.original_filename || asset.public_id}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="grid gap-2">
+                <span className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">
+                  Atau Cloudinary audio URL
+                </span>
+                <input
+                  className="min-h-11 border border-white/15 bg-black/30 px-3 text-sm outline-none transition focus:border-[var(--color-gold)]"
+                  onChange={(event) =>
+                    setMusicForm((current) => ({
+                      ...current,
+                      assetId: "",
+                      secureUrl: event.target.value,
+                    }))
+                  }
+                  placeholder="https://res.cloudinary.com/.../song.mp3"
+                  value={musicForm.secureUrl}
+                />
+              </label>
+              <label className="grid gap-2">
+                <span className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">
+                  Judul musik
+                </span>
+                <input
+                  className="min-h-11 border border-white/15 bg-black/30 px-3 text-sm outline-none transition focus:border-[var(--color-gold)]"
+                  disabled={!musicForm.secureUrl}
+                  onChange={(event) =>
+                    setMusicForm((current) => ({
+                      ...current,
+                      title: event.target.value,
+                    }))
+                  }
+                  placeholder="Background music"
+                  value={musicForm.title}
+                />
+              </label>
+              <button
+                className="inline-flex min-h-11 items-center justify-center gap-3 bg-[var(--color-gold)] px-4 text-[0.65rem] font-bold uppercase tracking-[0.16em] text-[#17140d] transition hover:brightness-110 disabled:opacity-50"
+                disabled={savingMusic}
+                onClick={() => void saveStaffMusicSelection()}
+                type="button"
+              >
+                <Music2 size={15} />
+                {savingMusic ? "Saving music" : "Save backsound"}
+              </button>
+            </div>
+          ) : (
+            <p className="mt-5 text-sm leading-6 text-white/45">
+              Pilih order yang sudah memiliki invitation untuk mengatur backsound.
+            </p>
+          )}
+        </section>
       </div>
 
       <div className="grid gap-8 lg:grid-cols-2">

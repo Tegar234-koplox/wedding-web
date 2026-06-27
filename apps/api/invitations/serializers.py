@@ -2,7 +2,14 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from common.models import AuditEvent
-from invitations.models import EventLocation, Guest, Invitation, WeddingEvent
+from invitations.models import (
+    EventLocation,
+    Guest,
+    Invitation,
+    InvitationMedia,
+    WeddingEvent,
+)
+from media_library.models import MediaAsset
 from media_library.services import public_audio_payload
 
 
@@ -210,6 +217,7 @@ class GuestSerializer(serializers.ModelSerializer[Guest]):
     class Meta:
         model = Guest
         fields = [
+            "id",
             "display_name",
             "email",
             "phone",
@@ -218,9 +226,20 @@ class GuestSerializer(serializers.ModelSerializer[Guest]):
             "attendance_count",
             "wishes",
             "responded_at",
+            "archived_at",
+            "anonymized_at",
             "retention_expires_at",
         ]
-        read_only_fields = ["responded_at", "retention_expires_at"]
+        read_only_fields = [
+            "id",
+            "rsvp_status",
+            "attendance_count",
+            "wishes",
+            "responded_at",
+            "archived_at",
+            "anonymized_at",
+            "retention_expires_at",
+        ]
 
 
 class PublicRSVPSerializer(serializers.Serializer):
@@ -233,3 +252,24 @@ class PublicRSVPSerializer(serializers.Serializer):
         if attrs["rsvp_status"] == Guest.RSVPStatus.DECLINED and attrs["attendance_count"] != 0:
             raise serializers.ValidationError({"attendance_count": "Declined RSVP must use 0."})
         return attrs
+
+
+class BacksoundAssetSerializer(serializers.ModelSerializer[MediaAsset]):
+    class Meta:
+        model = MediaAsset
+        fields = [
+            "id",
+            "public_id",
+            "resource_type",
+            "format",
+            "secure_url",
+            "original_filename",
+        ]
+
+
+class InvitationBacksoundSerializer(serializers.ModelSerializer[InvitationMedia]):
+    asset = BacksoundAssetSerializer(read_only=True)
+
+    class Meta:
+        model = InvitationMedia
+        fields = ["id", "role", "asset", "sort_order", "updated_at"]
