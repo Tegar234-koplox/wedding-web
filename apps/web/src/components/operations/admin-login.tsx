@@ -15,14 +15,36 @@ type StaffSessionUser = {
   display_name: string;
 };
 
+const requestTimeoutMs = 15_000;
+
+async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), requestTimeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (caught) {
+    if (caught instanceof DOMException && caught.name === "AbortError") {
+      throw new Error(
+        "Request login terlalu lama. Periksa koneksi backend Railway dan konfigurasi CORS.",
+      );
+    }
+    throw caught;
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
 async function csrfToken(): Promise<string> {
-  const response = await fetch(`${env.NEXT_PUBLIC_API_URL}/auth/csrf`, {
+  const response = await fetchWithTimeout(`${env.NEXT_PUBLIC_API_URL}/auth/csrf`, {
     cache: "no-store",
     credentials: "include",
     headers: { Accept: "application/json" },
   });
   if (!response.ok) {
-    throw new Error(`CSRF request failed with ${response.status}`);
+    throw new Error(`CSRF backend gagal (${response.status}).`);
   }
   const payload = (await response.json()) as { csrfToken: string };
   return payload.csrfToken;
@@ -30,7 +52,7 @@ async function csrfToken(): Promise<string> {
 
 async function staffLogin(username: string, password: string): Promise<StaffSessionUser> {
   const token = await csrfToken();
-  const response = await fetch(`${env.NEXT_PUBLIC_API_URL}/auth/login`, {
+  const response = await fetchWithTimeout(`${env.NEXT_PUBLIC_API_URL}/auth/login`, {
     body: JSON.stringify({ password, username }),
     credentials: "include",
     headers: {
@@ -49,7 +71,7 @@ async function staffLogin(username: string, password: string): Promise<StaffSess
     } catch {
       // Keep the status text when the backend returns a non-JSON error.
     }
-    throw new Error(detail);
+    throw new Error(`Login ditolak (${response.status}): ${detail}`);
   }
 
   const payload = (await response.json()) as { user: StaffSessionUser };
@@ -62,23 +84,32 @@ export function AdminLogin() {
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [status, setStatus] = useState("");
 
   async function submitLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitting(true);
     setError("");
+    let navigating = false;
     try {
+      setStatus("Menghubungi backend staff...");
       await staffLogin(username, password);
+      setStatus("Login berhasil. Membuka dashboard...");
+      navigating = true;
+      window.location.assign("/admin");
       router.replace("/admin");
       router.refresh();
     } catch (caught) {
+      setStatus("");
       setError(
         caught instanceof Error
           ? caught.message
-          : "Login staff tidak dapat diproses.",
+          : "Login staff tidak dapat diproses. Periksa backend Railway dan env Vercel.",
       );
     } finally {
-      setSubmitting(false);
+      if (!navigating) {
+        setSubmitting(false);
+      }
     }
   }
 
@@ -95,6 +126,11 @@ export function AdminLogin() {
       {error ? (
         <div className="mt-6 border border-[#d5ad55]/40 bg-[#d5ad55]/10 p-4 text-sm leading-6 text-[#f4ddb0]">
           {error}
+        </div>
+      ) : null}
+      {status ? (
+        <div className="mt-6 border border-white/12 bg-black/25 p-4 text-sm leading-6 text-white/60">
+          {status}
         </div>
       ) : null}
 
