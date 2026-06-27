@@ -167,6 +167,12 @@ function formatCurrency(value: string): string {
   }).format(Number(value));
 }
 
+function publicInvitationUrl(
+  invitation: Pick<ClientInvitation, "default_locale" | "public_slug">,
+) {
+  return `${env.NEXT_PUBLIC_SITE_URL}/${invitation.default_locale}/i/${invitation.public_slug}`;
+}
+
 function isInvitationLocked(invitation: ClientInvitation | undefined): boolean {
   return (
     invitation?.approval_status === "approved_for_publish" ||
@@ -254,6 +260,15 @@ export function ClientOperations() {
       }
     } finally {
       redirectToClientLogin();
+    }
+  }
+
+  async function copyPublicLink(invitation: ClientInvitation) {
+    setError("");
+    try {
+      await navigator.clipboard.writeText(publicInvitationUrl(invitation));
+    } catch {
+      setError("Public link gagal disalin. Buka link lalu copy dari address bar.");
     }
   }
 
@@ -410,9 +425,9 @@ export function ClientOperations() {
             invitations.filter((item) => !isInvitationLocked(item)).length,
           ],
           [
-            "Approved",
+            "Published",
             invitations.filter(
-              (item) => item.approval_status === "approved_for_publish",
+              (item) => item.approval_status === "published",
             ).length,
           ],
         ].map(([label, value]) => (
@@ -499,8 +514,33 @@ export function ClientOperations() {
               </div>
               {selectedInvitationLocked ? (
                 <div className="border border-[#d5ad55]/40 bg-[#d5ad55]/10 p-4 text-sm leading-6 text-[#f4ddb0]">
-                  Approved for publish. Staff akan melakukan publish final; draft
-                  client dikunci untuk mencegah perubahan setelah approval.
+                  {selectedInvitation.approval_status === "published"
+                    ? "Undangan sudah publish. Link final siap dibagikan."
+                    : "Approved for publish. Staff akan melakukan publish final; draft client dikunci untuk mencegah perubahan setelah approval."}
+                </div>
+              ) : null}
+              {selectedInvitation.approval_status === "published" ? (
+                <div className="grid gap-3 border-t border-white/10 pt-5">
+                  <p className="break-all text-sm leading-6 text-white/60">
+                    {publicInvitationUrl(selectedInvitation)}
+                  </p>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <a
+                      className="inline-flex min-h-11 items-center justify-center border border-white/15 px-4 text-[0.65rem] font-bold uppercase tracking-[0.16em] text-white/75 transition hover:border-[var(--color-gold)] hover:text-[var(--color-gold)]"
+                      href={publicInvitationUrl(selectedInvitation)}
+                      rel="noreferrer"
+                      target="_blank"
+                    >
+                      Open invitation
+                    </a>
+                    <button
+                      className="inline-flex min-h-11 items-center justify-center bg-[var(--color-gold)] px-4 text-[0.65rem] font-bold uppercase tracking-[0.16em] text-[#17140d] transition hover:brightness-110"
+                      onClick={() => void copyPublicLink(selectedInvitation)}
+                      type="button"
+                    >
+                      Copy link
+                    </button>
+                  </div>
                 </div>
               ) : null}
               <div className="grid gap-3 border-t border-white/10 pt-5">

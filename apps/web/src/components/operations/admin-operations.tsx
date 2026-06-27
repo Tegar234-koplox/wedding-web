@@ -86,9 +86,19 @@ type StaffSession = {
   };
 };
 
-type PendingPublishItem = {
-  slug: string;
-  approvedAt: string;
+type StaffInvitation = {
+  public_slug: string;
+  theme_slug: string;
+  package_code: string | null;
+  status: string;
+  approval_status: string;
+  default_locale: string;
+  client_email: string | null;
+  order_reference: string | null;
+  order_status: string | null;
+  order_client_name: string;
+  published_at: string | null;
+  updated_at: string;
 };
 
 const orderStatuses = [
@@ -248,24 +258,8 @@ function formatCurrency(value: string | number): string {
   }).format(Number(value));
 }
 
-function publishQueueFromAudit(events: AuditEvent[]): PendingPublishItem[] {
-  const published = new Set(
-    events
-      .filter((event) => event.action === "invitation.published")
-      .map((event) => event.resource_reference),
-  );
-  const approved = new Map<string, PendingPublishItem>();
-  events
-    .filter((event) => event.action === "invitation.publish_approved")
-    .forEach((event) => {
-      if (!published.has(event.resource_reference) && !approved.has(event.resource_reference)) {
-        approved.set(event.resource_reference, {
-          approvedAt: event.created_at,
-          slug: event.resource_reference,
-        });
-      }
-    });
-  return [...approved.values()];
+function publicInvitationUrl(invitation: Pick<StaffInvitation, "default_locale" | "public_slug">) {
+  return `${env.NEXT_PUBLIC_SITE_URL}/${invitation.default_locale}/i/${invitation.public_slug}`;
 }
 
 export function AdminOperations() {
@@ -274,6 +268,8 @@ export function AdminOperations() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
   const [orderAuditEvents, setOrderAuditEvents] = useState<AuditEvent[]>([]);
+  const [pendingPublishItems, setPendingPublishItems] = useState<StaffInvitation[]>([]);
+  const [publishedInvitations, setPublishedInvitations] = useState<StaffInvitation[]>([]);
   const [staffUsers, setStaffUsers] = useState<StaffUser[]>([]);
   const [themes, setThemes] = useState<ThemeOption[]>([]);
   const [packages, setPackages] = useState<PackageOption[]>([]);
@@ -291,10 +287,6 @@ export function AdminOperations() {
   const selectedOrder = useMemo(
     () => orders.find((order) => order.reference === selectedReference) ?? orders[0],
     [orders, selectedReference],
-  );
-  const pendingPublishItems = useMemo(
-    () => publishQueueFromAudit(auditEvents),
-    [auditEvents],
   );
 
   async function loadOrderAudit(reference: string) {
@@ -325,6 +317,8 @@ export function AdminOperations() {
         nextOrders,
         nextLeads,
         nextAuditEvents,
+        nextPendingPublishItems,
+        nextPublishedInvitations,
         nextStaffUsers,
         nextThemes,
         nextPackages,
@@ -335,6 +329,8 @@ export function AdminOperations() {
           staffFetch<Order[]>("/admin/orders"),
           staffFetch<Lead[]>("/admin/leads"),
           staffFetch<AuditEvent[]>("/admin/audit-events"),
+          staffFetch<StaffInvitation[]>("/admin/invitations?state=pending_publish"),
+          staffFetch<StaffInvitation[]>("/admin/invitations?state=published"),
           staffFetch<StaffUser[]>("/admin/staff-users"),
           staffFetch<ThemePage>("/themes?locale=id&page_size=50"),
           staffFetch<PackageOption[]>("/packages?locale=id"),
@@ -344,6 +340,8 @@ export function AdminOperations() {
       setOrders(nextOrders);
       setLeads(nextLeads);
       setAuditEvents(nextAuditEvents);
+      setPendingPublishItems(nextPendingPublishItems);
+      setPublishedInvitations(nextPublishedInvitations);
       setStaffUsers(nextStaffUsers);
       setThemes(nextThemes.results);
       setPackages(nextPackages);
@@ -455,6 +453,15 @@ export function AdminOperations() {
       setError(caught instanceof Error ? caught.message : "Invitation gagal dipublish.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function copyPublicLink(invitation: StaffInvitation) {
+    setError("");
+    try {
+      await navigator.clipboard.writeText(publicInvitationUrl(invitation));
+    } catch {
+      setError("Public link gagal disalin. Buka link lalu copy dari address bar.");
     }
   }
 
@@ -607,18 +614,19 @@ export function AdminOperations() {
               {pendingPublishItems.map((item) => (
                 <article
                   className="flex flex-wrap items-center justify-between gap-3 border border-[#d5ad55]/25 bg-black/20 p-3"
-                  key={item.slug}
+                  key={item.public_slug}
                 >
                   <div>
-                    <p className="font-semibold text-[#f4ddb0]">{item.slug}</p>
+                    <p className="font-semibold text-[#f4ddb0]">{item.public_slug}</p>
                     <p className="mt-1 text-[0.62rem] uppercase tracking-[0.12em] text-white/45">
-                      Approved {new Date(item.approvedAt).toLocaleString("id-ID")}
+                      {item.order_reference ?? "No order"} /{" "}
+                      {item.order_client_name || item.client_email || "No client"}
                     </p>
                   </div>
                   <button
                     className="min-h-10 bg-[var(--color-gold)] px-4 text-[0.62rem] font-bold uppercase tracking-[0.14em] text-[#17140d] transition hover:brightness-110 disabled:opacity-50"
                     disabled={saving}
-                    onClick={() => void publishInvitation(item.slug)}
+                    onClick={() => void publishInvitation(item.public_slug)}
                     type="button"
                   >
                     Publish final
@@ -645,6 +653,56 @@ export function AdminOperations() {
           </article>
         ))}
       </div>
+
+      {publishedInvitations.length > 0 ? (
+        <section className="border border-white/12 bg-[#181815] p-5">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-[0.65rem] uppercase tracking-[0.2em] text-[var(--color-gold)]">
+                Published delivery
+              </p>
+              <p className="mt-2 text-sm leading-6 text-white/55">
+                Link final undangan yang sudah publish dan siap dikirim ke client.
+              </p>
+            </div>
+            <span className="text-xs uppercase tracking-[0.16em] text-white/45">
+              {publishedInvitations.length} published
+            </span>
+          </div>
+          <div className="grid gap-2">
+            {publishedInvitations.slice(0, 5).map((invitation) => (
+              <article
+                className="grid gap-3 border border-white/10 bg-black/20 p-3 md:grid-cols-[1fr_auto]"
+                key={invitation.public_slug}
+              >
+                <div>
+                  <p className="font-semibold">{invitation.public_slug}</p>
+                  <p className="mt-1 break-all text-sm text-white/55">
+                    {publicInvitationUrl(invitation)}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <a
+                    className="inline-flex min-h-10 items-center px-4 text-[0.62rem] font-bold uppercase tracking-[0.14em] text-white/75 transition hover:text-[var(--color-gold)]"
+                    href={publicInvitationUrl(invitation)}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    Open
+                  </a>
+                  <button
+                    className="min-h-10 border border-white/15 px-4 text-[0.62rem] font-bold uppercase tracking-[0.14em] text-white/75 transition hover:border-[var(--color-gold)] hover:text-[var(--color-gold)]"
+                    onClick={() => void copyPublicLink(invitation)}
+                    type="button"
+                  >
+                    Copy link
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section
         className="grid gap-6 border border-white/12 bg-[#181815] p-5 lg:grid-cols-[0.7fr_1.3fr]"
