@@ -1,6 +1,7 @@
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
+from common.models import AuditEvent
 from invitations.models import EventLocation, Guest, Invitation, WeddingEvent
 from media_library.services import public_audio_payload
 
@@ -120,7 +121,32 @@ class ClientInvitationSerializer(serializers.ModelSerializer[Invitation]):
             "content",
             "updated_at",
         ]
-        read_only_fields = ["public_slug", "theme_slug", "package_code", "status", "updated_at"]
+        read_only_fields = [
+            "public_slug",
+            "theme_slug",
+            "package_code",
+            "status",
+            "approval_status",
+            "updated_at",
+        ]
+
+    def validate_content(self, value):
+        if not isinstance(value, dict):
+            raise serializers.ValidationError("Invitation content must be an object.")
+        return value
+
+    def update(self, instance, validated_data):
+        invitation = super().update(instance, validated_data)
+        request = self.context.get("request")
+        if request is not None:
+            AuditEvent.objects.create(
+                actor=request.user,
+                action="invitation.client_updated",
+                resource_type="invitation",
+                resource_reference=invitation.public_slug,
+                metadata={"fields": sorted(validated_data.keys())},
+            )
+        return invitation
 
 
 class GuestSerializer(serializers.ModelSerializer[Guest]):

@@ -39,6 +39,23 @@ def test_staff_can_login_from_frontend_session_endpoint(client):
 
 
 @pytest.mark.django_db
+def test_client_can_login_from_frontend_session_endpoint(client):
+    create_user(username="client", email="client@example.com")
+
+    response = client.post(
+        reverse("api-client-login"),
+        {"username": "client", "password": "password"},
+        content_type="application/json",
+    )
+    profile_response = client.get(reverse("client-profile"))
+
+    assert response.status_code == 200
+    assert response.json()["user"]["role"] == "client"
+    assert profile_response.status_code == 200
+    assert profile_response.json()["user"]["username"] == "client"
+
+
+@pytest.mark.django_db
 def test_non_staff_cannot_login_to_staff_session_endpoint(client):
     create_user(username="client", email="client@example.com")
 
@@ -58,6 +75,15 @@ def test_staff_admin_endpoints_deny_anonymous_users(client):
 
     assert orders_response.status_code in {401, 403}
     assert metrics_response.status_code in {401, 403}
+
+
+@pytest.mark.django_db
+def test_client_endpoints_deny_anonymous_users(client):
+    orders_response = client.get(reverse("client-order-list"))
+    invitations_response = client.get(reverse("client-invitation-list"))
+
+    assert orders_response.status_code in {401, 403}
+    assert invitations_response.status_code in {401, 403}
 
 
 @pytest.mark.django_db
@@ -189,6 +215,35 @@ def test_client_order_endpoint_only_returns_owned_orders(client):
 
     assert response.status_code == 200
     assert [item["reference"] for item in response.json()] == ["owned"]
+
+
+@pytest.mark.django_db
+def test_client_can_update_owned_invitation_content_without_changing_approval(client):
+    client_user = create_user(username="client", email="client@example.com")
+    theme = create_theme()
+    invitation = create_invitation(theme=theme, status="draft")
+    invitation.client_user = client_user
+    invitation.approval_status = "draft"
+    invitation.save(update_fields=["client_user", "approval_status", "updated_at"])
+    client.force_login(client_user)
+
+    response = client.patch(
+        reverse("client-invitation-detail", kwargs={"public_slug": invitation.public_slug}),
+        {
+            "approval_status": "approved_for_publish",
+            "content": {
+                **invitation.content,
+                "couple": {"partnerOne": "Alya", "partnerTwo": "Raka Updated"},
+            },
+        },
+        content_type="application/json",
+    )
+
+    invitation.refresh_from_db()
+    assert response.status_code == 200
+    assert invitation.content["couple"]["partnerTwo"] == "Raka Updated"
+    assert invitation.approval_status == "draft"
+    assert AuditEvent.objects.filter(action="invitation.client_updated").exists()
 
 
 @pytest.mark.django_db

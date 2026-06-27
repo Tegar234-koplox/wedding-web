@@ -8,7 +8,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from common.models import AuditEvent
-from common.serializers import StaffAuditEventSerializer, StaffSessionUserSerializer
+from common.serializers import (
+    ClientSessionUserSerializer,
+    StaffAuditEventSerializer,
+    StaffSessionUserSerializer,
+)
 from orders.permissions import IsStaffRole
 
 STAFF_ROLES = {"owner", "admin", "editor", "support", "viewer"}
@@ -45,6 +49,13 @@ class StaffSessionMeView(APIView):
         return Response({"user": StaffSessionUserSerializer(request.user).data})
 
 
+class ClientSessionMeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request) -> Response:
+        return Response({"user": ClientSessionUserSerializer(request.user).data})
+
+
 @method_decorator(csrf_protect, name="dispatch")
 @method_decorator(ensure_csrf_cookie, name="dispatch")
 class StaffLoginView(APIView):
@@ -78,6 +89,40 @@ class StaffLoginView(APIView):
 
         login(request, user)
         return Response({"user": StaffSessionUserSerializer(user).data})
+
+
+@method_decorator(csrf_protect, name="dispatch")
+@method_decorator(ensure_csrf_cookie, name="dispatch")
+class ClientLoginView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request) -> Response:
+        identifier = str(request.data.get("username") or request.data.get("email") or "").strip()
+        password = str(request.data.get("password") or "")
+        if not identifier or not password:
+            return Response(
+                {"detail": "Username/email dan password wajib diisi."},
+                status=400,
+            )
+
+        username = identifier
+        if "@" in identifier:
+            user_model = get_user_model()
+            username = (
+                user_model.objects.filter(email__iexact=identifier)
+                .values_list("username", flat=True)
+                .first()
+                or identifier
+            )
+
+        user = authenticate(request, username=username, password=password)
+        if user is None:
+            return Response({"detail": "Kredensial client tidak valid."}, status=400)
+        if not user.is_active:
+            return Response({"detail": "Akun client tidak aktif."}, status=403)
+
+        login(request, user)
+        return Response({"user": ClientSessionUserSerializer(user).data})
 
 
 class StaffLogoutView(APIView):
