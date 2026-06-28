@@ -110,6 +110,7 @@ type MusicForm = {
 };
 
 const clientLoginPath = "/client/login";
+const clientGateCookie = "niskala_client_gate";
 
 class ClientFetchError extends Error {
   constructor(
@@ -126,6 +127,7 @@ class ClientFetchError extends Error {
 }
 
 function redirectToClientLogin() {
+  document.cookie = `${clientGateCookie}=; Path=/; Max-Age=0; SameSite=Lax; Secure`;
   window.location.replace(clientLoginPath);
 }
 

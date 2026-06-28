@@ -14,6 +14,12 @@ type ClientSessionUser = {
   display_name: string;
 };
 
+const clientGateCookie = "niskala_client_gate";
+
+function setClientGateCookie() {
+  document.cookie = `${clientGateCookie}=1; Path=/; Max-Age=86400; SameSite=Lax; Secure`;
+}
+
 async function csrfToken(): Promise<string> {
   const response = await fetch(`${env.NEXT_PUBLIC_API_URL}/auth/csrf`, {
     cache: "no-store",
@@ -74,6 +80,7 @@ export function ClientLogin() {
     let navigating = false;
     try {
       await clientLogin(username, password);
+      setClientGateCookie();
       setStatus("Login berhasil. Membuka dashboard...");
       navigating = true;
       window.location.assign("/client");

@@ -15,6 +15,11 @@ type StaffSessionUser = {
 };
 
 const requestTimeoutMs = 15_000;
+const staffGateCookie = "niskala_staff_gate";
+
+function setStaffGateCookie() {
+  document.cookie = `${staffGateCookie}=1; Path=/; Max-Age=86400; SameSite=Lax; Secure`;
+}
 
 async function fetchWithTimeout(
   input: RequestInfo | URL,
@@ -93,6 +98,7 @@ export function AdminLogin() {
     try {
       setStatus("Menghubungi backend staff...");
       await staffLogin(username, password);
+      setStaffGateCookie();
       setStatus("Login berhasil. Membuka dashboard...");
       navigating = true;
       window.location.assign("/admin");
