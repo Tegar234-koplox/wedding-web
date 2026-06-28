@@ -57,6 +57,27 @@ def test_client_can_login_from_frontend_session_endpoint(client):
 
 
 @pytest.mark.django_db
+def test_staff_owner_cannot_use_client_session_endpoint(client):
+    owner = create_user(
+        username="owner",
+        email="owner@example.com",
+        role="owner",
+        is_staff=True,
+    )
+
+    login_response = client.post(
+        reverse("api-client-login"),
+        {"username": "owner", "password": "password"},
+        content_type="application/json",
+    )
+    client.force_login(owner)
+    profile_response = client.get(reverse("client-profile"))
+
+    assert login_response.status_code == 403
+    assert profile_response.status_code == 403
+
+
+@pytest.mark.django_db
 def test_non_staff_cannot_login_to_staff_session_endpoint(client):
     create_user(username="client", email="client@example.com")
 

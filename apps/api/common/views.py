@@ -16,6 +16,7 @@ from common.serializers import (
 from orders.permissions import IsStaffRole
 
 STAFF_ROLES = {"owner", "admin", "editor", "support", "viewer"}
+CLIENT_ROLE = "client"
 
 
 class StaffAuditEventListView(ListAPIView):
@@ -53,6 +54,8 @@ class ClientSessionMeView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request) -> Response:
+        if getattr(request.user, "role", "") != CLIENT_ROLE:
+            return Response({"detail": "Akun ini tidak memiliki akses client."}, status=403)
         return Response({"user": ClientSessionUserSerializer(request.user).data})
 
 
@@ -120,6 +123,8 @@ class ClientLoginView(APIView):
             return Response({"detail": "Kredensial client tidak valid."}, status=400)
         if not user.is_active:
             return Response({"detail": "Akun client tidak aktif."}, status=403)
+        if getattr(user, "role", "") != CLIENT_ROLE:
+            return Response({"detail": "Akun ini tidak memiliki akses client."}, status=403)
 
         login(request, user)
         return Response({"user": ClientSessionUserSerializer(user).data})

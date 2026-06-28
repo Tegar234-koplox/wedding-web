@@ -200,6 +200,7 @@ const orderFormFields: Array<{
 ];
 
 const adminLoginPath = "/admin/login";
+const staffGateCookie = "niskala_staff_gate";
 
 class StaffFetchError extends Error {
   constructor(
@@ -216,6 +217,7 @@ class StaffFetchError extends Error {
 }
 
 function redirectToLogin() {
+  document.cookie = `${staffGateCookie}=; Path=/; Max-Age=0; SameSite=Lax; Secure`;
   window.location.replace(adminLoginPath);
 }
 
