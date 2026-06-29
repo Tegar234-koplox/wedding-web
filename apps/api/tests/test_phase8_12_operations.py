@@ -184,6 +184,36 @@ def test_staff_updates_order_status_and_assignment(client):
 
 
 @pytest.mark.django_db
+def test_staff_order_package_update_syncs_linked_invitation_package(client):
+    staff = create_user(username="staff", email="staff@example.com", role="admin", is_staff=True)
+    theme = create_theme()
+    essential = create_package(code="essential")
+    couture = create_package(code="couture")
+    invitation = create_invitation(theme=theme, public_slug="package-sync")
+    invitation.package = essential
+    invitation.save(update_fields=["package", "updated_at"])
+    order = Order.objects.create(
+        reference="ord-package-sync",
+        client_name="Alya",
+        invitation=invitation,
+        package=essential,
+        theme=theme,
+    )
+    client.force_login(staff)
+
+    response = client.patch(
+        reverse("admin-order-detail", kwargs={"reference": order.reference}),
+        {"package_code": couture.code},
+        content_type="application/json",
+    )
+
+    invitation.refresh_from_db()
+    assert response.status_code == 200
+    assert response.json()["package_code"] == "couture"
+    assert invitation.package == couture
+
+
+@pytest.mark.django_db
 def test_staff_operations_lists_leads_audit_and_staff_users(client):
     staff = create_user(username="staff", email="staff@example.com", role="admin", is_staff=True)
     create_user(username="client", email="client@example.com")

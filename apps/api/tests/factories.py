@@ -80,18 +80,18 @@ def create_theme(
     return theme
 
 
-def create_package() -> Package:
+def create_package(*, code: str = "signature") -> Package:
     package = Package.objects.create(
-        code="signature",
+        code=code,
         price="649000",
         currency="IDR",
         is_active=True,
-        is_featured=True,
+        is_featured=code == "signature",
     )
     PackageTranslation.objects.create(
         package=package,
         locale="id",
-        name="Signature",
+        name=code.title(),
         summary="Pengalaman lengkap.",
     )
     PackageFeature.objects.create(

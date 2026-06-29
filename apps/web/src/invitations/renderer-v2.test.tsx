@@ -96,6 +96,21 @@ describe("renderer v2 invitation experience", () => {
     ).toBe(5);
   });
 
+  it("animates the premium cover overlay for Signature", () => {
+    const { container } = render(
+      <RendererV2
+        invitation={getSampleInvitation("luxury-gold", "id")}
+        packageCode="signature"
+      />,
+    );
+
+    expect(
+      container
+        .querySelector('[data-decoration-layer="cover-overlay"]')
+        ?.getAttribute("data-animated"),
+    ).toBe("true");
+  });
+
   it("renders overlay and corners on every Couture section", () => {
     const { container } = render(
       <RendererV2

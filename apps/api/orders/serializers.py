@@ -8,6 +8,45 @@ from orders.models import Order
 from users.models import User
 
 
+def sync_invitation_selection(
+    order: Order,
+    *,
+    sync_client: bool = True,
+    sync_package: bool = True,
+    sync_theme: bool = True,
+) -> None:
+    if not order.invitation_id:
+        return
+
+    invitation = order.invitation
+    update_fields: list[str] = []
+
+    if sync_package and invitation.package_id != order.package_id:
+        invitation.package = order.package
+        update_fields.append("package")
+
+    if sync_theme and order.theme_id and invitation.theme_id != order.theme_id:
+        invitation.theme = order.theme
+        invitation.renderer_key = order.theme.renderer_key
+        invitation.renderer_version = order.theme.renderer_version
+        invitation.content_schema_version = order.theme.content_schema_version
+        update_fields.extend(
+            [
+                "theme",
+                "renderer_key",
+                "renderer_version",
+                "content_schema_version",
+            ],
+        )
+
+    if sync_client and order.client_user_id and invitation.client_user_id != order.client_user_id:
+        invitation.client_user = order.client_user
+        update_fields.append("client_user")
+
+    if update_fields:
+        invitation.save(update_fields=[*update_fields, "updated_at"])
+
+
 class OrderSerializer(serializers.ModelSerializer[Order]):
     theme_slug = serializers.SlugRelatedField(
         source="theme",
@@ -77,6 +116,7 @@ class OrderSerializer(serializers.ModelSerializer[Order]):
 
     def create(self, validated_data):
         order = super().create(validated_data)
+        sync_invitation_selection(order)
         AuditEvent.objects.create(
             actor=self.context["request"].user,
             action="order.created",
@@ -88,7 +128,14 @@ class OrderSerializer(serializers.ModelSerializer[Order]):
 
     def update(self, instance, validated_data):
         old_status = instance.status
+        sync_all = "invitation" in validated_data
         order = super().update(instance, validated_data)
+        sync_invitation_selection(
+            order,
+            sync_client=sync_all or "client_user" in validated_data,
+            sync_package=sync_all or "package" in validated_data,
+            sync_theme=sync_all or "theme" in validated_data,
+        )
         action = "order.status_changed" if old_status != order.status else "order.updated"
         AuditEvent.objects.create(
             actor=self.context["request"].user,
