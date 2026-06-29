@@ -255,10 +255,7 @@ export function ClientOperations() {
   );
 
   const selectedOrder = useMemo(
-    () =>
-      orders.find(
-        (order) => order.invitation_slug === selectedInvitation?.public_slug,
-      ) ?? orders[0],
+    () => orders.find((order) => order.invitation_slug === selectedInvitation?.public_slug),
     [orders, selectedInvitation],
   );
   const selectedInvitationLocked = isInvitationLocked(selectedInvitation);
@@ -275,13 +272,17 @@ export function ClientOperations() {
       setProfile(nextProfile.user);
       setOrders(nextOrders);
       setInvitations(nextInvitations);
-      const nextSlug = selectedSlugRef.current || nextInvitations[0]?.public_slug || "";
+      const preferredSlug = selectedSlugRef.current;
       const nextSelected = nextInvitations.find(
+        (invitation) => invitation.public_slug === preferredSlug,
+      ) ?? nextInvitations[0];
+      const nextSlug = nextSelected?.public_slug || "";
+      const nextSelectedForForm = nextInvitations.find(
         (invitation) => invitation.public_slug === nextSlug,
       );
       selectedSlugRef.current = nextSlug;
       setSelectedSlug(nextSlug);
-      setDraftForm(formFromInvitation(nextSelected));
+      setDraftForm(formFromInvitation(nextSelectedForForm));
     } catch (caught) {
       if (caught instanceof ClientFetchError && caught.isAuthError) {
         redirectToClientLogin();

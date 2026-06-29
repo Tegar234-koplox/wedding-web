@@ -9,9 +9,27 @@ class OrderAdmin(admin.ModelAdmin):
         "reference",
         "status",
         "client_name",
+        "client_user",
+        "invitation",
+        "assigned_staff",
         "client_phone",
         "total_amount",
         "updated_at",
     ]
-    list_filter = ["status", "currency"]
-    search_fields = ["reference", "client_name", "client_email", "client_phone"]
+    list_filter = ["status", "currency", "assigned_staff"]
+    search_fields = [
+        "reference",
+        "client_name",
+        "client_email",
+        "client_phone",
+        "client_user__email",
+        "invitation__public_slug",
+    ]
+    autocomplete_fields = [
+        "whatsapp_intent",
+        "package",
+        "theme",
+        "invitation",
+        "assigned_staff",
+        "client_user",
+    ]

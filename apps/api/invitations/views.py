@@ -172,6 +172,43 @@ def _set_invitation_backsound(
     return _backsound_response(invitation)
 
 
+def _transition_order_status(
+    *,
+    invitation: Invitation,
+    status: str,
+    actor,
+    action: str = "order.status_changed",
+) -> None:
+    order = getattr(invitation, "order", None)
+    if order is None or order.status == status:
+        return
+
+    old_status = order.status
+    order.status = status
+    order.save(update_fields=["status", "updated_at"])
+    AuditEvent.objects.create(
+        actor=actor,
+        action=action,
+        resource_type="order",
+        resource_reference=order.reference,
+        metadata={
+            "old_status": old_status,
+            "status": order.status,
+            "invitation": invitation.public_slug,
+        },
+    )
+
+
+def _ensure_client_can_request_changes(invitation: Invitation) -> None:
+    if invitation.approval_status in {
+        Invitation.ApprovalStatus.APPROVED_FOR_PUBLISH,
+        Invitation.ApprovalStatus.PUBLISHED,
+    }:
+        from rest_framework.exceptions import ValidationError
+
+        raise ValidationError({"invitation": "Approved invitations cannot be changed by client."})
+
+
 def _asset_from_music_payload(data) -> MediaAsset | None:
     asset_id = data.get("asset_id")
     secure_url = str(data.get("secure_url", "")).strip()
@@ -310,9 +347,15 @@ class ClientInvitationSubmitRevisionView(APIView):
         invitation = _client_owned_invitation(request.user, public_slug)
         if invitation is None:
             raise Http404
+        _ensure_client_can_request_changes(invitation)
         invitation.approval_status = Invitation.ApprovalStatus.SUBMITTED
         invitation.status = Invitation.Status.REVIEW
         invitation.save(update_fields=["approval_status", "status", "updated_at"])
+        _transition_order_status(
+            invitation=invitation,
+            status=Order.Status.REVISION,
+            actor=request.user,
+        )
         AuditEvent.objects.create(
             actor=request.user,
             action="invitation.revision_submitted",
@@ -331,8 +374,17 @@ class ClientInvitationApprovePublishView(APIView):
         invitation = _client_owned_invitation(request.user, public_slug)
         if invitation is None:
             raise Http404
+        if invitation.approval_status == Invitation.ApprovalStatus.PUBLISHED:
+            from rest_framework.exceptions import ValidationError
+
+            raise ValidationError({"invitation": "Published invitations cannot be approved again."})
         invitation.approval_status = Invitation.ApprovalStatus.APPROVED_FOR_PUBLISH
         invitation.save(update_fields=["approval_status", "updated_at"])
+        _transition_order_status(
+            invitation=invitation,
+            status=Order.Status.APPROVED,
+            actor=request.user,
+        )
         AuditEvent.objects.create(
             actor=request.user,
             action="invitation.publish_approved",
@@ -415,22 +467,25 @@ class StaffInvitationPublishView(APIView):
         invitation = Invitation.objects.filter(public_slug=public_slug).first()
         if invitation is None:
             raise Http404
+        if invitation.status == Invitation.Status.PUBLISHED:
+            return Response(
+                {"status": invitation.status, "approval_status": invitation.approval_status}
+            )
+        if invitation.approval_status != Invitation.ApprovalStatus.APPROVED_FOR_PUBLISH:
+            from rest_framework.exceptions import ValidationError
+
+            raise ValidationError(
+                {"approval_status": "Client approval is required before staff publish."}
+            )
         invitation.status = Invitation.Status.PUBLISHED
         invitation.approval_status = Invitation.ApprovalStatus.PUBLISHED
         invitation.published_at = timezone.now()
         invitation.save(update_fields=["status", "approval_status", "published_at", "updated_at"])
-        order = getattr(invitation, "order", None)
-        if order is not None and order.status != Order.Status.PUBLISHED:
-            old_status = order.status
-            order.status = Order.Status.PUBLISHED
-            order.save(update_fields=["status", "updated_at"])
-            AuditEvent.objects.create(
-                actor=request.user,
-                action="order.status_changed",
-                resource_type="order",
-                resource_reference=order.reference,
-                metadata={"old_status": old_status, "status": order.status},
-            )
+        _transition_order_status(
+            invitation=invitation,
+            status=Order.Status.PUBLISHED,
+            actor=request.user,
+        )
         AuditEvent.objects.create(
             actor=request.user,
             action="invitation.published",
