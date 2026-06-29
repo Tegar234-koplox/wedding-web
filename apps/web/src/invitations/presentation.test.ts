@@ -52,9 +52,11 @@ describe("premium presentation configuration", () => {
 
       expect(signature.overlay).not.toBeNull();
       expect(signature.corners).not.toBeNull();
-      expect(signature.coverAnimated).toBe(false);
+      expect(signature.coverAnimated).toBe(true);
+      expect(signature.contentAnimated).toBe(false);
       expect(couture.overlay?.src).toBe(signature.overlay?.src);
       expect(couture.corners).toEqual(signature.corners);
+      expect(couture.coverAnimated).toBe(true);
       expect(couture.contentAnimated).toBe(true);
       expect(signature.opacity).toBe(0.7);
       expect(couture.opacity).toBe(0.7);
@@ -177,10 +179,11 @@ describe("premium presentation configuration", () => {
       },
     );
   });
-  it("falls back invalid preview packages to Signature", () => {
+  it("falls back invalid or missing packages to Essential", () => {
     expect(resolvePackageCode("essential")).toBe("essential");
+    expect(resolvePackageCode("signature")).toBe("signature");
     expect(resolvePackageCode("couture")).toBe("couture");
-    expect(resolvePackageCode("unknown")).toBe("signature");
-    expect(resolvePackageCode(undefined)).toBe("signature");
+    expect(resolvePackageCode("unknown")).toBe("essential");
+    expect(resolvePackageCode(undefined)).toBe("essential");
   });
 });

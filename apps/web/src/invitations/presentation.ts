@@ -83,7 +83,7 @@ function premiumVisual(
   const { couture = false, ...config } = values;
   return {
     ...config,
-    coverAnimated: couture,
+    coverAnimated: true,
     contentAnimated: couture,
   };
 }
@@ -597,5 +597,8 @@ export function getPremiumVisualConfig(
 export function resolvePackageCode(
   value: string | null | undefined,
 ): PackageCode {
-  return value === "essential" || value === "couture" ? value : "signature";
+  if (value === "essential" || value === "signature" || value === "couture") {
+    return value;
+  }
+  return "essential";
 }
