@@ -23,10 +23,30 @@ class InvitationMediaInline(admin.TabularInline):
 
 @admin.register(Invitation)
 class InvitationAdmin(admin.ModelAdmin):
-    list_display = ["public_slug", "status", "theme", "is_sample", "published_at"]
-    list_filter = ["status", "is_sample", "default_locale", "renderer_key"]
-    search_fields = ["public_slug"]
-    autocomplete_fields = ["theme", "package"]
+    list_display = [
+        "public_slug",
+        "status",
+        "approval_status",
+        "theme",
+        "package",
+        "client_user",
+        "is_sample",
+        "published_at",
+    ]
+    list_filter = [
+        "status",
+        "approval_status",
+        "is_sample",
+        "default_locale",
+        "renderer_key",
+    ]
+    search_fields = [
+        "public_slug",
+        "client_user__email",
+        "client_user__username",
+        "order__reference",
+    ]
+    autocomplete_fields = ["theme", "package", "client_user"]
     inlines = [WeddingEventInline, InvitationMediaInline]
 
 

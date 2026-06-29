@@ -109,6 +109,18 @@ def test_client_endpoints_deny_anonymous_users(client):
 
 
 @pytest.mark.django_db
+def test_staff_user_cannot_use_client_data_endpoints(client):
+    staff = create_user(username="staff", email="staff@example.com", role="owner", is_staff=True)
+    client.force_login(staff)
+
+    orders_response = client.get(reverse("client-order-list"))
+    invitations_response = client.get(reverse("client-invitation-list"))
+
+    assert orders_response.status_code == 403
+    assert invitations_response.status_code == 403
+
+
+@pytest.mark.django_db
 def test_superuser_can_login_to_staff_session_endpoint_with_default_role(client):
     get_user_model().objects.create_superuser(
         username="owner",
@@ -320,6 +332,70 @@ def test_client_cannot_edit_invitation_after_publish_approval(client):
 
 
 @pytest.mark.django_db
+def test_client_submit_revision_updates_order_for_staff_queue(client):
+    client_user = create_user(username="client", email="client@example.com")
+    theme = create_theme()
+    invitation = create_invitation(theme=theme, status="draft", public_slug="revision-flow")
+    order = Order.objects.create(
+        reference="ord-revision-flow",
+        client_name="Client",
+        client_user=client_user,
+        invitation=invitation,
+        theme=theme,
+        status=Order.Status.CLIENT_REVIEW,
+    )
+    client.force_login(client_user)
+
+    response = client.post(
+        reverse(
+            "client-invitation-submit-revision",
+            kwargs={"public_slug": invitation.public_slug},
+        )
+    )
+
+    invitation.refresh_from_db()
+    order.refresh_from_db()
+    assert response.status_code == 200
+    assert invitation.status == "review"
+    assert invitation.approval_status == "submitted"
+    assert order.status == Order.Status.REVISION
+    assert AuditEvent.objects.filter(
+        action="order.status_changed",
+        resource_reference=order.reference,
+    ).exists()
+
+
+@pytest.mark.django_db
+def test_client_approve_publish_updates_order_for_staff_publish_queue(client):
+    client_user = create_user(username="client", email="client@example.com")
+    theme = create_theme()
+    invitation = create_invitation(theme=theme, status="draft", public_slug="approve-flow")
+    order = Order.objects.create(
+        reference="ord-approve-flow",
+        client_name="Client",
+        client_user=client_user,
+        invitation=invitation,
+        theme=theme,
+        status=Order.Status.CLIENT_REVIEW,
+    )
+    client.force_login(client_user)
+
+    response = client.post(
+        reverse(
+            "client-invitation-approve-publish",
+            kwargs={"public_slug": invitation.public_slug},
+        )
+    )
+
+    invitation.refresh_from_db()
+    order.refresh_from_db()
+    assert response.status_code == 200
+    assert invitation.approval_status == "approved_for_publish"
+    assert order.status == Order.Status.APPROVED
+    assert AuditEvent.objects.filter(action="invitation.publish_approved").exists()
+
+
+@pytest.mark.django_db
 def test_staff_publishes_client_approved_invitation(client):
     staff = create_user(username="editor", email="editor@example.com", role="editor", is_staff=True)
     theme = create_theme()
@@ -348,6 +424,25 @@ def test_staff_publishes_client_approved_invitation(client):
     assert order.status == Order.Status.PUBLISHED
     assert AuditEvent.objects.filter(action="order.status_changed").exists()
     assert AuditEvent.objects.filter(action="invitation.published").exists()
+
+
+@pytest.mark.django_db
+def test_staff_cannot_publish_before_client_approval(client):
+    staff = create_user(username="editor", email="editor@example.com", role="editor", is_staff=True)
+    theme = create_theme()
+    invitation = create_invitation(theme=theme, status="draft", public_slug="unapproved")
+    invitation.approval_status = "client_review"
+    invitation.save(update_fields=["approval_status", "updated_at"])
+    client.force_login(staff)
+
+    response = client.post(
+        reverse("admin-invitation-publish", kwargs={"public_slug": invitation.public_slug})
+    )
+
+    invitation.refresh_from_db()
+    assert response.status_code == 400
+    assert invitation.status == "draft"
+    assert invitation.approval_status == "client_review"
 
 
 @pytest.mark.django_db

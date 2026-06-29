@@ -23,4 +23,9 @@ class IsStaffRole(BasePermission):
 
 class IsClientOwner(BasePermission):
     def has_permission(self, request, view) -> bool:
-        return bool(getattr(request.user, "is_authenticated", False))
+        user = request.user
+        return bool(
+            getattr(user, "is_authenticated", False)
+            and getattr(user, "role", "") == "client"
+            and not getattr(user, "is_staff", False)
+        )
