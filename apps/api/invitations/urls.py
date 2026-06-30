@@ -4,6 +4,7 @@ from invitations.views import (
     ClientGuestExportView,
     ClientInvitationApprovePublishView,
     ClientInvitationDetailView,
+    ClientInvitationGuestDetailView,
     ClientInvitationGuestListView,
     ClientInvitationListView,
     ClientInvitationMusicView,
@@ -11,6 +12,7 @@ from invitations.views import (
     InvitationDetailView,
     InvitationRSVPView,
     InvitationWeatherView,
+    PublicGuestRSVPCreateView,
     StaffGuestAnonymizeView,
     StaffGuestArchiveView,
     StaffInvitationGuestListCreateView,
@@ -34,6 +36,11 @@ urlpatterns = [
         "invitations/<slug:public_slug>/rsvp",
         InvitationRSVPView.as_view(),
         name="invitation-rsvp",
+    ),
+    path(
+        "invitations/<slug:public_slug>/public-rsvp",
+        PublicGuestRSVPCreateView.as_view(),
+        name="invitation-public-rsvp-create",
     ),
     path("client/invitations", ClientInvitationListView.as_view(), name="client-invitation-list"),
     path(
@@ -60,6 +67,11 @@ urlpatterns = [
         "client/invitations/<slug:public_slug>/guests",
         ClientInvitationGuestListView.as_view(),
         name="client-guest-list",
+    ),
+    path(
+        "client/invitations/<slug:public_slug>/guests/<uuid:guest_id>",
+        ClientInvitationGuestDetailView.as_view(),
+        name="client-guest-detail",
     ),
     path(
         "client/invitations/<slug:public_slug>/music",

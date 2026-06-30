@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, EyeOff, LogOut, Music2, Plus, RefreshCw, Save } from "lucide-react";
+import { LogOut, Music2, Plus, RefreshCw, Save } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -101,21 +101,12 @@ type StaffInvitation = {
   updated_at: string;
 };
 
-type Guest = {
-  id: string;
-  display_name: string;
-  email: string;
-  phone: string;
-  party_size: number;
-  rsvp_status: string;
-  attendance_count: number;
-  wishes: string;
-  responded_at: string | null;
-  retention_expires_at: string | null;
-};
-
-type CreatedGuest = Guest & {
-  personal_token: string;
+type GuestAggregate = {
+  wedding_id: string;
+  total_invited: number;
+  total_confirmed: number;
+  total_declined: number;
+  response_rate: number;
 };
 
 type MusicAsset = {
@@ -163,16 +154,6 @@ const emptyOrderForm = {
 
 type OrderForm = typeof emptyOrderForm;
 type OrderFormField = keyof OrderForm;
-
-const emptyGuestForm = {
-  display_name: "",
-  email: "",
-  phone: "",
-  party_size: "1",
-};
-
-type GuestForm = typeof emptyGuestForm;
-type GuestFormField = keyof GuestForm;
 
 type MusicForm = {
   assetId: string;
@@ -322,7 +303,7 @@ export function AdminOperations() {
   const [orderAuditEvents, setOrderAuditEvents] = useState<AuditEvent[]>([]);
   const [pendingPublishItems, setPendingPublishItems] = useState<StaffInvitation[]>([]);
   const [publishedInvitations, setPublishedInvitations] = useState<StaffInvitation[]>([]);
-  const [staffGuests, setStaffGuests] = useState<Guest[]>([]);
+  const [guestAggregate, setGuestAggregate] = useState<GuestAggregate | null>(null);
   const [staffMusic, setStaffMusic] = useState<InvitationMusic | null>(null);
   const [staffUsers, setStaffUsers] = useState<StaffUser[]>([]);
   const [themes, setThemes] = useState<ThemeOption[]>([]);
@@ -332,18 +313,15 @@ export function AdminOperations() {
   const [draftStatus, setDraftStatus] = useState<string>("");
   const [draftStaff, setDraftStaff] = useState<string>("");
   const [orderForm, setOrderForm] = useState(emptyOrderForm);
-  const [guestForm, setGuestForm] = useState(emptyGuestForm);
   const [musicForm, setMusicForm] = useState<MusicForm>({
     assetId: "",
     secureUrl: "",
     title: "",
   });
-  const [lastGuestLink, setLastGuestLink] = useState("");
   const [formError, setFormError] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [loadingInvitationOps, setLoadingInvitationOps] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [creatingGuest, setCreatingGuest] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savingMusic, setSavingMusic] = useState(false);
   const [error, setError] = useState<string>("");
@@ -368,11 +346,11 @@ export function AdminOperations() {
     setLoadingInvitationOps(true);
     setError("");
     try {
-      const [nextGuests, nextMusic] = await Promise.all([
-        staffFetch<Guest[]>(`/admin/invitations/${publicSlug}/guests`),
+      const [nextGuestAggregate, nextMusic] = await Promise.all([
+        staffFetch<GuestAggregate>(`/admin/invitations/${publicSlug}/guests`),
         staffFetch<InvitationMusic>(`/admin/invitations/${publicSlug}/music`),
       ]);
-      setStaffGuests(nextGuests);
+      setGuestAggregate(nextGuestAggregate);
       setStaffMusic(nextMusic);
       setMusicForm({
         assetId: nextMusic.current?.asset.id ?? "",
@@ -395,9 +373,8 @@ export function AdminOperations() {
     setDraftStatus(order.status);
     setDraftStaff(order.assigned_staff_username ?? "");
     if (!order.invitation_slug) {
-      setStaffGuests([]);
+      setGuestAggregate(null);
       setStaffMusic(null);
-      setLastGuestLink("");
     }
     void loadOrderAudit(order.reference);
   }
@@ -448,16 +425,14 @@ export function AdminOperations() {
         setDraftStatus(nextSelected.status);
         setDraftStaff(nextSelected.assigned_staff_username ?? "");
         if (!nextSelected.invitation_slug) {
-          setStaffGuests([]);
+          setGuestAggregate(null);
           setStaffMusic(null);
-          setLastGuestLink("");
         }
         await loadOrderAudit(nextSelected.reference);
       } else {
         setOrderAuditEvents([]);
-        setStaffGuests([]);
+        setGuestAggregate(null);
         setStaffMusic(null);
-        setLastGuestLink("");
       }
     } catch (caught) {
       setError(
@@ -481,7 +456,7 @@ export function AdminOperations() {
       setLeads([]);
       setAuditEvents([]);
       setOrderAuditEvents([]);
-      setStaffGuests([]);
+      setGuestAggregate(null);
       setStaffMusic(null);
       setSelectedReference("");
     } catch (caught) {
@@ -569,15 +544,6 @@ export function AdminOperations() {
     }
   }
 
-  async function copyText(value: string) {
-    setError("");
-    try {
-      await navigator.clipboard.writeText(value);
-    } catch {
-      setError("Teks gagal disalin. Copy manual dari field yang tersedia.");
-    }
-  }
-
   async function createOrder() {
     const validationMessages = validateOrderForm(orderForm);
     if (validationMessages.length > 0) {
@@ -623,72 +589,6 @@ export function AdminOperations() {
   function updateOrderForm(field: OrderFormField, value: string) {
     setFormError("");
     setOrderForm((current) => ({ ...current, [field]: value }));
-  }
-
-  function updateGuestForm(field: GuestFormField, value: string) {
-    setFormError("");
-    setGuestForm((current) => ({ ...current, [field]: value }));
-  }
-
-  async function createGuest() {
-    if (!selectedOrder?.invitation_slug) {
-      setError("Order belum terhubung ke invitation.");
-      return;
-    }
-    if (!guestForm.display_name.trim()) {
-      setFormError("Nama tamu wajib diisi.");
-      return;
-    }
-    setCreatingGuest(true);
-    setFormError("");
-    setError("");
-    try {
-      const created = await staffFetch<CreatedGuest>(
-        `/admin/invitations/${selectedOrder.invitation_slug}/guests`,
-        {
-          body: JSON.stringify({
-            display_name: guestForm.display_name.trim(),
-            email: guestForm.email.trim(),
-            party_size: Number(guestForm.party_size || 1),
-            phone: guestForm.phone.trim(),
-          }),
-          method: "POST",
-        },
-      );
-      setStaffGuests((current) => [created, ...current]);
-      setGuestForm(emptyGuestForm);
-      setLastGuestLink(
-        `${env.NEXT_PUBLIC_SITE_URL}/id/i/${selectedOrder.invitation_slug}?guest=${created.personal_token}`,
-      );
-      const nextAuditEvents = await staffFetch<AuditEvent[]>("/admin/audit-events");
-      setAuditEvents(nextAuditEvents);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Guest gagal dibuat.");
-    } finally {
-      setCreatingGuest(false);
-    }
-  }
-
-  async function runGuestPrivacyAction(guestId: string, action: "archive" | "anonymize") {
-    if (!selectedOrder?.invitation_slug) {
-      return;
-    }
-    setSaving(true);
-    setError("");
-    try {
-      await staffFetch(`/admin/guests/${guestId}/${action}`, { method: "POST" });
-      await loadStaffInvitationOps(selectedOrder.invitation_slug);
-      const nextAuditEvents = await staffFetch<AuditEvent[]>("/admin/audit-events");
-      setAuditEvents(nextAuditEvents);
-    } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : "Aksi privacy guest gagal disimpan.",
-      );
-    } finally {
-      setSaving(false);
-    }
   }
 
   async function saveStaffMusicSelection() {
@@ -1151,118 +1051,43 @@ export function AdminOperations() {
           <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
             <div>
               <p className="text-[0.65rem] uppercase tracking-[0.2em] text-[var(--color-gold)]">
-                Guest management
+                RSVP aggregate
               </p>
-              <h2 className="mt-3 font-serif text-3xl">RSVP tamu.</h2>
+              <h2 className="mt-3 font-serif text-3xl">Ringkasan tamu.</h2>
             </div>
             <span className="text-xs uppercase tracking-[0.16em] text-white/45">
-              {staffGuests.length} active
+              aggregate only
             </span>
           </div>
           {selectedOrder?.invitation_slug ? (
             <div className="space-y-5">
-              <div className="grid gap-3 md:grid-cols-2">
+              <div className="grid gap-px bg-white/12 md:grid-cols-2">
                 {[
-                  ["display_name", "Nama tamu", "Keluarga Budi"],
-                  ["email", "Email", "guest@example.com"],
-                  ["phone", "Phone", "+62812"],
-                  ["party_size", "Party size", "2"],
-                ].map(([field, label, placeholder]) => (
-                  <label className="grid gap-2" key={field}>
-                    <span className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">
+                  ["Total invited", guestAggregate?.total_invited ?? 0],
+                  ["Confirmed", guestAggregate?.total_confirmed ?? 0],
+                  ["Declined", guestAggregate?.total_declined ?? 0],
+                  [
+                    "Response rate",
+                    `${Math.round(guestAggregate?.response_rate ?? 0)}%`,
+                  ],
+                ].map(([label, value]) => (
+                  <article className="bg-black/20 p-4" key={label}>
+                    <p className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">
                       {label}
-                    </span>
-                    <input
-                      className="min-h-11 border border-white/15 bg-black/30 px-3 text-sm outline-none transition focus:border-[var(--color-gold)]"
-                      min={field === "party_size" ? 1 : undefined}
-                      onChange={(event) =>
-                        updateGuestForm(field as GuestFormField, event.target.value)
-                      }
-                      placeholder={placeholder}
-                      type={field === "party_size" ? "number" : "text"}
-                      value={guestForm[field as GuestFormField]}
-                    />
-                  </label>
-                ))}
-                <button
-                  className="inline-flex min-h-11 items-center justify-center gap-3 bg-[var(--color-gold)] px-4 text-[0.65rem] font-bold uppercase tracking-[0.16em] text-[#17140d] transition hover:brightness-110 disabled:opacity-50 md:col-span-2"
-                  disabled={creatingGuest || !guestForm.display_name.trim()}
-                  onClick={() => void createGuest()}
-                  type="button"
-                >
-                  <Plus size={15} />
-                  {creatingGuest ? "Creating guest" : "Create guest link"}
-                </button>
-              </div>
-              {lastGuestLink ? (
-                <div className="border border-[#d5ad55]/40 bg-[#d5ad55]/10 p-4">
-                  <p className="text-[0.62rem] uppercase tracking-[0.16em] text-[var(--color-gold)]">
-                    Personal link baru
-                  </p>
-                  <p className="mt-2 break-all text-sm leading-6 text-[#f4ddb0]">
-                    {lastGuestLink}
-                  </p>
-                  <button
-                    className="mt-3 min-h-10 border border-[#d5ad55]/40 px-4 text-[0.62rem] font-bold uppercase tracking-[0.14em] text-[#f4ddb0] transition hover:bg-[#d5ad55]/10"
-                    onClick={() => void copyText(lastGuestLink)}
-                    type="button"
-                  >
-                    Copy personal link
-                  </button>
-                </div>
-              ) : null}
-              <div className="grid gap-px bg-white/12">
-                {staffGuests.map((guest) => (
-                  <article className="bg-black/20 p-4" key={guest.id}>
-                    <div className="grid gap-3 md:grid-cols-[1fr_auto]">
-                      <div>
-                        <p className="font-semibold">{guest.display_name}</p>
-                        <p className="mt-2 text-sm text-white/55">
-                          {guest.email || guest.phone || "Kontak belum diisi"}
-                        </p>
-                        <p className="mt-2 text-xs uppercase tracking-[0.13em] text-white/40">
-                          {guest.rsvp_status} / {guest.attendance_count} dari{" "}
-                          {guest.party_size}
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          className="inline-flex min-h-9 items-center gap-2 border border-white/15 px-3 text-[0.6rem] font-semibold uppercase tracking-[0.14em] text-white/65 transition hover:border-[var(--color-gold)] hover:text-[var(--color-gold)] disabled:opacity-50"
-                          disabled={saving}
-                          onClick={() =>
-                            void runGuestPrivacyAction(guest.id, "archive")
-                          }
-                          type="button"
-                        >
-                          <Archive size={13} />
-                          Archive
-                        </button>
-                        <button
-                          className="inline-flex min-h-9 items-center gap-2 border border-white/15 px-3 text-[0.6rem] font-semibold uppercase tracking-[0.14em] text-white/65 transition hover:border-[var(--color-gold)] hover:text-[var(--color-gold)] disabled:opacity-50"
-                          disabled={saving}
-                          onClick={() =>
-                            void runGuestPrivacyAction(guest.id, "anonymize")
-                          }
-                          type="button"
-                        >
-                          <EyeOff size={13} />
-                          Anonymize
-                        </button>
-                      </div>
-                    </div>
+                    </p>
+                    <p className="mt-4 font-serif text-3xl">{value}</p>
                   </article>
                 ))}
                 {loadingInvitationOps ? (
-                  <article className="bg-black/20 p-4 text-sm text-white/45">
-                    Memuat RSVP tamu...
-                  </article>
-                ) : null}
-                {!loadingInvitationOps && staffGuests.length === 0 ? (
-                  <article className="bg-black/20 p-4 text-sm text-white/45">
-                    Belum ada guest aktif untuk invitation ini.
+                  <article className="bg-black/20 p-4 text-sm text-white/45 md:col-span-2">
+                    Memuat ringkasan RSVP...
                   </article>
                 ) : null}
               </div>
+              <p className="text-sm leading-6 text-white/45">
+                Staff hanya melihat angka agregat. Nama, kontak, ucapan, dan detail
+                tamu dikelola oleh client atau public RSVP flow.
+              </p>
             </div>
           ) : (
             <p className="text-sm leading-6 text-white/45">

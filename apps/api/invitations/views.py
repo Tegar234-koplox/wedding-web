@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 
 from django.contrib.auth.hashers import check_password, make_password
 from django.core.exceptions import ObjectDoesNotExist
+from django.db import connection
 from django.db.models import Q
 from django.http import Http404, HttpResponse
 from django.utils import timezone
@@ -24,8 +25,10 @@ from invitations.selectors import public_invitations
 from invitations.serializers import (
     BacksoundAssetSerializer,
     ClientInvitationSerializer,
+    GuestAggregateSerializer,
     GuestSerializer,
     InvitationBacksoundSerializer,
+    PublicGuestRSVPCreateSerializer,
     PublicInvitationSerializer,
     PublicRSVPSerializer,
     StaffInvitationOperationSerializer,
@@ -87,6 +90,39 @@ def _rsvp_retention_date(invitation: Invitation):
 
 def _active_guests(invitation: Invitation):
     return invitation.guests.filter(archived_at__isnull=True, anonymized_at__isnull=True)
+
+
+def _guest_aggregate_rows(invitation: Invitation | None = None) -> list[dict[str, object]]:
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT wedding_id, total_invited, total_confirmed, total_declined
+            FROM guest_aggregates_per_wedding
+            """
+        )
+        rows = cursor.fetchall()
+
+    wanted_id = invitation.id.hex if invitation else ""
+    aggregates: list[dict[str, object]] = []
+    for wedding_id, total_invited, total_confirmed, total_declined in rows:
+        normalized_wedding_id = str(wedding_id).replace("-", "")
+        if wanted_id and normalized_wedding_id != wanted_id:
+            continue
+        total = int(total_invited or 0)
+        confirmed = int(total_confirmed or 0)
+        declined = int(total_declined or 0)
+        aggregates.append(
+            {
+                "wedding_id": str(invitation.id) if invitation else str(wedding_id),
+                "total_invited": total,
+                "total_confirmed": confirmed,
+                "total_declined": declined,
+                "response_rate": round(((confirmed + declined) / total) * 100, 2)
+                if total
+                else 0,
+            }
+        )
+    return aggregates
 
 
 def _invitation_client_recipient(invitation: Invitation):
@@ -347,6 +383,39 @@ class InvitationRSVPView(APIView):
         )
 
 
+class PublicGuestRSVPCreateView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request, public_slug: str) -> Response:
+        invitation = public_invitations().filter(public_slug=public_slug).first()
+        if invitation is None:
+            raise Http404
+        serializer = PublicGuestRSVPCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        contact = serializer.validated_data.get("contact", "")
+        guest = Guest.objects.create(
+            invitation=invitation,
+            access_token_hash=make_password(get_random_string(40)),
+            display_name=serializer.validated_data["name"],
+            email=contact if "@" in contact else "",
+            phone="" if "@" in contact else contact,
+            party_size=max(serializer.validated_data["attendance_count"], 1),
+            rsvp_status=serializer.validated_data["rsvp_status"],
+            attendance_count=serializer.validated_data["attendance_count"],
+            wishes=serializer.validated_data.get("message", ""),
+            responded_at=timezone.now(),
+            retention_expires_at=_rsvp_retention_date(invitation),
+        )
+        AnalyticsEvent.objects.create(
+            event_type=AnalyticsEvent.EventType.RSVP_SUBMITTED,
+            resource_type="invitation",
+            resource_reference=invitation.public_slug,
+            invitation=invitation,
+            locale=invitation.default_locale,
+        )
+        return Response({"status": guest.rsvp_status}, status=201)
+
+
 class ClientInvitationListView(ListAPIView):
     permission_classes = [IsClientOwner]
     serializer_class = ClientInvitationSerializer
@@ -433,6 +502,77 @@ class ClientInvitationGuestListView(APIView):
         if invitation is None:
             raise Http404
         return Response(GuestSerializer(_active_guests(invitation), many=True).data)
+
+    def post(self, request, public_slug: str) -> Response:
+        invitation = _client_owned_invitation(request.user, public_slug)
+        if invitation is None:
+            raise Http404
+        serializer = GuestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        personal_token = get_random_string(40)
+        guest = Guest.objects.create(
+            invitation=invitation,
+            access_token_hash=make_password(personal_token),
+            display_name=serializer.validated_data["display_name"],
+            email=serializer.validated_data.get("email", ""),
+            phone=serializer.validated_data.get("phone", ""),
+            party_size=serializer.validated_data.get("party_size", 1),
+        )
+        AuditEvent.objects.create(
+            actor=request.user,
+            action="guest.client_created",
+            resource_type="guest",
+            resource_reference=str(guest.id),
+            metadata={"invitation": invitation.public_slug},
+        )
+        return Response(
+            {**GuestSerializer(guest).data, "personal_token": personal_token},
+            status=201,
+        )
+
+
+class ClientInvitationGuestDetailView(APIView):
+    permission_classes = [IsClientOwner]
+
+    def _get_guest(self, request, public_slug: str, guest_id: str) -> Guest:
+        invitation = _client_owned_invitation(request.user, public_slug)
+        if invitation is None:
+            raise Http404
+        guest = _active_guests(invitation).filter(id=guest_id).first()
+        if guest is None:
+            raise Http404
+        return guest
+
+    def patch(self, request, public_slug: str, guest_id: str) -> Response:
+        guest = self._get_guest(request, public_slug, guest_id)
+        serializer = GuestSerializer(guest, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        guest.display_name = serializer.validated_data.get("display_name", guest.display_name)
+        guest.email = serializer.validated_data.get("email", guest.email)
+        guest.phone = serializer.validated_data.get("phone", guest.phone)
+        guest.party_size = serializer.validated_data.get("party_size", guest.party_size)
+        guest.save(update_fields=["display_name", "email", "phone", "party_size", "updated_at"])
+        AuditEvent.objects.create(
+            actor=request.user,
+            action="guest.client_updated",
+            resource_type="guest",
+            resource_reference=str(guest.id),
+            metadata={"invitation": public_slug},
+        )
+        return Response(GuestSerializer(guest).data)
+
+    def delete(self, request, public_slug: str, guest_id: str) -> Response:
+        guest = self._get_guest(request, public_slug, guest_id)
+        guest.archived_at = timezone.now()
+        guest.save(update_fields=["archived_at", "updated_at"])
+        AuditEvent.objects.create(
+            actor=request.user,
+            action="guest.client_archived",
+            resource_type="guest",
+            resource_reference=str(guest.id),
+            metadata={"invitation": public_slug},
+        )
+        return Response(status=204)
 
 
 class ClientInvitationMusicView(APIView):
@@ -539,42 +679,23 @@ class StaffInvitationGuestListCreateView(APIView):
         invitation = Invitation.objects.filter(public_slug=public_slug).first()
         if invitation is None:
             raise Http404
-        return Response(GuestSerializer(_active_guests(invitation), many=True).data)
+        aggregate = _guest_aggregate_rows(invitation)
+        if not aggregate:
+            aggregate = [
+                {
+                    "wedding_id": str(invitation.id),
+                    "total_invited": 0,
+                    "total_confirmed": 0,
+                    "total_declined": 0,
+                    "response_rate": 0,
+                }
+            ]
+        return Response(GuestAggregateSerializer(aggregate[0]).data)
 
     def post(self, request, public_slug: str) -> Response:
-        invitation = Invitation.objects.filter(public_slug=public_slug).first()
-        if invitation is None:
-            raise Http404
-        serializer = GuestSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        personal_token = get_random_string(40)
-        guest = Guest.objects.create(
-            invitation=invitation,
-            access_token_hash=make_password(personal_token),
-            display_name=serializer.validated_data["display_name"],
-            email=serializer.validated_data.get("email", ""),
-            phone=serializer.validated_data.get("phone", ""),
-            party_size=serializer.validated_data.get("party_size", 1),
-        )
-        AuditEvent.objects.create(
-            actor=request.user,
-            action="guest.created",
-            resource_type="guest",
-            resource_reference=str(guest.id),
-            metadata={"invitation": invitation.public_slug},
-        )
-        enqueue_client_notification(
-            recipient=_invitation_client_recipient(invitation),
-            event_type="guest.created",
-            payload={"invitation": invitation.public_slug, "guest_id": str(guest.id)},
-        )
-        return Response(
-            {
-                **GuestSerializer(guest).data,
-                "personal_token": personal_token,
-            },
-            status=201,
-        )
+        from rest_framework.exceptions import PermissionDenied
+
+        raise PermissionDenied("Staff can only access guest aggregates.")
 
 
 class StaffInvitationMusicView(APIView):
@@ -630,53 +751,15 @@ class StaffGuestAnonymizeView(APIView):
     permission_classes = [IsStaffRole]
 
     def post(self, request, guest_id: str) -> Response:
-        guest = Guest.objects.filter(id=guest_id).first()
-        if guest is None:
-            raise Http404
-        guest.anonymize()
-        guest.save(
-            update_fields=[
-                "display_name",
-                "email",
-                "phone",
-                "wishes",
-                "metadata",
-                "anonymized_at",
-                "updated_at",
-            ]
-        )
-        AuditEvent.objects.create(
-            actor=request.user,
-            action="guest.anonymized",
-            resource_type="guest",
-            resource_reference=str(guest.id),
-        )
-        enqueue_client_notification(
-            recipient=_invitation_client_recipient(guest.invitation),
-            event_type="guest.anonymized",
-            payload={"invitation": guest.invitation.public_slug, "guest_id": str(guest.id)},
-        )
-        return Response({"status": "anonymized"})
+        from rest_framework.exceptions import PermissionDenied
+
+        raise PermissionDenied("Staff can only access guest aggregates.")
 
 
 class StaffGuestArchiveView(APIView):
     permission_classes = [IsStaffRole]
 
     def post(self, request, guest_id: str) -> Response:
-        guest = Guest.objects.filter(id=guest_id).first()
-        if guest is None:
-            raise Http404
-        guest.archived_at = timezone.now()
-        guest.save(update_fields=["archived_at", "updated_at"])
-        AuditEvent.objects.create(
-            actor=request.user,
-            action="guest.archived",
-            resource_type="guest",
-            resource_reference=str(guest.id),
-        )
-        enqueue_client_notification(
-            recipient=_invitation_client_recipient(guest.invitation),
-            event_type="guest.archived",
-            payload={"invitation": guest.invitation.public_slug, "guest_id": str(guest.id)},
-        )
-        return Response({"status": "archived"})
+        from rest_framework.exceptions import PermissionDenied
+
+        raise PermissionDenied("Staff can only access guest aggregates.")
