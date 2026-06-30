@@ -254,6 +254,27 @@ class PublicRSVPSerializer(serializers.Serializer):
         return attrs
 
 
+class PublicGuestRSVPCreateSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=120)
+    contact = serializers.CharField(max_length=120, required=False, allow_blank=True)
+    rsvp_status = serializers.ChoiceField(choices=Guest.RSVPStatus.choices)
+    attendance_count = serializers.IntegerField(min_value=0)
+    message = serializers.CharField(required=False, allow_blank=True, max_length=2000)
+
+    def validate(self, attrs):
+        if attrs["rsvp_status"] == Guest.RSVPStatus.DECLINED and attrs["attendance_count"] != 0:
+            raise serializers.ValidationError({"attendance_count": "Declined RSVP must use 0."})
+        return attrs
+
+
+class GuestAggregateSerializer(serializers.Serializer):
+    wedding_id = serializers.CharField()
+    total_invited = serializers.IntegerField()
+    total_confirmed = serializers.IntegerField()
+    total_declined = serializers.IntegerField()
+    response_rate = serializers.FloatField()
+
+
 class BacksoundAssetSerializer(serializers.ModelSerializer[MediaAsset]):
     class Meta:
         model = MediaAsset

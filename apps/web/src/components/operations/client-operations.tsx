@@ -5,9 +5,13 @@ import {
   Download,
   LogOut,
   Music2,
+  Pencil,
+  Plus,
   RefreshCw,
   Save,
   Send,
+  Trash2,
+  X,
 } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
@@ -109,6 +113,32 @@ type MusicForm = {
   title: string;
 };
 
+const emptyGuestForm = {
+  display_name: "",
+  email: "",
+  party_size: "1",
+  phone: "",
+};
+
+type GuestForm = typeof emptyGuestForm;
+type GuestFormField = keyof GuestForm;
+
+type CreatedGuest = Guest & {
+  personal_token: string;
+};
+
+const guestFormFields: Array<{
+  field: GuestFormField;
+  label: string;
+  placeholder: string;
+  type?: "email" | "number" | "tel" | "text";
+}> = [
+  { field: "display_name", label: "Nama tamu", placeholder: "Keluarga Budi" },
+  { field: "email", label: "Email", placeholder: "guest@example.com", type: "email" },
+  { field: "phone", label: "Phone", placeholder: "+62812", type: "tel" },
+  { field: "party_size", label: "Party size", placeholder: "2", type: "number" },
+];
+
 const clientLoginPath = "/client/login";
 const clientGateCookie = "niskala_client_gate";
 
@@ -202,6 +232,10 @@ async function clientFetch<T>(path: string, init?: RequestInit): Promise<T> {
     );
   }
 
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
   return response.json() as Promise<T>;
 }
 
@@ -234,6 +268,9 @@ export function ClientOperations() {
   const selectedSlugRef = useRef("");
   const [draftForm, setDraftForm] = useState<DraftForm>(formFromInvitation(undefined));
   const [guests, setGuests] = useState<Guest[]>([]);
+  const [guestForm, setGuestForm] = useState<GuestForm>(emptyGuestForm);
+  const [editingGuestId, setEditingGuestId] = useState("");
+  const [lastGuestLink, setLastGuestLink] = useState("");
   const [music, setMusic] = useState<InvitationMusic | null>(null);
   const [musicForm, setMusicForm] = useState<MusicForm>({
     assetId: "",
@@ -244,6 +281,7 @@ export function ClientOperations() {
   const [loadingInvitationOps, setLoadingInvitationOps] = useState(false);
   const [savingAction, setSavingAction] = useState("");
   const [savingDraft, setSavingDraft] = useState(false);
+  const [savingGuest, setSavingGuest] = useState(false);
   const [savingMusic, setSavingMusic] = useState(false);
   const [error, setError] = useState("");
 
@@ -384,6 +422,107 @@ export function ClientOperations() {
       URL.revokeObjectURL(href);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Export CSV gagal.");
+    }
+  }
+
+  async function copyText(value: string) {
+    setError("");
+    try {
+      await navigator.clipboard.writeText(value);
+    } catch {
+      setError("Link gagal disalin. Copy manual dari field yang tersedia.");
+    }
+  }
+
+  function resetGuestForm() {
+    setGuestForm(emptyGuestForm);
+    setEditingGuestId("");
+  }
+
+  function updateGuestForm(field: GuestFormField, value: string) {
+    setError("");
+    setGuestForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function editGuest(guest: Guest) {
+    setEditingGuestId(guest.id);
+    setLastGuestLink("");
+    setGuestForm({
+      display_name: guest.display_name,
+      email: guest.email,
+      party_size: String(guest.party_size || 1),
+      phone: guest.phone,
+    });
+  }
+
+  async function saveGuest() {
+    if (!selectedInvitation) {
+      return;
+    }
+    if (!guestForm.display_name.trim()) {
+      setError("Nama tamu wajib diisi.");
+      return;
+    }
+    setSavingGuest(true);
+    setError("");
+    try {
+      const payload = {
+        display_name: guestForm.display_name.trim(),
+        email: guestForm.email.trim(),
+        party_size: Number(guestForm.party_size || 1),
+        phone: guestForm.phone.trim(),
+      };
+      if (editingGuestId) {
+        const updated = await clientFetch<Guest>(
+          `/client/invitations/${selectedInvitation.public_slug}/guests/${editingGuestId}`,
+          {
+            body: JSON.stringify(payload),
+            method: "PATCH",
+          },
+        );
+        setGuests((current) =>
+          current.map((guest) => (guest.id === updated.id ? updated : guest)),
+        );
+      } else {
+        const created = await clientFetch<CreatedGuest>(
+          `/client/invitations/${selectedInvitation.public_slug}/guests`,
+          {
+            body: JSON.stringify(payload),
+            method: "POST",
+          },
+        );
+        setGuests((current) => [created, ...current]);
+        setLastGuestLink(
+          `${env.NEXT_PUBLIC_SITE_URL}/${selectedInvitation.default_locale}/i/${selectedInvitation.public_slug}?guest=${created.personal_token}`,
+        );
+      }
+      resetGuestForm();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Guest gagal disimpan.");
+    } finally {
+      setSavingGuest(false);
+    }
+  }
+
+  async function deleteGuest(guestId: string) {
+    if (!selectedInvitation) {
+      return;
+    }
+    setSavingGuest(true);
+    setError("");
+    try {
+      await clientFetch(
+        `/client/invitations/${selectedInvitation.public_slug}/guests/${guestId}`,
+        { method: "DELETE" },
+      );
+      setGuests((current) => current.filter((guest) => guest.id !== guestId));
+      if (editingGuestId === guestId) {
+        resetGuestForm();
+      }
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Guest gagal dihapus.");
+    } finally {
+      setSavingGuest(false);
     }
   }
 
@@ -601,6 +740,70 @@ export function ClientOperations() {
               </button>
             ) : null}
           </div>
+          {selectedInvitation ? (
+            <div className="mb-5 grid gap-4 border border-white/10 bg-black/20 p-4">
+              <div className="grid gap-3 md:grid-cols-2">
+                {guestFormFields.map(({ field, label, placeholder, type }) => (
+                  <label className="grid gap-2" key={field}>
+                    <span className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">
+                      {label}
+                    </span>
+                    <input
+                      className="min-h-11 border border-white/15 bg-black/30 px-3 text-sm outline-none transition focus:border-[var(--color-gold)]"
+                      min={field === "party_size" ? 1 : undefined}
+                      onChange={(event) => updateGuestForm(field, event.target.value)}
+                      placeholder={placeholder}
+                      type={type ?? "text"}
+                      value={guestForm[field]}
+                    />
+                  </label>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  className="inline-flex min-h-11 flex-1 items-center justify-center gap-3 bg-[var(--color-gold)] px-4 text-[0.65rem] font-bold uppercase tracking-[0.16em] text-[#17140d] transition hover:brightness-110 disabled:opacity-50"
+                  disabled={savingGuest || !guestForm.display_name.trim()}
+                  onClick={() => void saveGuest()}
+                  type="button"
+                >
+                  {editingGuestId ? <Save size={15} /> : <Plus size={15} />}
+                  {savingGuest
+                    ? "Saving guest"
+                    : editingGuestId
+                      ? "Save guest"
+                      : "Create guest link"}
+                </button>
+                {editingGuestId ? (
+                  <button
+                    className="inline-flex min-h-11 items-center justify-center gap-3 border border-white/15 px-4 text-[0.65rem] font-bold uppercase tracking-[0.16em] text-white/70 transition hover:border-[var(--color-gold)] hover:text-[var(--color-gold)]"
+                    disabled={savingGuest}
+                    onClick={resetGuestForm}
+                    type="button"
+                  >
+                    <X size={15} />
+                    Cancel
+                  </button>
+                ) : null}
+              </div>
+              {lastGuestLink ? (
+                <div className="border border-[#d5ad55]/40 bg-[#d5ad55]/10 p-4">
+                  <p className="text-[0.62rem] uppercase tracking-[0.16em] text-[var(--color-gold)]">
+                    Personal RSVP link
+                  </p>
+                  <p className="mt-2 break-all text-sm leading-6 text-[#f4ddb0]">
+                    {lastGuestLink}
+                  </p>
+                  <button
+                    className="mt-3 min-h-10 border border-[#d5ad55]/40 px-4 text-[0.62rem] font-bold uppercase tracking-[0.14em] text-[#f4ddb0] transition hover:bg-[#d5ad55]/10"
+                    onClick={() => void copyText(lastGuestLink)}
+                    type="button"
+                  >
+                    Copy link
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           <div className="grid gap-px bg-white/12">
             {guests.map((guest) => (
               <article
@@ -623,6 +826,26 @@ export function ClientOperations() {
                   <p className="mt-2">
                     {guest.attendance_count}/{guest.party_size} hadir
                   </p>
+                  <div className="mt-4 flex flex-wrap gap-2 md:justify-end">
+                    <button
+                      className="inline-flex min-h-9 items-center gap-2 border border-white/15 px-3 text-[0.6rem] font-semibold uppercase tracking-[0.14em] text-white/65 transition hover:border-[var(--color-gold)] hover:text-[var(--color-gold)] disabled:opacity-50"
+                      disabled={savingGuest}
+                      onClick={() => editGuest(guest)}
+                      type="button"
+                    >
+                      <Pencil size={13} />
+                      Edit
+                    </button>
+                    <button
+                      className="inline-flex min-h-9 items-center gap-2 border border-white/15 px-3 text-[0.6rem] font-semibold uppercase tracking-[0.14em] text-white/65 transition hover:border-[var(--color-gold)] hover:text-[var(--color-gold)] disabled:opacity-50"
+                      disabled={savingGuest}
+                      onClick={() => void deleteGuest(guest.id)}
+                      type="button"
+                    >
+                      <Trash2 size={13} />
+                      Delete
+                    </button>
+                  </div>
                 </div>
               </article>
             ))}

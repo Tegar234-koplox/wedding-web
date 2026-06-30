@@ -141,17 +141,16 @@ def test_client_cannot_query_other_clients_guest_list(client):
 def test_postgres_access_sql_keeps_staff_off_guest_rows():
     migration = importlib.import_module("tickets.migrations.0002_access_foundation_sql")
 
-    assert "guest_aggregates_per_wedding" in migration.FORWARD_SQL
+    assert "guest_aggregates_per_wedding" in migration.GUEST_AGGREGATE_VIEW_SQL
     assert "staff_select_guests" not in migration.FORWARD_SQL
     staff_guest_policy = (
         "ON invitations_guest\nFOR SELECT\nUSING (app.current_user_role() = 'staff')"
     )
     assert staff_guest_policy not in migration.FORWARD_SQL
     assert "GRANT SELECT ON guest_aggregates_per_wedding TO staff" in migration.FORWARD_SQL
-    view_sql = migration.FORWARD_SQL.split("CREATE OR REPLACE VIEW guest_aggregates_per_wedding")[1]
-    assert "display_name" not in view_sql
-    assert "email" not in view_sql
-    assert "phone" not in view_sql
+    assert "display_name" not in migration.GUEST_AGGREGATE_VIEW_SQL
+    assert "email" not in migration.GUEST_AGGREGATE_VIEW_SQL
+    assert "phone" not in migration.GUEST_AGGREGATE_VIEW_SQL
 
 
 @pytest.mark.django_db
@@ -733,6 +732,30 @@ def test_public_rsvp_requires_personal_token_and_records_event(client):
 
 
 @pytest.mark.django_db
+def test_public_guest_rsvp_create_is_write_only(client):
+    theme = create_theme()
+    invitation = create_invitation(theme=theme, public_slug="public-write-rsvp")
+
+    response = client.post(
+        reverse("invitation-public-rsvp-create", kwargs={"public_slug": invitation.public_slug}),
+        {
+            "name": "Tamu Publik",
+            "contact": "guest@example.com",
+            "rsvp_status": Guest.RSVPStatus.ACCEPTED,
+            "attendance_count": 2,
+            "message": "Selamat menempuh hidup baru",
+        },
+        content_type="application/json",
+    )
+
+    assert response.status_code == 201
+    assert response.json() == {"status": Guest.RSVPStatus.ACCEPTED}
+    assert Guest.objects.filter(invitation=invitation, display_name="Tamu Publik").exists()
+    assert "guest@example.com" not in response.content.decode()
+    assert str(invitation.guests.latest("created_at").id) not in response.content.decode()
+
+
+@pytest.mark.django_db
 def test_client_guest_export_excludes_anonymized_records(client):
     client_user = create_user(username="client", email="client@example.com")
     theme = create_theme()
@@ -793,17 +816,17 @@ def test_client_guest_list_and_export_accept_order_owned_invitation(client):
 
 
 @pytest.mark.django_db
-def test_staff_creates_guest_and_client_can_list_owned_guest(client):
+def test_client_manages_guests_and_staff_sees_only_aggregate(client):
     staff = create_user(username="staff", email="staff@example.com", role="staff", is_staff=True)
     client_user = create_user(username="client", email="client@example.com")
     theme = create_theme()
     invitation = create_invitation(theme=theme, public_slug="guest-list")
     invitation.client_user = client_user
     invitation.save(update_fields=["client_user", "updated_at"])
-    client.force_login(staff)
+    client.force_login(client_user)
 
     create_response = client.post(
-        reverse("admin-invitation-guest-list", kwargs={"public_slug": invitation.public_slug}),
+        reverse("client-guest-list", kwargs={"public_slug": invitation.public_slug}),
         {
             "display_name": "Budi Family",
             "email": "budi@example.com",
@@ -815,23 +838,54 @@ def test_staff_creates_guest_and_client_can_list_owned_guest(client):
 
     assert create_response.status_code == 201
     assert create_response.json()["personal_token"]
-    assert Guest.objects.filter(invitation=invitation, display_name="Budi Family").exists()
-
-    client.force_login(client_user)
+    guest_id = create_response.json()["id"]
+    update_response = client.patch(
+        reverse(
+            "client-guest-detail",
+            kwargs={"public_slug": invitation.public_slug, "guest_id": guest_id},
+        ),
+        {"display_name": "Budi Updated", "party_size": 3},
+        content_type="application/json",
+    )
     list_response = client.get(
         reverse("client-guest-list", kwargs={"public_slug": invitation.public_slug})
     )
 
+    assert update_response.status_code == 200
+    assert update_response.json()["display_name"] == "Budi Updated"
     assert list_response.status_code == 200
     assert "personal_token" not in list_response.json()[0]
     assert {item["display_name"] for item in list_response.json()} == {
         "Private Guest",
-        "Budi Family",
+        "Budi Updated",
     }
+
+    client.force_login(staff)
+    aggregate_response = client.get(
+        reverse("admin-invitation-guest-list", kwargs={"public_slug": invitation.public_slug})
+    )
+    staff_create_response = client.post(
+        reverse("admin-invitation-guest-list", kwargs={"public_slug": invitation.public_slug}),
+        {"display_name": "Should Not Save", "party_size": 1},
+        content_type="application/json",
+    )
+
+    assert aggregate_response.status_code == 200
+    assert aggregate_response.json() == {
+        "wedding_id": str(invitation.id),
+        "total_invited": 2,
+        "total_confirmed": 0,
+        "total_declined": 0,
+        "response_rate": 0.0,
+    }
+    assert "display_name" not in aggregate_response.json()
+    assert "email" not in aggregate_response.json()
+    assert "phone" not in aggregate_response.json()
+    assert staff_create_response.status_code == 403
 
 
 @pytest.mark.django_db
-def test_staff_archives_guest_and_export_excludes_it(client):
+def test_client_archives_guest_and_staff_guest_privacy_actions_are_denied(client):
     staff = create_user(username="staff", email="staff@example.com", role="staff", is_staff=True)
     client_user = create_user(username="client", email="client@example.com")
     theme = create_theme()
@@ -842,13 +896,26 @@ def test_staff_archives_guest_and_export_excludes_it(client):
     client.force_login(staff)
 
     archive_response = client.post(reverse("admin-guest-archive", kwargs={"guest_id": guest.id}))
+    anonymize_response = client.post(
+        reverse("admin-guest-anonymize", kwargs={"guest_id": guest.id})
+    )
 
-    assert archive_response.status_code == 200
-    guest.refresh_from_db()
-    assert guest.archived_at is not None
-    assert AuditEvent.objects.filter(action="guest.archived").exists()
+    assert archive_response.status_code == 403
+    assert anonymize_response.status_code == 403
 
     client.force_login(client_user)
+    client_delete_response = client.delete(
+        reverse(
+            "client-guest-detail",
+            kwargs={"public_slug": invitation.public_slug, "guest_id": guest.id},
+        )
+    )
+
+    assert client_delete_response.status_code == 204
+    guest.refresh_from_db()
+    assert guest.archived_at is not None
+    assert AuditEvent.objects.filter(action="guest.client_archived").exists()
+
     export_response = client.get(
         reverse("client-guest-export", kwargs={"public_slug": invitation.public_slug})
     )

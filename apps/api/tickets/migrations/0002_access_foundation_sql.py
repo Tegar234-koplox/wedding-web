@@ -1,5 +1,22 @@
 from django.db import migrations
 
+GUEST_AGGREGATE_VIEW_SQL = """
+DROP VIEW IF EXISTS guest_aggregates_per_wedding;
+
+CREATE VIEW guest_aggregates_per_wedding AS
+SELECT
+    invitation_id AS wedding_id,
+    CAST(COUNT(*) AS integer) AS total_invited,
+    CAST(SUM(CASE WHEN rsvp_status = 'accepted' THEN 1 ELSE 0 END) AS integer)
+        AS total_confirmed,
+    CAST(SUM(CASE WHEN rsvp_status = 'declined' THEN 1 ELSE 0 END) AS integer)
+        AS total_declined
+FROM invitations_guest
+WHERE archived_at IS NULL
+  AND anonymized_at IS NULL
+GROUP BY invitation_id;
+"""
+
 FORWARD_SQL = """
 CREATE SCHEMA IF NOT EXISTS app;
 
@@ -217,17 +234,6 @@ FOR UPDATE
 USING (app.current_user_role() = 'staff')
 WITH CHECK (app.current_user_role() = 'staff');
 
-CREATE OR REPLACE VIEW guest_aggregates_per_wedding AS
-SELECT
-    invitation_id AS wedding_id,
-    COUNT(*)::integer AS total_invited,
-    COUNT(*) FILTER (WHERE rsvp_status = 'accepted')::integer AS total_confirmed,
-    COUNT(*) FILTER (WHERE rsvp_status = 'declined')::integer AS total_declined
-FROM invitations_guest
-WHERE archived_at IS NULL
-  AND anonymized_at IS NULL
-GROUP BY invitation_id;
-
 DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'staff') THEN
@@ -269,17 +275,21 @@ ALTER TABLE tickets_ticket DISABLE ROW LEVEL SECURITY;
 
 
 def apply_postgres_access_sql(apps, schema_editor):
-    if schema_editor.connection.vendor != "postgresql":
-        return
     with schema_editor.connection.cursor() as cursor:
-        cursor.execute(FORWARD_SQL)
+        if schema_editor.connection.vendor == "postgresql":
+            cursor.execute(FORWARD_SQL.replace("DO $$", f"{GUEST_AGGREGATE_VIEW_SQL}\nDO $$"))
+        else:
+            for statement in GUEST_AGGREGATE_VIEW_SQL.split(";"):
+                if statement.strip():
+                    cursor.execute(statement)
 
 
 def reverse_postgres_access_sql(apps, schema_editor):
-    if schema_editor.connection.vendor != "postgresql":
-        return
     with schema_editor.connection.cursor() as cursor:
-        cursor.execute(REVERSE_SQL)
+        if schema_editor.connection.vendor == "postgresql":
+            cursor.execute(REVERSE_SQL)
+        else:
+            cursor.execute("DROP VIEW IF EXISTS guest_aggregates_per_wedding")
 
 
 class Migration(migrations.Migration):
