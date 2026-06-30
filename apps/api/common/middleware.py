@@ -4,6 +4,7 @@ import time
 import uuid
 from collections.abc import Callable
 
+from django.db import connection
 from django.http import HttpRequest, HttpResponse
 
 logger = logging.getLogger("wedding.request")
@@ -38,3 +39,34 @@ class RequestIdMiddleware:
             },
         )
         return response
+
+
+class DatabaseAccessContextMiddleware:
+    """Expose the authenticated user context to PostgreSQL RLS policies."""
+
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
+        self.get_response = get_response
+
+    def __call__(self, request: HttpRequest) -> HttpResponse:
+        self._set_access_context(request)
+        try:
+            return self.get_response(request)
+        finally:
+            self._clear_access_context()
+
+    def _set_access_context(self, request: HttpRequest) -> None:
+        if connection.vendor != "postgresql":
+            return
+        user = getattr(request, "user", None)
+        user_id = str(user.id) if getattr(user, "is_authenticated", False) else ""
+        user_role = str(getattr(user, "role", "")) if user_id else ""
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT set_config('request.user_id', %s, false)", [user_id])
+            cursor.execute("SELECT set_config('request.user_role', %s, false)", [user_role])
+
+    def _clear_access_context(self) -> None:
+        if connection.vendor != "postgresql":
+            return
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT set_config('request.user_id', '', false)")
+            cursor.execute("SELECT set_config('request.user_role', '', false)")

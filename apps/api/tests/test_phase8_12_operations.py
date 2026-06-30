@@ -1,3 +1,5 @@
+import importlib
+
 import pytest
 from django.contrib.auth import get_user_model
 from django.urls import reverse
@@ -10,6 +12,7 @@ from media_library.models import MediaAsset
 from orders.models import Order
 from payments.models import PaymentInvoice, PaymentWebhookEvent
 from tests.factories import create_invitation, create_package, create_theme
+from tickets.models import Ticket
 
 
 def create_user(*, username: str, email: str, role: str = "client", is_staff: bool = False):
@@ -24,7 +27,7 @@ def create_user(*, username: str, email: str, role: str = "client", is_staff: bo
 
 @pytest.mark.django_db
 def test_staff_can_login_from_frontend_session_endpoint(client):
-    create_user(username="staff", email="staff@example.com", role="admin", is_staff=True)
+    create_user(username="staff", email="staff@example.com", role="staff", is_staff=True)
 
     response = client.post(
         reverse("api-staff-login"),
@@ -34,7 +37,7 @@ def test_staff_can_login_from_frontend_session_endpoint(client):
     me_response = client.get(reverse("api-staff-session-me"))
 
     assert response.status_code == 200
-    assert response.json()["user"]["role"] == "admin"
+    assert response.json()["user"]["role"] == "staff"
     assert me_response.status_code == 200
     assert me_response.json()["user"]["username"] == "staff"
 
@@ -57,20 +60,20 @@ def test_client_can_login_from_frontend_session_endpoint(client):
 
 
 @pytest.mark.django_db
-def test_staff_owner_cannot_use_client_session_endpoint(client):
-    owner = create_user(
-        username="owner",
-        email="owner@example.com",
-        role="owner",
+def test_staff_user_cannot_use_client_session_endpoint(client):
+    staff = create_user(
+        username="staff",
+        email="staff@example.com",
+        role="staff",
         is_staff=True,
     )
 
     login_response = client.post(
         reverse("api-client-login"),
-        {"username": "owner", "password": "password"},
+        {"username": "staff", "password": "password"},
         content_type="application/json",
     )
-    client.force_login(owner)
+    client.force_login(staff)
     profile_response = client.get(reverse("client-profile"))
 
     assert login_response.status_code == 403
@@ -109,8 +112,47 @@ def test_client_endpoints_deny_anonymous_users(client):
 
 
 @pytest.mark.django_db
+def test_client_cannot_query_other_clients_guest_list(client):
+    client_a = create_user(username="client-a", email="client-a@example.com")
+    client_b = create_user(username="client-b", email="client-b@example.com")
+    theme = create_theme()
+    invitation_a = create_invitation(theme=theme, public_slug="client-a-wedding", is_sample=False)
+    invitation_b = create_invitation(theme=theme, public_slug="client-b-wedding", is_sample=False)
+    invitation_a.client_user = client_a
+    invitation_a.save(update_fields=["client_user", "updated_at"])
+    invitation_b.client_user = client_b
+    invitation_b.save(update_fields=["client_user", "updated_at"])
+    client.force_login(client_a)
+
+    response = client.get(
+        reverse(
+            "client-guest-list",
+            kwargs={"public_slug": invitation_b.public_slug},
+        )
+    )
+
+    assert response.status_code == 404
+
+
+def test_postgres_access_sql_keeps_staff_off_guest_rows():
+    migration = importlib.import_module("tickets.migrations.0002_access_foundation_sql")
+
+    assert "guest_aggregates_per_wedding" in migration.FORWARD_SQL
+    assert "staff_select_guests" not in migration.FORWARD_SQL
+    staff_guest_policy = (
+        "ON invitations_guest\nFOR SELECT\nUSING (app.current_user_role() = 'staff')"
+    )
+    assert staff_guest_policy not in migration.FORWARD_SQL
+    assert "GRANT SELECT ON guest_aggregates_per_wedding TO staff" in migration.FORWARD_SQL
+    view_sql = migration.FORWARD_SQL.split("CREATE OR REPLACE VIEW guest_aggregates_per_wedding")[1]
+    assert "display_name" not in view_sql
+    assert "email" not in view_sql
+    assert "phone" not in view_sql
+
+
+@pytest.mark.django_db
 def test_staff_user_cannot_use_client_data_endpoints(client):
-    staff = create_user(username="staff", email="staff@example.com", role="owner", is_staff=True)
+    staff = create_user(username="staff", email="staff@example.com", role="staff", is_staff=True)
     client.force_login(staff)
 
     orders_response = client.get(reverse("client-order-list"))
@@ -118,6 +160,24 @@ def test_staff_user_cannot_use_client_data_endpoints(client):
 
     assert orders_response.status_code == 403
     assert invitations_response.status_code == 403
+
+
+@pytest.mark.django_db
+def test_ticket_model_links_to_existing_invitation_and_client_user():
+    client_user = create_user(username="ticket-client", email="ticket-client@example.com")
+    theme = create_theme()
+    invitation = create_invitation(theme=theme, public_slug="ticket-wedding", is_sample=False)
+    invitation.client_user = client_user
+    invitation.save(update_fields=["client_user", "updated_at"])
+
+    ticket = Ticket.objects.create(
+        invitation=invitation,
+        created_by=client_user,
+        category=Ticket.Category.TECHNICAL,
+    )
+
+    assert ticket.status == Ticket.Status.OPEN
+    assert ticket.invitation.client_user == client_user
 
 
 @pytest.mark.django_db
@@ -140,7 +200,7 @@ def test_superuser_can_login_to_staff_session_endpoint_with_default_role(client)
 
 @pytest.mark.django_db
 def test_staff_creates_manual_order_from_lead_and_writes_audit(client):
-    staff = create_user(username="staff", email="staff@example.com", role="admin", is_staff=True)
+    staff = create_user(username="staff", email="staff@example.com", role="staff", is_staff=True)
     theme = create_theme()
     package = create_package()
     client.force_login(staff)
@@ -168,11 +228,11 @@ def test_staff_creates_manual_order_from_lead_and_writes_audit(client):
 
 @pytest.mark.django_db
 def test_staff_updates_order_status_and_assignment(client):
-    staff = create_user(username="staff", email="staff@example.com", role="admin", is_staff=True)
+    staff = create_user(username="staff", email="staff@example.com", role="staff", is_staff=True)
     assignee = create_user(
         username="editor",
         email="editor@example.com",
-        role="editor",
+        role="staff",
         is_staff=True,
     )
     theme = create_theme()
@@ -197,7 +257,7 @@ def test_staff_updates_order_status_and_assignment(client):
 
 @pytest.mark.django_db
 def test_staff_order_package_update_syncs_linked_invitation_package(client):
-    staff = create_user(username="staff", email="staff@example.com", role="admin", is_staff=True)
+    staff = create_user(username="staff", email="staff@example.com", role="staff", is_staff=True)
     theme = create_theme()
     essential = create_package(code="essential")
     couture = create_package(code="couture")
@@ -227,7 +287,7 @@ def test_staff_order_package_update_syncs_linked_invitation_package(client):
 
 @pytest.mark.django_db
 def test_staff_operations_lists_leads_audit_and_staff_users(client):
-    staff = create_user(username="staff", email="staff@example.com", role="admin", is_staff=True)
+    staff = create_user(username="staff", email="staff@example.com", role="staff", is_staff=True)
     create_user(username="client", email="client@example.com")
     WhatsAppIntent.objects.create(
         theme_slug="elegant-classic",
@@ -397,7 +457,7 @@ def test_client_approve_publish_updates_order_for_staff_publish_queue(client):
 
 @pytest.mark.django_db
 def test_staff_publishes_client_approved_invitation(client):
-    staff = create_user(username="editor", email="editor@example.com", role="editor", is_staff=True)
+    staff = create_user(username="editor", email="editor@example.com", role="staff", is_staff=True)
     theme = create_theme()
     invitation = create_invitation(theme=theme, status="draft")
     invitation.approval_status = "approved_for_publish"
@@ -428,7 +488,7 @@ def test_staff_publishes_client_approved_invitation(client):
 
 @pytest.mark.django_db
 def test_staff_cannot_publish_before_client_approval(client):
-    staff = create_user(username="editor", email="editor@example.com", role="editor", is_staff=True)
+    staff = create_user(username="editor", email="editor@example.com", role="staff", is_staff=True)
     theme = create_theme()
     invitation = create_invitation(theme=theme, status="draft", public_slug="unapproved")
     invitation.approval_status = "client_review"
@@ -447,7 +507,7 @@ def test_staff_cannot_publish_before_client_approval(client):
 
 @pytest.mark.django_db
 def test_staff_lists_pending_publish_invitations_by_state(client):
-    staff = create_user(username="editor", email="editor@example.com", role="editor", is_staff=True)
+    staff = create_user(username="editor", email="editor@example.com", role="staff", is_staff=True)
     theme = create_theme()
     pending = create_invitation(theme=theme, status="draft", public_slug="pending")
     pending.approval_status = "approved_for_publish"
@@ -551,7 +611,7 @@ def test_client_guest_list_and_export_accept_order_owned_invitation(client):
 
 @pytest.mark.django_db
 def test_staff_creates_guest_and_client_can_list_owned_guest(client):
-    staff = create_user(username="staff", email="staff@example.com", role="support", is_staff=True)
+    staff = create_user(username="staff", email="staff@example.com", role="staff", is_staff=True)
     client_user = create_user(username="client", email="client@example.com")
     theme = create_theme()
     invitation = create_invitation(theme=theme, public_slug="guest-list")
@@ -589,7 +649,7 @@ def test_staff_creates_guest_and_client_can_list_owned_guest(client):
 
 @pytest.mark.django_db
 def test_staff_archives_guest_and_export_excludes_it(client):
-    staff = create_user(username="staff", email="staff@example.com", role="support", is_staff=True)
+    staff = create_user(username="staff", email="staff@example.com", role="staff", is_staff=True)
     client_user = create_user(username="client", email="client@example.com")
     theme = create_theme()
     invitation = create_invitation(theme=theme, public_slug="archive-guest")
@@ -643,7 +703,7 @@ def test_client_sets_backsound_for_owned_invitation(client):
 
 @pytest.mark.django_db
 def test_staff_sets_existing_backsound_asset(client):
-    staff = create_user(username="staff", email="staff@example.com", role="support", is_staff=True)
+    staff = create_user(username="staff", email="staff@example.com", role="staff", is_staff=True)
     theme = create_theme()
     invitation = create_invitation(theme=theme, status="draft", public_slug="music-staff")
     asset = MediaAsset.objects.create(
@@ -669,7 +729,7 @@ def test_staff_sets_existing_backsound_asset(client):
 
 @pytest.mark.django_db
 def test_midtrans_webhook_is_idempotent_and_updates_invoice(client):
-    staff = create_user(username="staff", email="staff@example.com", role="admin", is_staff=True)
+    staff = create_user(username="staff", email="staff@example.com", role="staff", is_staff=True)
     theme = create_theme()
     order = Order.objects.create(reference="ord-paid", client_name="Alya", theme=theme)
     invoice = PaymentInvoice.objects.create(
@@ -693,7 +753,7 @@ def test_midtrans_webhook_is_idempotent_and_updates_invoice(client):
     assert invoice.status == PaymentInvoice.Status.PAID
     assert PaymentWebhookEvent.objects.count() == 1
     assert AuditEvent.objects.filter(action="payment.webhook_processed").exists()
-    assert staff.role == "admin"
+    assert staff.role == "staff"
 
 
 @pytest.mark.django_db
