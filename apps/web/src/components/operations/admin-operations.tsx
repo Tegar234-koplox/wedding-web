@@ -380,10 +380,6 @@ export function AdminOperations() {
         title: "",
       });
     } catch (caught) {
-      if (caught instanceof StaffFetchError && caught.isAuthError) {
-        redirectToLogin();
-        return;
-      }
       setError(
         caught instanceof Error
           ? caught.message
@@ -546,10 +542,6 @@ export function AdminOperations() {
       const nextMetrics = await staffFetch<Metrics>("/admin/dashboard/metrics");
       setMetrics(nextMetrics);
     } catch (caught) {
-      if (caught instanceof StaffFetchError && caught.isAuthError) {
-        redirectToLogin();
-        return;
-      }
       setError(caught instanceof Error ? caught.message : "Order gagal disimpan.");
     } finally {
       setSaving(false);
@@ -566,10 +558,6 @@ export function AdminOperations() {
       );
       await loadDashboard(selectedReference);
     } catch (caught) {
-      if (caught instanceof StaffFetchError && caught.isAuthError) {
-        redirectToLogin();
-        return;
-      }
       setError(caught instanceof Error ? caught.message : "Invitation gagal dipublish.");
     } finally {
       setSaving(false);
@@ -630,10 +618,6 @@ export function AdminOperations() {
       setMetrics(nextMetrics);
       setAuditEvents(nextAuditEvents);
     } catch (caught) {
-      if (caught instanceof StaffFetchError && caught.isAuthError) {
-        redirectToLogin();
-        return;
-      }
       setError(caught instanceof Error ? caught.message : "Order gagal dibuat.");
     } finally {
       setCreating(false);
@@ -683,10 +667,6 @@ export function AdminOperations() {
       const nextAuditEvents = await staffFetch<AuditEvent[]>("/admin/audit-events");
       setAuditEvents(nextAuditEvents);
     } catch (caught) {
-      if (caught instanceof StaffFetchError && caught.isAuthError) {
-        redirectToLogin();
-        return;
-      }
       setError(caught instanceof Error ? caught.message : "Guest gagal dibuat.");
     } finally {
       setCreatingGuest(false);
@@ -705,10 +685,6 @@ export function AdminOperations() {
       const nextAuditEvents = await staffFetch<AuditEvent[]>("/admin/audit-events");
       setAuditEvents(nextAuditEvents);
     } catch (caught) {
-      if (caught instanceof StaffFetchError && caught.isAuthError) {
-        redirectToLogin();
-        return;
-      }
       setError(
         caught instanceof Error
           ? caught.message
@@ -749,10 +725,6 @@ export function AdminOperations() {
       const nextAuditEvents = await staffFetch<AuditEvent[]>("/admin/audit-events");
       setAuditEvents(nextAuditEvents);
     } catch (caught) {
-      if (caught instanceof StaffFetchError && caught.isAuthError) {
-        redirectToLogin();
-        return;
-      }
       setError(caught instanceof Error ? caught.message : "Backsound gagal disimpan.");
     } finally {
       setSavingMusic(false);

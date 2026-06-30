@@ -314,10 +314,6 @@ export function ClientOperations() {
         title: "",
       });
     } catch (caught) {
-      if (caught instanceof ClientFetchError && caught.isAuthError) {
-        redirectToClientLogin();
-        return;
-      }
       setError(
         caught instanceof Error
           ? caught.message
@@ -391,10 +387,6 @@ export function ClientOperations() {
       anchor.remove();
       URL.revokeObjectURL(href);
     } catch (caught) {
-      if (caught instanceof ClientFetchError && caught.isAuthError) {
-        redirectToClientLogin();
-        return;
-      }
       setError(caught instanceof Error ? caught.message : "Export CSV gagal.");
     }
   }
@@ -447,10 +439,6 @@ export function ClientOperations() {
       );
       setDraftForm(formFromInvitation(updated));
     } catch (caught) {
-      if (caught instanceof ClientFetchError && caught.isAuthError) {
-        redirectToClientLogin();
-        return;
-      }
       setError(caught instanceof Error ? caught.message : "Draft gagal disimpan.");
     } finally {
       setSavingDraft(false);
@@ -477,10 +465,6 @@ export function ClientOperations() {
       );
       setInvitations(nextInvitations);
     } catch (caught) {
-      if (caught instanceof ClientFetchError && caught.isAuthError) {
-        redirectToClientLogin();
-        return;
-      }
       setError(
         caught instanceof Error
           ? caught.message
@@ -522,10 +506,6 @@ export function ClientOperations() {
         title: "",
       });
     } catch (caught) {
-      if (caught instanceof ClientFetchError && caught.isAuthError) {
-        redirectToClientLogin();
-        return;
-      }
       setError(caught instanceof Error ? caught.message : "Backsound gagal disimpan.");
     } finally {
       setSavingMusic(false);
