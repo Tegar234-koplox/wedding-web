@@ -16,9 +16,10 @@ type StaffSessionUser = {
 
 const requestTimeoutMs = 15_000;
 const staffGateCookie = "niskala_staff_gate";
+const staffGateValue = "staff:v2";
 
 function setStaffGateCookie() {
-  document.cookie = `${staffGateCookie}=1; Path=/; Max-Age=86400; SameSite=Lax; Secure`;
+  document.cookie = `${staffGateCookie}=${staffGateValue}; Path=/; Max-Age=86400; SameSite=Lax; Secure`;
 }
 
 async function fetchWithTimeout(

@@ -15,9 +15,10 @@ type ClientSessionUser = {
 };
 
 const clientGateCookie = "niskala_client_gate";
+const clientGateValue = "client:v2";
 
 function setClientGateCookie() {
-  document.cookie = `${clientGateCookie}=1; Path=/; Max-Age=86400; SameSite=Lax; Secure`;
+  document.cookie = `${clientGateCookie}=${clientGateValue}; Path=/; Max-Age=86400; SameSite=Lax; Secure`;
 }
 
 async function csrfToken(): Promise<string> {
