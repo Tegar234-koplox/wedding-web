@@ -117,9 +117,7 @@ def _guest_aggregate_rows(invitation: Invitation | None = None) -> list[dict[str
                 "total_invited": total,
                 "total_confirmed": confirmed,
                 "total_declined": declined,
-                "response_rate": round(((confirmed + declined) / total) * 100, 2)
-                if total
-                else 0,
+                "response_rate": round(((confirmed + declined) / total) * 100, 2) if total else 0,
             }
         )
     return aggregates
