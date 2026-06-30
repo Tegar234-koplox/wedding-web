@@ -60,9 +60,11 @@ class ClientTicketListCreateView(ListCreateAPIView):
     def create(self, request, *args, **kwargs):
         serializer = ClientTicketCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        invitation = client_owned_invitations(request.user).filter(
-            public_slug=serializer.validated_data["invitation_slug"]
-        ).first()
+        invitation = (
+            client_owned_invitations(request.user)
+            .filter(public_slug=serializer.validated_data["invitation_slug"])
+            .first()
+        )
         if invitation is None:
             raise Http404
         ticket = Ticket.objects.create(
