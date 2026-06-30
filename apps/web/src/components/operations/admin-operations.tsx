@@ -418,6 +418,10 @@ export function AdminOperations() {
         title: "",
       });
     } catch (caught) {
+      if (caught instanceof StaffFetchError && caught.isAuthError) {
+        redirectToLogin();
+        return;
+      }
       setError(
         caught instanceof Error
           ? caught.message

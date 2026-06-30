@@ -3,19 +3,21 @@ import { NextResponse } from "next/server";
 
 const staffGateCookie = "niskala_staff_gate";
 const clientGateCookie = "niskala_client_gate";
+const staffGateValue = "staff:v2";
+const clientGateValue = "client:v2";
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (pathname === "/admin") {
-    const hasStaffGate = request.cookies.get(staffGateCookie)?.value === "1";
+  if (pathname.startsWith("/admin") && pathname !== "/admin/login") {
+    const hasStaffGate = request.cookies.get(staffGateCookie)?.value === staffGateValue;
     if (!hasStaffGate) {
       return NextResponse.redirect(new URL("/admin/login", request.url));
     }
   }
 
-  if (pathname === "/client") {
-    const hasClientGate = request.cookies.get(clientGateCookie)?.value === "1";
+  if (pathname.startsWith("/client") && pathname !== "/client/login") {
+    const hasClientGate = request.cookies.get(clientGateCookie)?.value === clientGateValue;
     if (!hasClientGate) {
       return NextResponse.redirect(new URL("/client/login", request.url));
     }
@@ -25,5 +27,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin", "/client"],
+  matcher: ["/admin/:path*", "/client/:path*"],
 };
