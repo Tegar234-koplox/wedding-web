@@ -33,6 +33,10 @@ def env_float(name: str, default: float) -> float:
     return float(env(name, str(default)))
 
 
+def env_int(name: str, default: int) -> int:
+    return int(env(name, str(default)))
+
+
 SECRET_KEY = env("DJANGO_SECRET_KEY", "unsafe-local-development-key")
 DEBUG = False
 ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1")
@@ -114,6 +118,9 @@ CACHES = {
         "TIMEOUT": 300,
     }
 }
+
+BILLING_EXPIRY_WARNING_DAYS = env_int("BILLING_EXPIRY_WARNING_DAYS", 14)
+BILLING_CRON_SECRET = env("BILLING_CRON_SECRET", "")
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},

@@ -1,10 +1,17 @@
 from django.urls import path
 
 from orders.views import (
+    BillingLifecycleRefreshView,
     ClientOrderListView,
+    ClientPaymentProofView,
+    StaffArchiveWeddingView,
+    StaffClientLifecycleListView,
+    StaffConfirmOrderView,
     StaffDashboardMetricsView,
     StaffOrderDetailView,
     StaffOrderListCreateView,
+    StaffRejectOrderView,
+    StaffVerificationQueueView,
 )
 
 urlpatterns = [
@@ -15,9 +22,44 @@ urlpatterns = [
     ),
     path("admin/orders", StaffOrderListCreateView.as_view(), name="admin-order-list"),
     path(
+        "admin/orders/verification-queue",
+        StaffVerificationQueueView.as_view(),
+        name="admin-order-verification-queue",
+    ),
+    path(
+        "admin/orders/<slug:reference>/confirm",
+        StaffConfirmOrderView.as_view(),
+        name="admin-order-confirm",
+    ),
+    path(
+        "admin/orders/<slug:reference>/reject",
+        StaffRejectOrderView.as_view(),
+        name="admin-order-reject",
+    ),
+    path(
         "admin/orders/<slug:reference>",
         StaffOrderDetailView.as_view(),
         name="admin-order-detail",
     ),
+    path(
+        "admin/client-lifecycle",
+        StaffClientLifecycleListView.as_view(),
+        name="admin-client-lifecycle",
+    ),
+    path(
+        "admin/weddings/<slug:public_slug>/archive",
+        StaffArchiveWeddingView.as_view(),
+        name="admin-wedding-archive",
+    ),
     path("client/orders", ClientOrderListView.as_view(), name="client-order-list"),
+    path(
+        "client/orders/<slug:reference>/payment-proof",
+        ClientPaymentProofView.as_view(),
+        name="client-order-payment-proof",
+    ),
+    path(
+        "billing/lifecycle/refresh",
+        BillingLifecycleRefreshView.as_view(),
+        name="billing-lifecycle-refresh",
+    ),
 ]

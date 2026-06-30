@@ -109,11 +109,15 @@ class OrderSerializer(serializers.ModelSerializer[Order]):
             "event_date",
             "total_amount",
             "currency",
+            "payment_method",
+            "proof_url",
+            "verified_at",
+            "rejection_reason",
             "notes",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "verified_at", "created_at", "updated_at"]
 
     def create(self, validated_data):
         order = super().create(validated_data)
@@ -177,6 +181,50 @@ class ClientOrderSerializer(serializers.ModelSerializer[Order]):
             "invitation_slug",
             "client_name",
             "event_date",
+            "total_amount",
+            "currency",
+            "payment_method",
+            "proof_url",
+            "verified_at",
+            "rejection_reason",
+            "updated_at",
+        ]
+
+
+class ClientPaymentProofSerializer(serializers.Serializer):
+    proof_url = serializers.URLField(max_length=500)
+    method = serializers.CharField(max_length=40, required=False, default="bank_transfer")
+
+
+class StaffVerificationActionSerializer(serializers.Serializer):
+    reason = serializers.CharField(allow_blank=True, required=False, default="")
+
+
+class StaffRejectOrderSerializer(serializers.Serializer):
+    reason = serializers.CharField()
+
+    def validate_reason(self, value: str) -> str:
+        if not value.strip():
+            raise serializers.ValidationError("Reason is required.")
+        return value.strip()
+
+
+class StaffClientLifecycleSerializer(serializers.ModelSerializer[Order]):
+    wedding_slug = serializers.CharField(source="invitation.public_slug", read_only=True)
+    wedding_status = serializers.CharField(source="invitation.status", read_only=True)
+    wedding_expires_at = serializers.DateTimeField(source="invitation.expires_at", read_only=True)
+
+    class Meta:
+        model = Order
+        fields = [
+            "reference",
+            "client_name",
+            "client_email",
+            "client_phone",
+            "status",
+            "wedding_slug",
+            "wedding_status",
+            "wedding_expires_at",
             "total_amount",
             "currency",
             "updated_at",
