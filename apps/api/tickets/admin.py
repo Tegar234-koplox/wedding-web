@@ -12,6 +12,7 @@ class TicketAdmin(admin.ModelAdmin):
         "status",
         "created_by",
         "assigned_staff",
+        "attachment_url",
         "resolved_at",
         "created_at",
     ]
@@ -19,6 +20,7 @@ class TicketAdmin(admin.ModelAdmin):
     search_fields = [
         "id",
         "invitation__public_slug",
+        "description",
         "created_by__email",
         "assigned_staff__email",
     ]

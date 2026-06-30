@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOut, Music2, Plus, RefreshCw, Save } from "lucide-react";
+import { LifeBuoy, LogOut, Music2, Plus, RefreshCw, Save } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -101,6 +101,21 @@ type StaffInvitation = {
   updated_at: string;
 };
 
+type SupportTicket = {
+  id: string;
+  invitation_slug: string;
+  category: string;
+  description: string;
+  attachment_url: string;
+  status: string;
+  resolution_note: string;
+  created_by_email: string;
+  assigned_staff_username: string | null;
+  resolved_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 type GuestAggregate = {
   wedding_id: string;
   total_invited: number;
@@ -138,6 +153,9 @@ const orderStatuses = [
   "completed",
   "cancelled",
 ];
+
+const ticketStatuses = ["open", "in_progress", "resolved"];
+const ticketCategories = ["technical", "dns", "billing", "general"];
 
 const emptyOrderForm = {
   client_email: "",
@@ -299,6 +317,7 @@ export function AdminOperations() {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
   const [orderAuditEvents, setOrderAuditEvents] = useState<AuditEvent[]>([]);
   const [pendingPublishItems, setPendingPublishItems] = useState<StaffInvitation[]>([]);
@@ -310,6 +329,13 @@ export function AdminOperations() {
   const [packages, setPackages] = useState<PackageOption[]>([]);
   const [staffSession, setStaffSession] = useState<StaffSession["user"] | null>(null);
   const [selectedReference, setSelectedReference] = useState<string>("");
+  const [selectedTicketId, setSelectedTicketId] = useState<string>("");
+  const [ticketCategoryFilter, setTicketCategoryFilter] = useState("");
+  const [ticketStatusFilter, setTicketStatusFilter] = useState("");
+  const [ticketResolutionNote, setTicketResolutionNote] = useState("");
+  const [ticketCustomDomain, setTicketCustomDomain] = useState("");
+  const [ticketReason, setTicketReason] = useState("");
+  const [savingTicket, setSavingTicket] = useState(false);
   const [draftStatus, setDraftStatus] = useState<string>("");
   const [draftStaff, setDraftStaff] = useState<string>("");
   const [orderForm, setOrderForm] = useState(emptyOrderForm);
@@ -331,6 +357,11 @@ export function AdminOperations() {
     [orders, selectedReference],
   );
 
+  const selectedTicket = useMemo(
+    () => tickets.find((ticket) => ticket.id === selectedTicketId) ?? tickets[0],
+    [tickets, selectedTicketId],
+  );
+
   async function loadOrderAudit(reference: string) {
     if (!reference) {
       setOrderAuditEvents([]);
@@ -341,6 +372,35 @@ export function AdminOperations() {
     );
     setOrderAuditEvents(nextAuditEvents);
   }
+
+  const loadTicketQueue = useCallback(
+    async (preferredTicketId = selectedTicketId) => {
+      setError("");
+      try {
+        const params = new URLSearchParams();
+        if (ticketCategoryFilter) {
+          params.set("category", ticketCategoryFilter);
+        }
+        if (ticketStatusFilter) {
+          params.set("status", ticketStatusFilter);
+        }
+        const query = params.toString();
+        const nextTickets = await staffFetch<SupportTicket[]>(
+          `/admin/tickets${query ? `?${query}` : ""}`,
+        );
+        setTickets(nextTickets);
+        const nextSelected =
+          nextTickets.find((ticket) => ticket.id === preferredTicketId) ?? nextTickets[0];
+        setSelectedTicketId(nextSelected?.id ?? "");
+        setTicketResolutionNote(nextSelected?.resolution_note ?? "");
+        setTicketCustomDomain("");
+        setTicketReason("");
+      } catch (caught) {
+        setError(caught instanceof Error ? caught.message : "Ticket queue gagal dimuat.");
+      }
+    },
+    [selectedTicketId, ticketCategoryFilter, ticketStatusFilter],
+  );
 
   const loadStaffInvitationOps = useCallback(async (publicSlug: string) => {
     setLoadingInvitationOps(true);
@@ -379,6 +439,13 @@ export function AdminOperations() {
     void loadOrderAudit(order.reference);
   }
 
+  function selectTicket(ticket: SupportTicket) {
+    setSelectedTicketId(ticket.id);
+    setTicketResolutionNote(ticket.resolution_note ?? "");
+    setTicketCustomDomain("");
+    setTicketReason("");
+  }
+
   const loadDashboard = useCallback(async (preferredReference = "") => {
     setLoading(true);
     setError("");
@@ -388,6 +455,7 @@ export function AdminOperations() {
         nextMetrics,
         nextOrders,
         nextLeads,
+        nextTickets,
         nextAuditEvents,
         nextPendingPublishItems,
         nextPublishedInvitations,
@@ -400,6 +468,7 @@ export function AdminOperations() {
           staffFetch<Metrics>("/admin/dashboard/metrics"),
           staffFetch<Order[]>("/admin/orders"),
           staffFetch<Lead[]>("/admin/leads"),
+          staffFetch<SupportTicket[]>("/admin/tickets"),
           staffFetch<AuditEvent[]>("/admin/audit-events"),
           staffFetch<StaffInvitation[]>("/admin/invitations?state=pending_publish"),
           staffFetch<StaffInvitation[]>("/admin/invitations?state=published"),
@@ -411,6 +480,7 @@ export function AdminOperations() {
       setMetrics(nextMetrics);
       setOrders(nextOrders);
       setLeads(nextLeads);
+      setTickets(nextTickets);
       setAuditEvents(nextAuditEvents);
       setPendingPublishItems(nextPendingPublishItems);
       setPublishedInvitations(nextPublishedInvitations);
@@ -434,6 +504,11 @@ export function AdminOperations() {
         setGuestAggregate(null);
         setStaffMusic(null);
       }
+      const nextTicket = nextTickets[0];
+      setSelectedTicketId(nextTicket?.id ?? "");
+      setTicketResolutionNote(nextTicket?.resolution_note ?? "");
+      setTicketCustomDomain("");
+      setTicketReason("");
     } catch (caught) {
       setError(
         caught instanceof Error
@@ -454,11 +529,13 @@ export function AdminOperations() {
       setMetrics(null);
       setOrders([]);
       setLeads([]);
+      setTickets([]);
       setAuditEvents([]);
       setOrderAuditEvents([]);
       setGuestAggregate(null);
       setStaffMusic(null);
       setSelectedReference("");
+      setSelectedTicketId("");
     } catch (caught) {
       if (!(caught instanceof StaffFetchError && caught.isAuthError)) {
         setError(caught instanceof Error ? caught.message : "Logout staff gagal.");
@@ -516,6 +593,46 @@ export function AdminOperations() {
       setError(caught instanceof Error ? caught.message : "Order gagal disimpan.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function saveSelectedTicket(status?: string, assignToSelf = false) {
+    if (!selectedTicket) {
+      return;
+    }
+    setSavingTicket(true);
+    setError("");
+    try {
+      const payload: Record<string, string | boolean> = {
+        assign_to_self: assignToSelf,
+        resolution_note: ticketResolutionNote,
+      };
+      if (status) {
+        payload.status = status;
+      }
+      if (selectedTicket.category === "dns" && ticketCustomDomain.trim()) {
+        payload.custom_domain = ticketCustomDomain.trim();
+        payload.reason = ticketReason.trim();
+      } else if (ticketReason.trim()) {
+        payload.reason = ticketReason.trim();
+      }
+      const updated = await staffFetch<SupportTicket>(
+        `/admin/tickets/${selectedTicket.id}`,
+        {
+          body: JSON.stringify(payload),
+          method: "PATCH",
+        },
+      );
+      setTickets((current) =>
+        current.map((ticket) => (ticket.id === updated.id ? updated : ticket)),
+      );
+      selectTicket(updated);
+      const nextAuditEvents = await staffFetch<AuditEvent[]>("/admin/audit-events");
+      setAuditEvents(nextAuditEvents);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Ticket gagal disimpan.");
+    } finally {
+      setSavingTicket(false);
     }
   }
 
@@ -1042,6 +1159,177 @@ export function AdminOperations() {
             </div>
           ) : (
             <p className="mt-6 text-sm text-white/45">Pilih order dari queue.</p>
+          )}
+        </aside>
+      </div>
+
+      <div className="grid gap-8 xl:grid-cols-[1fr_24rem]" id="tickets">
+        <section>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-[0.65rem] uppercase tracking-[0.2em] text-[var(--color-gold)]">
+                Support queue
+              </p>
+              <h2 className="mt-3 font-serif text-4xl">Ticket staff.</h2>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <select
+                className="min-h-10 border border-white/15 bg-black/30 px-3 text-xs uppercase tracking-[0.12em] text-white/70 outline-none transition focus:border-[var(--color-gold)]"
+                onChange={(event) => setTicketCategoryFilter(event.target.value)}
+                value={ticketCategoryFilter}
+              >
+                <option value="">All category</option>
+                {ticketCategories.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="min-h-10 border border-white/15 bg-black/30 px-3 text-xs uppercase tracking-[0.12em] text-white/70 outline-none transition focus:border-[var(--color-gold)]"
+                onChange={(event) => setTicketStatusFilter(event.target.value)}
+                value={ticketStatusFilter}
+              >
+                <option value="">All status</option>
+                {ticketStatuses.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+              <button
+                className="inline-flex min-h-10 items-center gap-2 border border-white/15 px-3 text-[0.62rem] font-bold uppercase tracking-[0.14em] text-white/70 transition hover:border-[var(--color-gold)] hover:text-[var(--color-gold)]"
+                onClick={() => void loadTicketQueue()}
+                type="button"
+              >
+                <RefreshCw size={14} />
+                Filter
+              </button>
+            </div>
+          </div>
+          <div className="grid gap-px bg-white/12">
+            {tickets.map((ticket) => (
+              <button
+                className={cn(
+                  "grid gap-3 bg-[#181815] p-4 text-left transition hover:bg-white/5 md:grid-cols-[1fr_auto]",
+                  selectedTicket?.id === ticket.id && "bg-[#d5ad55]/10",
+                )}
+                key={ticket.id}
+                onClick={() => selectTicket(ticket)}
+                type="button"
+              >
+                <div>
+                  <p className="font-semibold">
+                    {ticket.category} / {ticket.invitation_slug}
+                  </p>
+                  <p className="mt-2 line-clamp-2 text-sm leading-6 text-white/55">
+                    {ticket.description}
+                  </p>
+                  <p className="mt-2 text-xs uppercase tracking-[0.13em] text-white/40">
+                    {ticket.created_by_email} / assigned{" "}
+                    {ticket.assigned_staff_username ?? "-"}
+                  </p>
+                </div>
+                <span className="text-xs uppercase tracking-[0.14em] text-[var(--color-gold)]">
+                  {ticket.status}
+                </span>
+              </button>
+            ))}
+            {!loading && tickets.length === 0 ? (
+              <article className="bg-[#181815] p-4 text-sm text-white/45">
+                Belum ada support ticket untuk filter ini.
+              </article>
+            ) : null}
+          </div>
+        </section>
+
+        <aside className="border border-white/12 bg-[#181815] p-5">
+          {selectedTicket ? (
+            <div className="grid gap-5">
+              <div>
+                <p className="text-[0.65rem] uppercase tracking-[0.2em] text-[var(--color-gold)]">
+                  Ticket detail
+                </p>
+                <h3 className="mt-3 font-serif text-3xl">
+                  {selectedTicket.category}
+                </h3>
+                <p className="mt-3 text-sm leading-6 text-white/55">
+                  {selectedTicket.description}
+                </p>
+                {selectedTicket.attachment_url ? (
+                  <a
+                    className="mt-3 inline-flex text-sm text-[var(--color-gold)] underline underline-offset-4"
+                    href={selectedTicket.attachment_url}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    Open attachment
+                  </a>
+                ) : null}
+              </div>
+              <label className="grid gap-2">
+                <span className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">
+                  Resolution note
+                </span>
+                <textarea
+                  className="min-h-24 border border-white/15 bg-black/30 px-3 py-3 text-sm outline-none transition focus:border-[var(--color-gold)]"
+                  onChange={(event) => setTicketResolutionNote(event.target.value)}
+                  value={ticketResolutionNote}
+                />
+              </label>
+              {selectedTicket.category === "dns" ? (
+                <>
+                  <label className="grid gap-2">
+                    <span className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">
+                      Custom domain
+                    </span>
+                    <input
+                      className="min-h-11 border border-white/15 bg-black/30 px-3 text-sm outline-none transition focus:border-[var(--color-gold)]"
+                      onChange={(event) => setTicketCustomDomain(event.target.value)}
+                      placeholder="undangan.example.com"
+                      value={ticketCustomDomain}
+                    />
+                  </label>
+                  <label className="grid gap-2">
+                    <span className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">
+                      Reason
+                    </span>
+                    <input
+                      className="min-h-11 border border-white/15 bg-black/30 px-3 text-sm outline-none transition focus:border-[var(--color-gold)]"
+                      onChange={(event) => setTicketReason(event.target.value)}
+                      placeholder="DNS ownership verified"
+                      value={ticketReason}
+                    />
+                  </label>
+                </>
+              ) : null}
+              <div className="grid gap-2">
+                <button
+                  className="inline-flex min-h-11 items-center justify-center gap-3 border border-white/15 px-4 text-[0.65rem] font-bold uppercase tracking-[0.16em] text-white/70 transition hover:border-[var(--color-gold)] hover:text-[var(--color-gold)] disabled:opacity-50"
+                  disabled={savingTicket}
+                  onClick={() => void saveSelectedTicket(undefined, true)}
+                  type="button"
+                >
+                  <LifeBuoy size={15} />
+                  Assign to self
+                </button>
+                {ticketStatuses.map((status) => (
+                  <button
+                    className="inline-flex min-h-11 items-center justify-center gap-3 bg-[var(--color-gold)] px-4 text-[0.65rem] font-bold uppercase tracking-[0.16em] text-[#17140d] transition hover:brightness-110 disabled:opacity-50"
+                    disabled={savingTicket || selectedTicket.status === status}
+                    key={status}
+                    onClick={() => void saveSelectedTicket(status)}
+                    type="button"
+                  >
+                    Set {status}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm leading-6 text-white/45">
+              Pilih ticket untuk assignment, update status, atau resolusi DNS.
+            </p>
           )}
         </aside>
       </div>

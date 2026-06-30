@@ -27,6 +27,8 @@ class Ticket(UUIDTimeStampedModel):
         related_name="created_tickets",
     )
     category = models.CharField(max_length=24, choices=Category.choices)
+    description = models.TextField()
+    attachment_url = models.URLField(max_length=500, blank=True)
     status = models.CharField(max_length=24, choices=Status.choices, default=Status.OPEN)
     assigned_staff = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -35,6 +37,7 @@ class Ticket(UUIDTimeStampedModel):
         on_delete=models.SET_NULL,
         related_name="assigned_tickets",
     )
+    resolution_note = models.TextField(blank=True)
     resolved_at = models.DateTimeField(blank=True, null=True)
 
     class Meta:

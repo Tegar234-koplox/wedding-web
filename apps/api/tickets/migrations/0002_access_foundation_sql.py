@@ -240,6 +240,7 @@ BEGIN
         GRANT SELECT ON guest_aggregates_per_wedding TO staff;
         GRANT SELECT ON orders_order, tickets_ticket TO staff;
         GRANT UPDATE(status) ON orders_order, tickets_ticket TO staff;
+        GRANT UPDATE(assigned_staff_id, resolved_at) ON tickets_ticket TO staff;
     END IF;
 
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'client') THEN
