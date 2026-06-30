@@ -284,10 +284,6 @@ export function ClientOperations() {
       setSelectedSlug(nextSlug);
       setDraftForm(formFromInvitation(nextSelectedForForm));
     } catch (caught) {
-      if (caught instanceof ClientFetchError && caught.isAuthError) {
-        redirectToClientLogin();
-        return;
-      }
       setError(
         caught instanceof Error
           ? caught.message
