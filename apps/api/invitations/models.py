@@ -9,9 +9,14 @@ from common.validators import validate_invitation_content, validate_renderer_key
 class Invitation(UUIDTimeStampedModel, ArchivableModel):
     class Status(models.TextChoices):
         DRAFT = "draft", "Draft"
+        PENDING_PAYMENT = "pending_payment", "Pending payment"
+        PENDING_VERIFICATION = "pending_verification", "Pending verification"
+        ACTIVE = "active", "Active"
+        EXPIRING_SOON = "expiring_soon", "Expiring soon"
         REVIEW = "review", "Review"
         PUBLISHED = "published", "Published"
         EXPIRED = "expired", "Expired"
+        ARCHIVED = "archived", "Archived"
 
     class ApprovalStatus(models.TextChoices):
         DRAFT = "draft", "Draft"
@@ -42,7 +47,7 @@ class Invitation(UUIDTimeStampedModel, ArchivableModel):
         choices=[("id", "Bahasa Indonesia"), ("en", "English")],
         default="id",
     )
-    status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT)
+    status = models.CharField(max_length=24, choices=Status.choices, default=Status.DRAFT)
     approval_status = models.CharField(
         max_length=24,
         choices=ApprovalStatus.choices,

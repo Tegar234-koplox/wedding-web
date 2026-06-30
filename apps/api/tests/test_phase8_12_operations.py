@@ -1,14 +1,18 @@
 import importlib
+from datetime import timedelta
 
 import pytest
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from django.utils import timezone
+from rest_framework.exceptions import ValidationError
 
 from analytics.models import AnalyticsEvent
 from common.models import AuditEvent
 from invitations.models import Guest, InvitationMedia
 from leads.models import WhatsAppIntent
 from media_library.models import MediaAsset
+from orders.lifecycle import ensure_order_transition
 from orders.models import Order
 from payments.models import PaymentInvoice, PaymentWebhookEvent
 from tests.factories import create_invitation, create_package, create_theme
@@ -224,6 +228,185 @@ def test_staff_creates_manual_order_from_lead_and_writes_audit(client):
     assert response.status_code == 201
     assert Order.objects.get(reference="ord-alya-raka").status == Order.Status.CONSULTING
     assert AuditEvent.objects.filter(action="order.created", actor=staff).exists()
+
+
+@pytest.mark.django_db
+def test_client_uploads_payment_proof_and_keeps_order_pending(client):
+    client_user = create_user(username="pay-client", email="pay-client@example.com")
+    theme = create_theme()
+    invitation = create_invitation(theme=theme, status="draft", public_slug="payment-proof")
+    order = Order.objects.create(
+        reference="ord-payment-proof",
+        client_name="Client",
+        client_user=client_user,
+        invitation=invitation,
+        status=Order.Status.PENDING,
+    )
+    client.force_login(client_user)
+
+    response = client.post(
+        reverse("client-order-payment-proof", kwargs={"reference": order.reference}),
+        {"proof_url": "https://example.com/proof.pdf", "method": "bank_transfer"},
+        content_type="application/json",
+    )
+
+    order.refresh_from_db()
+    invitation.refresh_from_db()
+    assert response.status_code == 200
+    assert order.status == Order.Status.PENDING
+    assert order.proof_url == "https://example.com/proof.pdf"
+    assert invitation.status == "pending_verification"
+    assert AuditEvent.objects.filter(action="order.payment_proof_uploaded").exists()
+
+
+@pytest.mark.django_db
+def test_client_cannot_access_staff_verification_queue(client):
+    client_user = create_user(username="client-queue", email="client-queue@example.com")
+    client.force_login(client_user)
+
+    response = client.get(reverse("admin-order-verification-queue"))
+
+    assert response.status_code == 403
+
+
+@pytest.mark.django_db
+def test_staff_verification_queue_lists_pending_oldest_first(client):
+    staff = create_user(
+        username="queue-staff",
+        email="queue-staff@example.com",
+        role="staff",
+        is_staff=True,
+    )
+    older = Order.objects.create(
+        reference="ord-old",
+        client_name="Old",
+        status=Order.Status.PENDING,
+    )
+    newer = Order.objects.create(
+        reference="ord-new",
+        client_name="New",
+        status=Order.Status.PENDING,
+    )
+    Order.objects.create(
+        reference="ord-verified",
+        client_name="Done",
+        status=Order.Status.VERIFIED,
+    )
+    older.created_at = timezone.now() - timedelta(days=2)
+    older.save(update_fields=["created_at"])
+    newer.created_at = timezone.now() - timedelta(days=1)
+    newer.save(update_fields=["created_at"])
+    client.force_login(staff)
+
+    response = client.get(reverse("admin-order-verification-queue"))
+
+    assert response.status_code == 200
+    assert [item["reference"] for item in response.json()] == ["ord-old", "ord-new"]
+
+
+@pytest.mark.django_db
+def test_staff_confirm_order_activates_wedding_and_audits(client):
+    staff = create_user(
+        username="confirm-staff",
+        email="confirm-staff@example.com",
+        role="staff",
+        is_staff=True,
+    )
+    client_user = create_user(username="confirm-client", email="confirm-client@example.com")
+    theme = create_theme()
+    invitation = create_invitation(
+        theme=theme,
+        status="pending_verification",
+        public_slug="confirm-wedding",
+    )
+    order = Order.objects.create(
+        reference="ord-confirm",
+        client_name="Client",
+        client_user=client_user,
+        invitation=invitation,
+        status=Order.Status.PENDING,
+        proof_url="https://example.com/proof.jpg",
+    )
+    client.force_login(staff)
+
+    response = client.post(
+        reverse("admin-order-confirm", kwargs={"reference": order.reference}),
+        {"reason": "Payment proof is valid."},
+        content_type="application/json",
+    )
+
+    order.refresh_from_db()
+    invitation.refresh_from_db()
+    assert response.status_code == 200
+    assert order.status == Order.Status.VERIFIED
+    assert order.verified_by == staff
+    assert invitation.status == "active"
+    assert AuditEvent.objects.filter(action="order.verified", actor=staff).exists()
+
+
+@pytest.mark.django_db
+def test_staff_reject_order_requires_reason(client):
+    staff = create_user(
+        username="reject-staff",
+        email="reject-staff@example.com",
+        role="staff",
+        is_staff=True,
+    )
+    order = Order.objects.create(
+        reference="ord-reject",
+        client_name="Client",
+        status=Order.Status.PENDING,
+    )
+    client.force_login(staff)
+
+    missing_reason = client.post(
+        reverse("admin-order-reject", kwargs={"reference": order.reference}),
+        {"reason": ""},
+        content_type="application/json",
+    )
+    rejected = client.post(
+        reverse("admin-order-reject", kwargs={"reference": order.reference}),
+        {"reason": "Proof is unreadable."},
+        content_type="application/json",
+    )
+
+    order.refresh_from_db()
+    assert missing_reason.status_code == 400
+    assert rejected.status_code == 200
+    assert order.status == Order.Status.REJECTED
+    assert order.rejection_reason == "Proof is unreadable."
+    assert AuditEvent.objects.filter(action="order.rejected", actor=staff).exists()
+
+
+def test_order_status_transition_rejects_invalid_skip():
+    with pytest.raises(ValidationError):
+        ensure_order_transition(Order.Status.PENDING, Order.Status.COMPLETED)
+
+
+@pytest.mark.django_db
+def test_billing_lifecycle_refresh_marks_expiring_and_expired(client, settings):
+    settings.BILLING_CRON_SECRET = "cron-secret"
+    settings.BILLING_EXPIRY_WARNING_DAYS = 14
+    theme = create_theme()
+    expiring = create_invitation(theme=theme, status="active", public_slug="expiring-soon")
+    expired = create_invitation(theme=theme, status="active", public_slug="expired-now")
+    expiring.expires_at = timezone.now() + timedelta(days=7)
+    expiring.save(update_fields=["expires_at", "updated_at"])
+    expired.expires_at = timezone.now() - timedelta(hours=1)
+    expired.save(update_fields=["expires_at", "updated_at"])
+
+    forbidden = client.post(reverse("billing-lifecycle-refresh"))
+    response = client.post(
+        reverse("billing-lifecycle-refresh"),
+        HTTP_X_CRON_SECRET="cron-secret",
+    )
+
+    expiring.refresh_from_db()
+    expired.refresh_from_db()
+    assert forbidden.status_code == 403
+    assert response.status_code == 200
+    assert expiring.status == "expiring_soon"
+    assert expired.status == "expired"
 
 
 @pytest.mark.django_db

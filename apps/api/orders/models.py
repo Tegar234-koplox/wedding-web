@@ -7,12 +7,15 @@ from common.models import ArchivableModel, UUIDTimeStampedModel
 class Order(UUIDTimeStampedModel, ArchivableModel):
     class Status(models.TextChoices):
         LEAD = "lead", "Lead"
+        PENDING = "pending", "Pending"
         CONSULTING = "consulting", "Consulting"
         CONFIRMED = "confirmed", "Confirmed"
         IN_DESIGN = "in_design", "In design"
         CLIENT_REVIEW = "client_review", "Client review"
         REVISION = "revision", "Revision"
         APPROVED = "approved", "Approved"
+        VERIFIED = "verified", "Verified"
+        REJECTED = "rejected", "Rejected"
         PUBLISHED = "published", "Published"
         COMPLETED = "completed", "Completed"
         CANCELLED = "cancelled", "Cancelled"
@@ -67,6 +70,17 @@ class Order(UUIDTimeStampedModel, ArchivableModel):
     event_date = models.DateField(blank=True, null=True)
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     currency = models.CharField(max_length=3, default="IDR")
+    payment_method = models.CharField(max_length=40, default="bank_transfer")
+    proof_url = models.URLField(max_length=500, blank=True)
+    verified_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
+        related_name="verified_orders",
+    )
+    verified_at = models.DateTimeField(blank=True, null=True)
+    rejection_reason = models.TextField(blank=True)
     notes = models.TextField(blank=True)
 
     class Meta:
