@@ -177,10 +177,152 @@ def test_ticket_model_links_to_existing_invitation_and_client_user():
         invitation=invitation,
         created_by=client_user,
         category=Ticket.Category.TECHNICAL,
+        description="BMKG widget does not load.",
     )
 
     assert ticket.status == Ticket.Status.OPEN
     assert ticket.invitation.client_user == client_user
+
+
+@pytest.mark.django_db
+def test_client_creates_ticket_and_sees_staff_status_change_on_refetch(client):
+    client_user = create_user(username="support-client", email="support-client@example.com")
+    staff = create_user(
+        username="support-staff",
+        email="support-staff@example.com",
+        role="staff",
+        is_staff=True,
+    )
+    theme = create_theme()
+    invitation = create_invitation(theme=theme, public_slug="support-ticket")
+    invitation.client_user = client_user
+    invitation.save(update_fields=["client_user", "updated_at"])
+    client.force_login(client_user)
+
+    create_response = client.post(
+        reverse("client-ticket-list"),
+        {
+            "invitation_slug": invitation.public_slug,
+            "category": Ticket.Category.TECHNICAL,
+            "description": "BMKG widget tidak tampil di undangan.",
+            "attachment_url": "https://example.com/screenshot.png",
+        },
+        content_type="application/json",
+    )
+
+    assert create_response.status_code == 201
+    ticket_id = create_response.json()["id"]
+    assert create_response.json()["status"] == Ticket.Status.OPEN
+
+    client.force_login(staff)
+    queue_response = client.get(
+        reverse("admin-ticket-list"),
+        {"category": Ticket.Category.TECHNICAL},
+    )
+    update_response = client.patch(
+        reverse("admin-ticket-detail", kwargs={"ticket_id": ticket_id}),
+        {
+            "assign_to_self": True,
+            "status": Ticket.Status.IN_PROGRESS,
+            "resolution_note": "Sedang dicek oleh staff.",
+        },
+        content_type="application/json",
+    )
+
+    assert queue_response.status_code == 200
+    assert queue_response.json()[0]["id"] == ticket_id
+    assert update_response.status_code == 200
+    assert update_response.json()["status"] == Ticket.Status.IN_PROGRESS
+    assert update_response.json()["assigned_staff_username"] == staff.username
+    assert AuditEvent.objects.filter(action="ticket.status_changed").exists()
+
+    client.force_login(client_user)
+    refetch_response = client.get(reverse("client-ticket-list"))
+
+    assert refetch_response.status_code == 200
+    assert refetch_response.json()[0]["status"] == Ticket.Status.IN_PROGRESS
+    assert refetch_response.json()[0]["resolution_note"] == "Sedang dicek oleh staff."
+
+
+@pytest.mark.django_db
+def test_dns_ticket_resolution_custom_domain_writes_audit(client):
+    client_user = create_user(username="dns-client", email="dns-client@example.com")
+    staff = create_user(
+        username="dns-staff",
+        email="dns-staff@example.com",
+        role="staff",
+        is_staff=True,
+    )
+    theme = create_theme()
+    invitation = create_invitation(theme=theme, public_slug="dns-ticket")
+    invitation.client_user = client_user
+    invitation.save(update_fields=["client_user", "updated_at"])
+    ticket = Ticket.objects.create(
+        invitation=invitation,
+        created_by=client_user,
+        category=Ticket.Category.DNS,
+        description="Tolong pasang custom domain undangan.",
+    )
+    client.force_login(staff)
+
+    progress_response = client.patch(
+        reverse("admin-ticket-detail", kwargs={"ticket_id": ticket.id}),
+        {"status": Ticket.Status.IN_PROGRESS, "assign_to_self": True},
+        content_type="application/json",
+    )
+    resolve_response = client.patch(
+        reverse("admin-ticket-detail", kwargs={"ticket_id": ticket.id}),
+        {
+            "status": Ticket.Status.RESOLVED,
+            "custom_domain": "undangan.example.com",
+            "reason": "DNS ownership verified",
+            "resolution_note": "Custom domain sudah aktif.",
+        },
+        content_type="application/json",
+    )
+
+    assert progress_response.status_code == 200
+    assert resolve_response.status_code == 200
+    invitation.refresh_from_db()
+    ticket.refresh_from_db()
+    assert invitation.custom_domain == "undangan.example.com"
+    assert ticket.status == Ticket.Status.RESOLVED
+    audit = AuditEvent.objects.get(action="invitation.custom_domain_updated")
+    assert audit.resource_reference == invitation.public_slug
+    assert audit.metadata["reason"] == "DNS ownership verified"
+    assert audit.metadata["custom_domain"] == "undangan.example.com"
+
+
+@pytest.mark.django_db
+def test_ticket_status_transition_cannot_skip_to_resolved(client):
+    client_user = create_user(username="skip-client", email="skip-client@example.com")
+    staff = create_user(
+        username="skip-staff",
+        email="skip-staff@example.com",
+        role="staff",
+        is_staff=True,
+    )
+    theme = create_theme()
+    invitation = create_invitation(theme=theme, public_slug="skip-ticket")
+    invitation.client_user = client_user
+    invitation.save(update_fields=["client_user", "updated_at"])
+    ticket = Ticket.objects.create(
+        invitation=invitation,
+        created_by=client_user,
+        category=Ticket.Category.GENERAL,
+        description="General support request.",
+    )
+    client.force_login(staff)
+
+    response = client.patch(
+        reverse("admin-ticket-detail", kwargs={"ticket_id": ticket.id}),
+        {"status": Ticket.Status.RESOLVED},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 400
+    ticket.refresh_from_db()
+    assert ticket.status == Ticket.Status.OPEN
 
 
 @pytest.mark.django_db

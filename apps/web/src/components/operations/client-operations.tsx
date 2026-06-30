@@ -3,6 +3,7 @@
 import {
   CheckCircle2,
   Download,
+  LifeBuoy,
   LogOut,
   Music2,
   Pencil,
@@ -97,6 +98,21 @@ type InvitationMusic = {
   available_assets: MusicAsset[];
 };
 
+type SupportTicket = {
+  id: string;
+  invitation_slug: string;
+  category: string;
+  description: string;
+  attachment_url: string;
+  status: string;
+  resolution_note: string;
+  created_by_email: string;
+  assigned_staff_username: string | null;
+  resolved_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 type DraftForm = {
   partnerOne: string;
   partnerTwo: string;
@@ -138,6 +154,16 @@ const guestFormFields: Array<{
   { field: "phone", label: "Phone", placeholder: "+62812", type: "tel" },
   { field: "party_size", label: "Party size", placeholder: "2", type: "number" },
 ];
+
+const emptyTicketForm = {
+  attachment_url: "",
+  category: "technical",
+  description: "",
+};
+
+type TicketForm = typeof emptyTicketForm;
+type TicketFormField = keyof TicketForm;
+const ticketCategories = ["technical", "dns", "billing", "general"];
 
 const clientLoginPath = "/client/login";
 const clientGateCookie = "niskala_client_gate";
@@ -264,11 +290,13 @@ export function ClientOperations() {
   const [profile, setProfile] = useState<ClientProfile["user"] | null>(null);
   const [orders, setOrders] = useState<ClientOrder[]>([]);
   const [invitations, setInvitations] = useState<ClientInvitation[]>([]);
+  const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [selectedSlug, setSelectedSlug] = useState("");
   const selectedSlugRef = useRef("");
   const [draftForm, setDraftForm] = useState<DraftForm>(formFromInvitation(undefined));
   const [guests, setGuests] = useState<Guest[]>([]);
   const [guestForm, setGuestForm] = useState<GuestForm>(emptyGuestForm);
+  const [ticketForm, setTicketForm] = useState<TicketForm>(emptyTicketForm);
   const [editingGuestId, setEditingGuestId] = useState("");
   const [lastGuestLink, setLastGuestLink] = useState("");
   const [music, setMusic] = useState<InvitationMusic | null>(null);
@@ -282,6 +310,7 @@ export function ClientOperations() {
   const [savingAction, setSavingAction] = useState("");
   const [savingDraft, setSavingDraft] = useState(false);
   const [savingGuest, setSavingGuest] = useState(false);
+  const [savingTicket, setSavingTicket] = useState(false);
   const [savingMusic, setSavingMusic] = useState(false);
   const [error, setError] = useState("");
 
@@ -302,14 +331,16 @@ export function ClientOperations() {
     setLoading(true);
     setError("");
     try {
-      const [nextProfile, nextOrders, nextInvitations] = await Promise.all([
+      const [nextProfile, nextOrders, nextInvitations, nextTickets] = await Promise.all([
         clientFetch<ClientProfile>("/client/profile"),
         clientFetch<ClientOrder[]>("/client/orders"),
         clientFetch<ClientInvitation[]>("/client/invitations"),
+        clientFetch<SupportTicket[]>("/client/tickets"),
       ]);
       setProfile(nextProfile.user);
       setOrders(nextOrders);
       setInvitations(nextInvitations);
+      setTickets(nextTickets);
       const preferredSlug = selectedSlugRef.current;
       const nextSelected = nextInvitations.find(
         (invitation) => invitation.public_slug === preferredSlug,
@@ -526,6 +557,40 @@ export function ClientOperations() {
     }
   }
 
+  function updateTicketForm(field: TicketFormField, value: string) {
+    setError("");
+    setTicketForm((current) => ({ ...current, [field]: value }));
+  }
+
+  async function createTicket() {
+    if (!selectedInvitation) {
+      return;
+    }
+    if (!ticketForm.description.trim()) {
+      setError("Deskripsi bantuan wajib diisi.");
+      return;
+    }
+    setSavingTicket(true);
+    setError("");
+    try {
+      const created = await clientFetch<SupportTicket>("/client/tickets", {
+        body: JSON.stringify({
+          attachment_url: ticketForm.attachment_url.trim(),
+          category: ticketForm.category,
+          description: ticketForm.description.trim(),
+          invitation_slug: selectedInvitation.public_slug,
+        }),
+        method: "POST",
+      });
+      setTickets((current) => [created, ...current]);
+      setTicketForm(emptyTicketForm);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Ticket bantuan gagal dibuat.");
+    } finally {
+      setSavingTicket(false);
+    }
+  }
+
   function updateDraftForm(field: keyof DraftForm, value: string) {
     setDraftForm((current) => ({ ...current, [field]: value }));
   }
@@ -719,6 +784,102 @@ export function ClientOperations() {
           </article>
         ))}
       </div>
+
+      <section
+        className="grid gap-6 border border-white/12 bg-[#181815] p-5 lg:grid-cols-[0.7fr_1.3fr]"
+        id="support"
+      >
+        <div>
+          <p className="text-[0.65rem] uppercase tracking-[0.2em] text-[var(--color-gold)]">
+            Need help
+          </p>
+          <h2 className="mt-4 font-serif text-4xl">Support ticket.</h2>
+          <p className="mt-5 text-sm leading-6 text-white/55">
+            Kirim kendala teknis, DNS custom domain, billing, atau pertanyaan umum ke
+            staff tanpa keluar dari dashboard.
+          </p>
+        </div>
+        <div className="grid gap-5">
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="grid gap-2">
+              <span className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">
+                Category
+              </span>
+              <select
+                className="min-h-11 border border-white/15 bg-black/30 px-3 text-sm outline-none transition focus:border-[var(--color-gold)]"
+                onChange={(event) => updateTicketForm("category", event.target.value)}
+                value={ticketForm.category}
+              >
+                {ticketCategories.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-2">
+              <span className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">
+                Attachment URL
+              </span>
+              <input
+                className="min-h-11 border border-white/15 bg-black/30 px-3 text-sm outline-none transition focus:border-[var(--color-gold)]"
+                onChange={(event) => updateTicketForm("attachment_url", event.target.value)}
+                placeholder="https://..."
+                value={ticketForm.attachment_url}
+              />
+            </label>
+            <label className="grid gap-2 md:col-span-2">
+              <span className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">
+                Description
+              </span>
+              <textarea
+                className="min-h-28 border border-white/15 bg-black/30 px-3 py-3 text-sm outline-none transition focus:border-[var(--color-gold)]"
+                onChange={(event) => updateTicketForm("description", event.target.value)}
+                placeholder="Jelaskan kendala atau request yang perlu dibantu staff."
+                value={ticketForm.description}
+              />
+            </label>
+            <button
+              className="inline-flex min-h-11 items-center justify-center gap-3 bg-[var(--color-gold)] px-4 text-[0.65rem] font-bold uppercase tracking-[0.16em] text-[#17140d] transition hover:brightness-110 disabled:opacity-50 md:col-span-2"
+              disabled={savingTicket || !selectedInvitation || !ticketForm.description.trim()}
+              onClick={() => void createTicket()}
+              type="button"
+            >
+              <LifeBuoy size={15} />
+              {savingTicket ? "Creating ticket" : "Create support ticket"}
+            </button>
+          </div>
+          <div className="grid gap-px bg-white/12">
+            {tickets.map((ticket) => (
+              <article className="bg-black/20 p-4" key={ticket.id}>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold">
+                      {ticket.category} / {ticket.invitation_slug}
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-white/55">
+                      {ticket.description}
+                    </p>
+                    {ticket.resolution_note ? (
+                      <p className="mt-3 text-sm leading-6 text-[#f4ddb0]">
+                        Staff: {ticket.resolution_note}
+                      </p>
+                    ) : null}
+                  </div>
+                  <span className="text-xs uppercase tracking-[0.14em] text-[var(--color-gold)]">
+                    {ticket.status}
+                  </span>
+                </div>
+              </article>
+            ))}
+            {tickets.length === 0 ? (
+              <article className="bg-black/20 p-4 text-sm text-white/45">
+                Belum ada support ticket.
+              </article>
+            ) : null}
+          </div>
+        </div>
+      </section>
 
       <div className="grid gap-8 lg:grid-cols-2" id="rsvp">
         <section className="border border-white/12 bg-[#181815] p-5">

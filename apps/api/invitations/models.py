@@ -64,6 +64,7 @@ class Invitation(UUIDTimeStampedModel, ArchivableModel):
     is_sample = models.BooleanField(default=False, db_index=True)
     published_at = models.DateTimeField(blank=True, null=True)
     expires_at = models.DateTimeField(blank=True, null=True)
+    custom_domain = models.CharField(max_length=255, blank=True, db_index=True)
     content = models.JSONField(default=dict, validators=[validate_invitation_content])
 
     class Meta:
