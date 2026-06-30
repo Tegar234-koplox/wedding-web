@@ -460,10 +460,6 @@ export function AdminOperations() {
         setLastGuestLink("");
       }
     } catch (caught) {
-      if (caught instanceof StaffFetchError && caught.isAuthError) {
-        redirectToLogin();
-        return;
-      }
       setError(
         caught instanceof Error
           ? caught.message
