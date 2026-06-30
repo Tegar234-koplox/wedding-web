@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     "orders",
     "payments",
     "analytics",
+    "tickets",
 ]
 
 MIDDLEWARE = [
@@ -69,6 +70,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "common.middleware.DatabaseAccessContextMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "common.middleware.RequestIdMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",

@@ -2,6 +2,7 @@ from rest_framework import serializers
 
 from catalog.models import Package, Theme
 from common.models import AuditEvent
+from common.notifications import enqueue_client_notification
 from invitations.models import Invitation
 from leads.models import WhatsAppIntent
 from orders.models import Order
@@ -124,6 +125,11 @@ class OrderSerializer(serializers.ModelSerializer[Order]):
             resource_reference=order.reference,
             metadata={"status": order.status},
         )
+        enqueue_client_notification(
+            recipient=order.client_user,
+            event_type="order.created",
+            payload={"order": order.reference, "status": order.status},
+        )
         return order
 
     def update(self, instance, validated_data):
@@ -143,6 +149,11 @@ class OrderSerializer(serializers.ModelSerializer[Order]):
             resource_type="order",
             resource_reference=order.reference,
             metadata={"old_status": old_status, "status": order.status},
+        )
+        enqueue_client_notification(
+            recipient=order.client_user,
+            event_type=action,
+            payload={"order": order.reference, "old_status": old_status, "status": order.status},
         )
         return order
 

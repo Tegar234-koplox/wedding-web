@@ -4,6 +4,7 @@ from datetime import timedelta
 from urllib.parse import urlparse
 
 from django.contrib.auth.hashers import check_password, make_password
+from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q
 from django.http import Http404, HttpResponse
 from django.utils import timezone
@@ -17,6 +18,7 @@ from rest_framework.views import APIView
 
 from analytics.models import AnalyticsEvent
 from common.models import AuditEvent
+from common.notifications import enqueue_client_notification
 from invitations.models import Guest, Invitation, InvitationMedia
 from invitations.selectors import public_invitations
 from invitations.serializers import (
@@ -85,6 +87,15 @@ def _rsvp_retention_date(invitation: Invitation):
 
 def _active_guests(invitation: Invitation):
     return invitation.guests.filter(archived_at__isnull=True, anonymized_at__isnull=True)
+
+
+def _invitation_client_recipient(invitation: Invitation):
+    if invitation.client_user_id:
+        return invitation.client_user
+    try:
+        return invitation.order.client_user
+    except ObjectDoesNotExist:
+        return None
 
 
 def _client_owned_invitations(user):
@@ -169,6 +180,15 @@ def _set_invitation_backsound(
         resource_reference=invitation.public_slug,
         metadata={"asset_id": str(asset.id) if asset else None},
     )
+    if getattr(actor, "role", "") == "staff":
+        enqueue_client_notification(
+            recipient=_invitation_client_recipient(invitation),
+            event_type="invitation.backsound_updated",
+            payload={
+                "invitation": invitation.public_slug,
+                "asset_id": str(asset.id) if asset else None,
+            },
+        )
     return _backsound_response(invitation)
 
 
@@ -197,6 +217,17 @@ def _transition_order_status(
             "invitation": invitation.public_slug,
         },
     )
+    if getattr(actor, "role", "") == "staff":
+        enqueue_client_notification(
+            recipient=order.client_user or invitation.client_user,
+            event_type=action,
+            payload={
+                "order": order.reference,
+                "old_status": old_status,
+                "status": order.status,
+                "invitation": invitation.public_slug,
+            },
+        )
 
 
 def _ensure_client_can_request_changes(invitation: Invitation) -> None:
@@ -461,7 +492,6 @@ class StaffInvitationOperationListView(ListAPIView):
 
 class StaffInvitationPublishView(APIView):
     permission_classes = [IsStaffRole]
-    minimum_role = "editor"
 
     def post(self, request, public_slug: str) -> Response:
         invitation = Invitation.objects.filter(public_slug=public_slug).first()
@@ -492,6 +522,11 @@ class StaffInvitationPublishView(APIView):
             resource_type="invitation",
             resource_reference=invitation.public_slug,
         )
+        enqueue_client_notification(
+            recipient=_invitation_client_recipient(invitation),
+            event_type="invitation.published",
+            payload={"invitation": invitation.public_slug},
+        )
         return Response(
             {"status": invitation.status, "approval_status": invitation.approval_status}
         )
@@ -499,11 +534,6 @@ class StaffInvitationPublishView(APIView):
 
 class StaffInvitationGuestListCreateView(APIView):
     permission_classes = [IsStaffRole]
-    minimum_role = "support"
-
-    def get_permissions(self):
-        self.minimum_role = "viewer" if self.request.method == "GET" else "support"
-        return super().get_permissions()
 
     def get(self, request, public_slug: str) -> Response:
         invitation = Invitation.objects.filter(public_slug=public_slug).first()
@@ -533,6 +563,11 @@ class StaffInvitationGuestListCreateView(APIView):
             resource_reference=str(guest.id),
             metadata={"invitation": invitation.public_slug},
         )
+        enqueue_client_notification(
+            recipient=_invitation_client_recipient(invitation),
+            event_type="guest.created",
+            payload={"invitation": invitation.public_slug, "guest_id": str(guest.id)},
+        )
         return Response(
             {
                 **GuestSerializer(guest).data,
@@ -544,11 +579,6 @@ class StaffInvitationGuestListCreateView(APIView):
 
 class StaffInvitationMusicView(APIView):
     permission_classes = [IsStaffRole]
-    minimum_role = "support"
-
-    def get_permissions(self):
-        self.minimum_role = "viewer" if self.request.method == "GET" else "support"
-        return super().get_permissions()
 
     def get(self, request, public_slug: str) -> Response:
         invitation = Invitation.objects.filter(public_slug=public_slug).first()
@@ -598,7 +628,6 @@ class ClientGuestExportView(APIView):
 
 class StaffGuestAnonymizeView(APIView):
     permission_classes = [IsStaffRole]
-    minimum_role = "support"
 
     def post(self, request, guest_id: str) -> Response:
         guest = Guest.objects.filter(id=guest_id).first()
@@ -622,12 +651,16 @@ class StaffGuestAnonymizeView(APIView):
             resource_type="guest",
             resource_reference=str(guest.id),
         )
+        enqueue_client_notification(
+            recipient=_invitation_client_recipient(guest.invitation),
+            event_type="guest.anonymized",
+            payload={"invitation": guest.invitation.public_slug, "guest_id": str(guest.id)},
+        )
         return Response({"status": "anonymized"})
 
 
 class StaffGuestArchiveView(APIView):
     permission_classes = [IsStaffRole]
-    minimum_role = "support"
 
     def post(self, request, guest_id: str) -> Response:
         guest = Guest.objects.filter(id=guest_id).first()
@@ -640,5 +673,10 @@ class StaffGuestArchiveView(APIView):
             action="guest.archived",
             resource_type="guest",
             resource_reference=str(guest.id),
+        )
+        enqueue_client_notification(
+            recipient=_invitation_client_recipient(guest.invitation),
+            event_type="guest.archived",
+            payload={"invitation": guest.invitation.public_slug, "guest_id": str(guest.id)},
         )
         return Response({"status": "archived"})

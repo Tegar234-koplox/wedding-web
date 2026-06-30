@@ -15,7 +15,7 @@ from common.serializers import (
 )
 from orders.permissions import IsStaffRole
 
-STAFF_ROLES = {"owner", "admin", "editor", "support", "viewer"}
+STAFF_ROLE = "staff"
 CLIENT_ROLE = "client"
 
 
@@ -86,7 +86,7 @@ class StaffLoginView(APIView):
         user = authenticate(request, username=username, password=password)
         if user is None:
             return Response({"detail": "Kredensial staff tidak valid."}, status=400)
-        has_staff_role = getattr(user, "role", "") in STAFF_ROLES
+        has_staff_role = getattr(user, "role", "") == STAFF_ROLE
         if not user.is_active or not user.is_staff or not (user.is_superuser or has_staff_role):
             return Response({"detail": "Akun ini tidak memiliki akses staff."}, status=403)
 
