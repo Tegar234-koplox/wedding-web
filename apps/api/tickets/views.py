@@ -1,5 +1,4 @@
 from django.db import transaction
-from django.db.models import Q
 from django.http import Http404
 from django.utils import timezone
 from rest_framework.generics import ListCreateAPIView
@@ -8,24 +7,15 @@ from rest_framework.views import APIView
 
 from common.models import AuditEvent
 from common.notifications import enqueue_client_notification
-from invitations.models import Invitation
-from orders.permissions import IsClientOwner, IsStaffRole
+from orders.permissions import IsStaffRole
 from tickets.models import Ticket
-from tickets.serializers import (
-    ClientTicketCreateSerializer,
-    StaffTicketUpdateSerializer,
-    TicketSerializer,
-)
+from tickets.serializers import StaffTicketUpdateSerializer, TicketSerializer
 
 TICKET_TRANSITIONS = {
     Ticket.Status.OPEN: {Ticket.Status.IN_PROGRESS},
     Ticket.Status.IN_PROGRESS: {Ticket.Status.RESOLVED},
     Ticket.Status.RESOLVED: set(),
 }
-
-
-def client_owned_invitations(user):
-    return Invitation.objects.filter(Q(client_user=user) | Q(order__client_user=user)).distinct()
 
 
 def ticket_recipient(ticket: Ticket):
@@ -42,49 +32,6 @@ def ensure_ticket_transition(current: str, target: str) -> None:
         return
     if target not in TICKET_TRANSITIONS.get(current, set()):
         raise ValidationError({"status": f"Invalid ticket transition: {current} -> {target}."})
-
-
-class ClientTicketListCreateView(ListCreateAPIView):
-    permission_classes = [IsClientOwner]
-    serializer_class = TicketSerializer
-    pagination_class = None
-
-    def get_queryset(self):
-        invitation_ids = client_owned_invitations(self.request.user).values("id")
-        return (
-            Ticket.objects.filter(invitation_id__in=invitation_ids)
-            .select_related("invitation", "created_by", "assigned_staff")
-            .order_by("-created_at")
-        )
-
-    def create(self, request, *args, **kwargs):
-        serializer = ClientTicketCreateSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        invitation = (
-            client_owned_invitations(request.user)
-            .filter(public_slug=serializer.validated_data["invitation_slug"])
-            .first()
-        )
-        if invitation is None:
-            raise Http404
-        ticket = Ticket.objects.create(
-            invitation=invitation,
-            created_by=request.user,
-            category=serializer.validated_data["category"],
-            description=serializer.validated_data["description"],
-            attachment_url=serializer.validated_data.get("attachment_url", ""),
-        )
-        AuditEvent.objects.create(
-            actor=request.user,
-            action="ticket.client_created",
-            resource_type="ticket",
-            resource_reference=str(ticket.id),
-            metadata={
-                "category": ticket.category,
-                "invitation": invitation.public_slug,
-            },
-        )
-        return Response(TicketSerializer(ticket).data, status=201)
 
 
 class StaffTicketListView(ListCreateAPIView):

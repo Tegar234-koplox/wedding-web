@@ -19,10 +19,8 @@ from orders.lifecycle import (
     staff_reject_order,
 )
 from orders.models import Order
-from orders.permissions import IsClientOwner, IsStaffRole
+from orders.permissions import IsStaffRole
 from orders.serializers import (
-    ClientOrderSerializer,
-    ClientPaymentProofSerializer,
     OrderSerializer,
     StaffClientLifecycleSerializer,
     StaffRejectOrderSerializer,
@@ -62,47 +60,6 @@ class StaffOrderDetailView(RetrieveUpdateAPIView):
 
     def get_queryset(self):
         return Order.objects.select_related("theme", "package", "invitation", "whatsapp_intent")
-
-
-class ClientOrderListView(ListAPIView):
-    permission_classes = [IsClientOwner]
-    serializer_class = ClientOrderSerializer
-    pagination_class = None
-
-    def get_queryset(self):
-        return Order.objects.filter(client_user=self.request.user).select_related(
-            "theme",
-            "package",
-            "invitation",
-        )
-
-
-class ClientPaymentProofView(APIView):
-    permission_classes = [IsClientOwner]
-
-    def post(self, request, reference: str) -> Response:
-        order = Order.objects.filter(reference=reference, client_user=request.user).first()
-        if order is None:
-            from django.http import Http404
-
-            raise Http404
-        serializer = ClientPaymentProofSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        order.payment_method = serializer.validated_data["method"]
-        order.proof_url = serializer.validated_data["proof_url"]
-        order.status = Order.Status.PENDING
-        order.save(update_fields=["payment_method", "proof_url", "status", "updated_at"])
-        if order.invitation_id and order.invitation.status == Invitation.Status.DRAFT:
-            order.invitation.status = Invitation.Status.PENDING_VERIFICATION
-            order.invitation.save(update_fields=["status", "updated_at"])
-        AuditEvent.objects.create(
-            actor=request.user,
-            action="order.payment_proof_uploaded",
-            resource_type="order",
-            resource_reference=order.reference,
-            metadata={"method": order.payment_method},
-        )
-        return Response(ClientOrderSerializer(order).data)
 
 
 class StaffVerificationQueueView(ListAPIView):

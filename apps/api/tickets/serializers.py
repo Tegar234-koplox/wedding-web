@@ -41,13 +41,6 @@ class TicketSerializer(serializers.ModelSerializer[Ticket]):
         ]
 
 
-class ClientTicketCreateSerializer(serializers.Serializer):
-    invitation_slug = serializers.SlugField(max_length=100)
-    category = serializers.ChoiceField(choices=Ticket.Category.choices)
-    description = serializers.CharField(max_length=5000)
-    attachment_url = serializers.URLField(max_length=500, required=False, allow_blank=True)
-
-
 class StaffTicketUpdateSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=Ticket.Status.choices, required=False)
     assign_to_self = serializers.BooleanField(required=False, default=False)
