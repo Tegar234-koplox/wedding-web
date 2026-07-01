@@ -2,8 +2,6 @@ from django.urls import path
 
 from orders.views import (
     BillingLifecycleRefreshView,
-    ClientOrderListView,
-    ClientPaymentProofView,
     StaffArchiveWeddingView,
     StaffClientLifecycleListView,
     StaffConfirmOrderView,
@@ -50,12 +48,6 @@ urlpatterns = [
         "admin/weddings/<slug:public_slug>/archive",
         StaffArchiveWeddingView.as_view(),
         name="admin-wedding-archive",
-    ),
-    path("client/orders", ClientOrderListView.as_view(), name="client-order-list"),
-    path(
-        "client/orders/<slug:reference>/payment-proof",
-        ClientPaymentProofView.as_view(),
-        name="client-order-payment-proof",
     ),
     path(
         "billing/lifecycle/refresh",

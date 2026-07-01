@@ -162,40 +162,6 @@ class OrderSerializer(serializers.ModelSerializer[Order]):
         return order
 
 
-class ClientOrderSerializer(serializers.ModelSerializer[Order]):
-    theme_slug = serializers.CharField(source="theme.slug", read_only=True, allow_null=True)
-    package_code = serializers.CharField(source="package.code", read_only=True, allow_null=True)
-    invitation_slug = serializers.CharField(
-        source="invitation.public_slug",
-        read_only=True,
-        allow_null=True,
-    )
-
-    class Meta:
-        model = Order
-        fields = [
-            "reference",
-            "status",
-            "theme_slug",
-            "package_code",
-            "invitation_slug",
-            "client_name",
-            "event_date",
-            "total_amount",
-            "currency",
-            "payment_method",
-            "proof_url",
-            "verified_at",
-            "rejection_reason",
-            "updated_at",
-        ]
-
-
-class ClientPaymentProofSerializer(serializers.Serializer):
-    proof_url = serializers.URLField(max_length=500)
-    method = serializers.CharField(max_length=40, required=False, default="bank_transfer")
-
-
 class StaffVerificationActionSerializer(serializers.Serializer):
     reason = serializers.CharField(allow_blank=True, required=False, default="")
 

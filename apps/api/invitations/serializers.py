@@ -1,7 +1,6 @@
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
-from common.models import AuditEvent
 from invitations.models import (
     EventLocation,
     Guest,
@@ -108,65 +107,6 @@ class PublicInvitationSerializer(serializers.ModelSerializer[Invitation]):
         ]
 
 
-class ClientInvitationSerializer(serializers.ModelSerializer[Invitation]):
-    theme_slug = serializers.CharField(source="theme.slug", read_only=True)
-    package_code = serializers.CharField(
-        source="package.code",
-        read_only=True,
-        allow_null=True,
-    )
-
-    class Meta:
-        model = Invitation
-        fields = [
-            "public_slug",
-            "theme_slug",
-            "package_code",
-            "status",
-            "approval_status",
-            "default_locale",
-            "content",
-            "updated_at",
-        ]
-        read_only_fields = [
-            "public_slug",
-            "theme_slug",
-            "package_code",
-            "status",
-            "approval_status",
-            "updated_at",
-        ]
-
-    def validate_content(self, value):
-        if not isinstance(value, dict):
-            raise serializers.ValidationError("Invitation content must be an object.")
-        return value
-
-    def validate(self, attrs):
-        locked_statuses = {
-            Invitation.ApprovalStatus.APPROVED_FOR_PUBLISH,
-            Invitation.ApprovalStatus.PUBLISHED,
-        }
-        if self.instance and self.instance.approval_status in locked_statuses:
-            raise serializers.ValidationError(
-                {"content": "Approved invitations cannot be edited by the client."}
-            )
-        return attrs
-
-    def update(self, instance, validated_data):
-        invitation = super().update(instance, validated_data)
-        request = self.context.get("request")
-        if request is not None:
-            AuditEvent.objects.create(
-                actor=request.user,
-                action="invitation.client_updated",
-                resource_type="invitation",
-                resource_reference=invitation.public_slug,
-                metadata={"fields": sorted(validated_data.keys())},
-            )
-        return invitation
-
-
 class StaffInvitationOperationSerializer(serializers.ModelSerializer[Invitation]):
     theme_slug = serializers.CharField(source="theme.slug", read_only=True)
     package_code = serializers.CharField(
@@ -211,35 +151,6 @@ class StaffInvitationOperationSerializer(serializers.ModelSerializer[Invitation]
     def get_order_client_name(self, obj: Invitation) -> str:
         order = getattr(obj, "order", None)
         return order.client_name if order else ""
-
-
-class GuestSerializer(serializers.ModelSerializer[Guest]):
-    class Meta:
-        model = Guest
-        fields = [
-            "id",
-            "display_name",
-            "email",
-            "phone",
-            "party_size",
-            "rsvp_status",
-            "attendance_count",
-            "wishes",
-            "responded_at",
-            "archived_at",
-            "anonymized_at",
-            "retention_expires_at",
-        ]
-        read_only_fields = [
-            "id",
-            "rsvp_status",
-            "attendance_count",
-            "wishes",
-            "responded_at",
-            "archived_at",
-            "anonymized_at",
-            "retention_expires_at",
-        ]
 
 
 class PublicRSVPSerializer(serializers.Serializer):

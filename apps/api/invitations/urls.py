@@ -1,14 +1,6 @@
 from django.urls import path
 
 from invitations.views import (
-    ClientGuestExportView,
-    ClientInvitationApprovePublishView,
-    ClientInvitationDetailView,
-    ClientInvitationGuestDetailView,
-    ClientInvitationGuestListView,
-    ClientInvitationListView,
-    ClientInvitationMusicView,
-    ClientInvitationSubmitRevisionView,
     InvitationDetailView,
     InvitationRSVPView,
     InvitationWeatherView,
@@ -41,42 +33,6 @@ urlpatterns = [
         "invitations/<slug:public_slug>/public-rsvp",
         PublicGuestRSVPCreateView.as_view(),
         name="invitation-public-rsvp-create",
-    ),
-    path("client/invitations", ClientInvitationListView.as_view(), name="client-invitation-list"),
-    path(
-        "client/invitations/<slug:public_slug>",
-        ClientInvitationDetailView.as_view(),
-        name="client-invitation-detail",
-    ),
-    path(
-        "client/invitations/<slug:public_slug>/submit-revision",
-        ClientInvitationSubmitRevisionView.as_view(),
-        name="client-invitation-submit-revision",
-    ),
-    path(
-        "client/invitations/<slug:public_slug>/approve-publish",
-        ClientInvitationApprovePublishView.as_view(),
-        name="client-invitation-approve-publish",
-    ),
-    path(
-        "client/invitations/<slug:public_slug>/guests/export",
-        ClientGuestExportView.as_view(),
-        name="client-guest-export",
-    ),
-    path(
-        "client/invitations/<slug:public_slug>/guests",
-        ClientInvitationGuestListView.as_view(),
-        name="client-guest-list",
-    ),
-    path(
-        "client/invitations/<slug:public_slug>/guests/<uuid:guest_id>",
-        ClientInvitationGuestDetailView.as_view(),
-        name="client-guest-detail",
-    ),
-    path(
-        "client/invitations/<slug:public_slug>/music",
-        ClientInvitationMusicView.as_view(),
-        name="client-invitation-music",
     ),
     path(
         "admin/invitations",

@@ -1,4 +1,3 @@
-import csv
 import hashlib
 from datetime import timedelta
 from urllib.parse import urlparse
@@ -6,13 +5,12 @@ from urllib.parse import urlparse
 from django.contrib.auth.hashers import check_password, make_password
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import connection
-from django.db.models import Q
-from django.http import Http404, HttpResponse
+from django.http import Http404
 from django.utils import timezone
 from django.utils.crypto import constant_time_compare, get_random_string
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import serializers
-from rest_framework.generics import ListAPIView, RetrieveAPIView, RetrieveUpdateAPIView
+from rest_framework.generics import ListAPIView, RetrieveAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -24,9 +22,7 @@ from invitations.models import Guest, Invitation, InvitationMedia
 from invitations.selectors import public_invitations
 from invitations.serializers import (
     BacksoundAssetSerializer,
-    ClientInvitationSerializer,
     GuestAggregateSerializer,
-    GuestSerializer,
     InvitationBacksoundSerializer,
     PublicGuestRSVPCreateSerializer,
     PublicInvitationSerializer,
@@ -36,7 +32,7 @@ from invitations.serializers import (
 from media_library.models import MediaAsset
 from media_library.services import ALLOWED_AUDIO_FORMATS, public_audio_payload
 from orders.models import Order
-from orders.permissions import IsClientOwner, IsStaffRole
+from orders.permissions import IsStaffRole
 from weather.services import weather_for_invitation
 
 
@@ -88,10 +84,6 @@ def _rsvp_retention_date(invitation: Invitation):
     return base + timedelta(days=365)
 
 
-def _active_guests(invitation: Invitation):
-    return invitation.guests.filter(archived_at__isnull=True, anonymized_at__isnull=True)
-
-
 def _guest_aggregate_rows(invitation: Invitation | None = None) -> list[dict[str, object]]:
     with connection.cursor() as cursor:
         cursor.execute(
@@ -130,14 +122,6 @@ def _invitation_client_recipient(invitation: Invitation):
         return invitation.order.client_user
     except ObjectDoesNotExist:
         return None
-
-
-def _client_owned_invitations(user):
-    return Invitation.objects.filter(Q(client_user=user) | Q(order__client_user=user)).distinct()
-
-
-def _client_owned_invitation(user, public_slug: str) -> Invitation | None:
-    return _client_owned_invitations(user).filter(public_slug=public_slug).first()
 
 
 def _audio_format_from_url(secure_url: str) -> str:
@@ -262,16 +246,6 @@ def _transition_order_status(
                 "invitation": invitation.public_slug,
             },
         )
-
-
-def _ensure_client_can_request_changes(invitation: Invitation) -> None:
-    if invitation.approval_status in {
-        Invitation.ApprovalStatus.APPROVED_FOR_PUBLISH,
-        Invitation.ApprovalStatus.PUBLISHED,
-    }:
-        from rest_framework.exceptions import ValidationError
-
-        raise ValidationError({"invitation": "Approved invitations cannot be changed by client."})
 
 
 def _asset_from_music_payload(data) -> MediaAsset | None:
@@ -414,195 +388,6 @@ class PublicGuestRSVPCreateView(APIView):
         return Response({"status": guest.rsvp_status}, status=201)
 
 
-class ClientInvitationListView(ListAPIView):
-    permission_classes = [IsClientOwner]
-    serializer_class = ClientInvitationSerializer
-    pagination_class = None
-
-    def get_queryset(self):
-        return _client_owned_invitations(self.request.user).select_related(
-            "theme",
-            "package",
-        )
-
-
-class ClientInvitationDetailView(RetrieveUpdateAPIView):
-    permission_classes = [IsClientOwner]
-    serializer_class = ClientInvitationSerializer
-    lookup_field = "public_slug"
-
-    def get_queryset(self):
-        return _client_owned_invitations(self.request.user).select_related(
-            "theme",
-            "package",
-        )
-
-
-class ClientInvitationSubmitRevisionView(APIView):
-    permission_classes = [IsClientOwner]
-
-    def post(self, request, public_slug: str) -> Response:
-        invitation = _client_owned_invitation(request.user, public_slug)
-        if invitation is None:
-            raise Http404
-        _ensure_client_can_request_changes(invitation)
-        invitation.approval_status = Invitation.ApprovalStatus.SUBMITTED
-        invitation.status = Invitation.Status.REVIEW
-        invitation.save(update_fields=["approval_status", "status", "updated_at"])
-        _transition_order_status(
-            invitation=invitation,
-            status=Order.Status.REVISION,
-            actor=request.user,
-        )
-        AuditEvent.objects.create(
-            actor=request.user,
-            action="invitation.revision_submitted",
-            resource_type="invitation",
-            resource_reference=invitation.public_slug,
-        )
-        return Response(
-            {"approval_status": invitation.approval_status, "status": invitation.status}
-        )
-
-
-class ClientInvitationApprovePublishView(APIView):
-    permission_classes = [IsClientOwner]
-
-    def post(self, request, public_slug: str) -> Response:
-        invitation = _client_owned_invitation(request.user, public_slug)
-        if invitation is None:
-            raise Http404
-        if invitation.approval_status == Invitation.ApprovalStatus.PUBLISHED:
-            from rest_framework.exceptions import ValidationError
-
-            raise ValidationError({"invitation": "Published invitations cannot be approved again."})
-        invitation.approval_status = Invitation.ApprovalStatus.APPROVED_FOR_PUBLISH
-        invitation.save(update_fields=["approval_status", "updated_at"])
-        _transition_order_status(
-            invitation=invitation,
-            status=Order.Status.APPROVED,
-            actor=request.user,
-        )
-        AuditEvent.objects.create(
-            actor=request.user,
-            action="invitation.publish_approved",
-            resource_type="invitation",
-            resource_reference=invitation.public_slug,
-        )
-        return Response({"approval_status": invitation.approval_status})
-
-
-class ClientInvitationGuestListView(APIView):
-    permission_classes = [IsClientOwner]
-
-    def get(self, request, public_slug: str) -> Response:
-        invitation = _client_owned_invitation(request.user, public_slug)
-        if invitation is None:
-            raise Http404
-        return Response(GuestSerializer(_active_guests(invitation), many=True).data)
-
-    def post(self, request, public_slug: str) -> Response:
-        invitation = _client_owned_invitation(request.user, public_slug)
-        if invitation is None:
-            raise Http404
-        serializer = GuestSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        personal_token = get_random_string(40)
-        guest = Guest.objects.create(
-            invitation=invitation,
-            access_token_hash=make_password(personal_token),
-            display_name=serializer.validated_data["display_name"],
-            email=serializer.validated_data.get("email", ""),
-            phone=serializer.validated_data.get("phone", ""),
-            party_size=serializer.validated_data.get("party_size", 1),
-        )
-        AuditEvent.objects.create(
-            actor=request.user,
-            action="guest.client_created",
-            resource_type="guest",
-            resource_reference=str(guest.id),
-            metadata={"invitation": invitation.public_slug},
-        )
-        return Response(
-            {**GuestSerializer(guest).data, "personal_token": personal_token},
-            status=201,
-        )
-
-
-class ClientInvitationGuestDetailView(APIView):
-    permission_classes = [IsClientOwner]
-
-    def _get_guest(self, request, public_slug: str, guest_id: str) -> Guest:
-        invitation = _client_owned_invitation(request.user, public_slug)
-        if invitation is None:
-            raise Http404
-        guest = _active_guests(invitation).filter(id=guest_id).first()
-        if guest is None:
-            raise Http404
-        return guest
-
-    def patch(self, request, public_slug: str, guest_id: str) -> Response:
-        guest = self._get_guest(request, public_slug, guest_id)
-        serializer = GuestSerializer(guest, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        guest.display_name = serializer.validated_data.get("display_name", guest.display_name)
-        guest.email = serializer.validated_data.get("email", guest.email)
-        guest.phone = serializer.validated_data.get("phone", guest.phone)
-        guest.party_size = serializer.validated_data.get("party_size", guest.party_size)
-        guest.save(update_fields=["display_name", "email", "phone", "party_size", "updated_at"])
-        AuditEvent.objects.create(
-            actor=request.user,
-            action="guest.client_updated",
-            resource_type="guest",
-            resource_reference=str(guest.id),
-            metadata={"invitation": public_slug},
-        )
-        return Response(GuestSerializer(guest).data)
-
-    def delete(self, request, public_slug: str, guest_id: str) -> Response:
-        guest = self._get_guest(request, public_slug, guest_id)
-        guest.archived_at = timezone.now()
-        guest.save(update_fields=["archived_at", "updated_at"])
-        AuditEvent.objects.create(
-            actor=request.user,
-            action="guest.client_archived",
-            resource_type="guest",
-            resource_reference=str(guest.id),
-            metadata={"invitation": public_slug},
-        )
-        return Response(status=204)
-
-
-class ClientInvitationMusicView(APIView):
-    permission_classes = [IsClientOwner]
-
-    def get(self, request, public_slug: str) -> Response:
-        invitation = _client_owned_invitation(request.user, public_slug)
-        if invitation is None:
-            raise Http404
-        return Response(_backsound_response(invitation))
-
-    def patch(self, request, public_slug: str) -> Response:
-        invitation = _client_owned_invitation(request.user, public_slug)
-        if invitation is None:
-            raise Http404
-        if invitation.approval_status in {
-            Invitation.ApprovalStatus.APPROVED_FOR_PUBLISH,
-            Invitation.ApprovalStatus.PUBLISHED,
-        }:
-            from rest_framework.exceptions import ValidationError
-
-            raise ValidationError({"music": "Approved invitations cannot be edited by client."})
-        asset = _asset_from_music_payload(request.data)
-        return Response(
-            _set_invitation_backsound(
-                invitation=invitation,
-                actor=request.user,
-                asset=asset,
-            )
-        )
-
-
 class StaffInvitationOperationListView(ListAPIView):
     permission_classes = [IsStaffRole]
     serializer_class = StaffInvitationOperationSerializer
@@ -717,32 +502,6 @@ class StaffInvitationMusicView(APIView):
                 asset=asset,
             )
         )
-
-
-class ClientGuestExportView(APIView):
-    permission_classes = [IsClientOwner]
-
-    def get(self, request, public_slug: str) -> HttpResponse:
-        invitation = _client_owned_invitation(request.user, public_slug)
-        if invitation is None:
-            raise Http404
-        response = HttpResponse(content_type="text/csv")
-        response["Content-Disposition"] = f'attachment; filename="{public_slug}-guests.csv"'
-        writer = csv.writer(response)
-        writer.writerow(
-            ["display_name", "rsvp_status", "attendance_count", "wishes", "responded_at"]
-        )
-        for guest in invitation.guests.filter(archived_at__isnull=True, anonymized_at__isnull=True):
-            writer.writerow(
-                [
-                    guest.display_name,
-                    guest.rsvp_status,
-                    guest.attendance_count,
-                    guest.wishes,
-                    guest.responded_at.isoformat() if guest.responded_at else "",
-                ]
-            )
-        return response
 
 
 class StaffGuestAnonymizeView(APIView):
