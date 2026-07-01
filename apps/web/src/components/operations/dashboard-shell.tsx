@@ -3,6 +3,7 @@ import type { Route } from "next";
 import type { ReactNode } from "react";
 
 type DashboardShellProps = {
+  compact?: boolean;
   eyebrow: string;
   title: string;
   description: string;
@@ -11,6 +12,7 @@ type DashboardShellProps = {
 };
 
 export function DashboardShell({
+  compact = false,
   eyebrow,
   title,
   description,
@@ -38,12 +40,24 @@ export function DashboardShell({
         </div>
       </header>
 
-      <section className="px-[var(--space-gutter)] py-14 md:py-20">
+      <section
+        className={
+          compact
+            ? "px-[var(--space-gutter)] py-10 md:py-12"
+            : "px-[var(--space-gutter)] py-14 md:py-20"
+        }
+      >
         <p className="text-[0.65rem] uppercase tracking-[0.24em] text-[var(--color-gold)]">
           {eyebrow}
         </p>
         <div className="mt-7 grid gap-8 lg:grid-cols-[1fr_0.75fr] lg:items-end">
-          <h1 className="max-w-5xl font-serif text-[clamp(4rem,9vw,9rem)] leading-[0.82]">
+          <h1
+            className={
+              compact
+                ? "max-w-5xl font-serif text-[clamp(3rem,6vw,5.75rem)] leading-[0.9]"
+                : "max-w-5xl font-serif text-[clamp(4rem,9vw,9rem)] leading-[0.82]"
+            }
+          >
             {title}
           </h1>
           <p className="max-w-md text-sm leading-7 text-[var(--color-muted)]">

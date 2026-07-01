@@ -158,6 +158,115 @@ def test_staff_can_add_revision_note_from_order_dashboard(client):
 
 
 @pytest.mark.django_db
+def test_staff_can_archive_order_from_dashboard(client):
+    staff, order = create_staff_order_fixture("staff-archive-001")
+    client.force_login(staff)
+
+    response = client.delete(reverse("admin-order-detail", kwargs={"reference": order.reference}))
+    list_response = client.get(reverse("admin-order-list"))
+
+    order.refresh_from_db()
+    assert response.status_code == 204
+    assert order.archived_at is not None
+    assert order.reference not in list_response.content.decode()
+
+
+@pytest.mark.django_db
+def test_staff_can_update_manual_order_detail_payload(client):
+    staff = create_user(
+        username="staff-manual",
+        email="manual@staff.test",
+        role="staff",
+        is_staff=True,
+    )
+    theme = create_theme(slug="manual-theme")
+    package = create_package(code="manual-package")
+    order = Order.objects.create(
+        reference="manual-detail-001",
+        client_name="Fahri",
+        theme=theme,
+        package=package,
+        total_amount="345000",
+    )
+    client.force_login(staff)
+
+    response = client.patch(
+        reverse("admin-order-detail", kwargs={"reference": order.reference}),
+        {
+            "client_name": "Fahri Updated",
+            "payment_status": Order.PaymentStatus.PAID,
+            "status": Order.Status.REVISION,
+            "ceremony": {
+                "starts_at": "2026-09-12T09:00:00+07:00",
+                "venue_name": "Masjid Raya",
+                "address": "Jakarta",
+                "map_url": "https://maps.google.com",
+            },
+            "reception": {
+                "starts_at": "2026-09-12T11:00:00+07:00",
+                "venue_name": "Gedung Resepsi",
+                "address": "Jakarta Selatan",
+            },
+            "bank_accounts": [{"bank": "BCA", "name": "Fahri", "number": "123"}],
+            "rsvp_manual": {
+                "total_invited": 100,
+                "total_confirmed": 80,
+                "total_declined": 5,
+                "response_rate": 85,
+            },
+            "media_urls": {
+                "photo": "https://res.cloudinary.com/demo/image/upload/photo.jpg",
+                "gallery": [
+                    "https://res.cloudinary.com/demo/image/upload/gallery-one.jpg",
+                    "https://res.cloudinary.com/demo/image/upload/gallery-two.jpg",
+                ],
+                "backsound": "https://res.cloudinary.com/demo/video/upload/song.mp3",
+            },
+        },
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200
+    order.refresh_from_db()
+    assert order.client_name == "Fahri Updated"
+    assert order.payment_status == Order.PaymentStatus.PAID
+    assert order.invitation is not None
+    assert order.invitation.events.count() == 2
+    assert order.invitation.media.filter(role=InvitationMedia.Role.PHOTO).count() == 1
+    assert order.invitation.media.filter(role=InvitationMedia.Role.GALLERY).count() == 2
+    assert order.invitation.media.filter(role=InvitationMedia.Role.BACKSOUND).count() == 1
+    assert order.invitation.content["bank_accounts"][0]["bank"] == "BCA"
+    assert order.invitation.content["rsvp_manual"]["total_invited"] == 100
+
+
+@pytest.mark.django_db
+def test_staff_can_edit_revision_note_from_order_dashboard(client):
+    staff, order = create_staff_order_fixture("staff-revision-edit-001")
+    client.force_login(staff)
+    create_response = client.post(
+        reverse("admin-order-revisions", kwargs={"reference": order.reference}),
+        {"note": "Revisi awal.", "is_final_check": False},
+        content_type="application/json",
+    )
+    revision_id = create_response.json()["revisions"][0]["id"]
+
+    response = client.patch(
+        reverse(
+            "admin-order-revision-detail",
+            kwargs={"reference": order.reference, "revision_id": revision_id},
+        ),
+        {"note": "Final check selesai.", "is_final_check": True},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200
+    revision = order.invitation.revisions.get()
+    assert revision.note == "Final check selesai."
+    assert revision.is_final_check is True
+    assert response.json()["revisions"][0]["label"] == "Final Check"
+
+
+@pytest.mark.django_db
 def test_staff_can_login_and_read_session(client):
     create_user(username="staff", email="staff@example.com", role="staff", is_staff=True)
 

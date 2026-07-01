@@ -2,52 +2,37 @@
 
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
+import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 
 import { AdminOperations } from "@/components/operations/admin-operations";
 import { DashboardShell } from "@/components/operations/dashboard-shell";
-import { env } from "@/lib/env";
+import {
+  clearStaffGateCookie,
+  staffFetch,
+  type StaffSession,
+} from "@/components/operations/staff-api";
 
-type StaffSession = {
-  user: {
-    username: string;
-    email: string;
-    role: string;
-    display_name: string;
-  };
+type AdminDashboardGateProps = {
+  children?: ReactNode;
+  description?: string;
+  title?: string;
 };
-
-const staffGateCookie = "niskala_staff_gate";
 
 const nav: Array<{ href: Route; label: string }> = [
   { href: "/admin", label: "Overview" },
-  { href: "/admin#orders", label: "Orders" },
-  { href: "/admin#detail", label: "Detail" },
-  { href: "/admin#revisi", label: "Revisi" },
+  { href: "/admin", label: "Orders" },
 ];
 
-function staffGateCookieAttributes(maxAge: number) {
-  const secure = window.location.protocol === "https:" ? "; Secure" : "";
-  return `Path=/; Max-Age=${maxAge}; SameSite=Lax${secure}`;
-}
-
-function clearStaffGateCookie() {
-  document.cookie = `${staffGateCookie}=; ${staffGateCookieAttributes(0)}`;
-}
-
 async function verifyStaffSession(): Promise<StaffSession> {
-  const response = await fetch(`${env.NEXT_PUBLIC_API_URL}/auth/me`, {
-    cache: "no-store",
-    credentials: "include",
-    headers: { Accept: "application/json" },
-  });
-  if (!response.ok) {
-    throw new Error(`Staff session invalid (${response.status}).`);
-  }
-  return (await response.json()) as StaffSession;
+  return staffFetch<StaffSession>("/auth/me");
 }
 
-export function AdminDashboardGate() {
+export function AdminDashboardGate({
+  children,
+  description = "Kelola order manual, data customer, pembayaran transfer, preview undangan, dan catatan revisi dari satu area staff.",
+  title = "Order management.",
+}: AdminDashboardGateProps) {
   const router = useRouter();
   const [verified, setVerified] = useState(false);
 
@@ -87,12 +72,13 @@ export function AdminDashboardGate() {
 
   return (
     <DashboardShell
-      description="Kelola lead WhatsApp, order manual, produksi invitation, media, katalog tema/paket, approval, dan audit dari satu area staff."
+      compact
+      description={description}
       eyebrow="Staff Operations"
       nav={nav}
-      title="Admin content & order operations."
+      title={title}
     >
-      <AdminOperations />
+      {children ?? <AdminOperations />}
     </DashboardShell>
   );
 }
