@@ -250,6 +250,7 @@ class StaffOrderDetailSerializer(serializers.Serializer):
             "package_code": invitation.package.code if invitation.package_id else None,
             "renderer_key": invitation.renderer_key,
             "bank_accounts": content.get("bank_accounts", []),
+            "rsvp_manual": content.get("rsvp_manual", {}),
             "partner_one": content.get("couple", {}).get("partner_one")
             or content.get("couple", {}).get("partnerOne", {}),
             "partner_two": content.get("couple", {}).get("partner_two")
