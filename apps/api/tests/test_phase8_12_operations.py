@@ -30,74 +30,6 @@ def create_user(*, username: str, email: str, role: str = "client", is_staff: bo
 
 
 @pytest.mark.django_db
-def test_staff_can_login_from_frontend_session_endpoint(client):
-    create_user(username="staff", email="staff@example.com", role="staff", is_staff=True)
-
-    response = client.post(
-        reverse("api-staff-login"),
-        {"username": "staff", "password": "password"},
-        content_type="application/json",
-    )
-    me_response = client.get(reverse("api-staff-session-me"))
-
-    assert response.status_code == 200
-    assert response.json()["user"]["role"] == "staff"
-    assert me_response.status_code == 200
-    assert me_response.json()["user"]["username"] == "staff"
-
-
-@pytest.mark.django_db
-def test_client_can_login_from_frontend_session_endpoint(client):
-    create_user(username="client", email="client@example.com")
-
-    response = client.post(
-        reverse("api-client-login"),
-        {"username": "client", "password": "password"},
-        content_type="application/json",
-    )
-    profile_response = client.get(reverse("client-profile"))
-
-    assert response.status_code == 200
-    assert response.json()["user"]["role"] == "client"
-    assert profile_response.status_code == 200
-    assert profile_response.json()["user"]["username"] == "client"
-
-
-@pytest.mark.django_db
-def test_staff_user_cannot_use_client_session_endpoint(client):
-    staff = create_user(
-        username="staff",
-        email="staff@example.com",
-        role="staff",
-        is_staff=True,
-    )
-
-    login_response = client.post(
-        reverse("api-client-login"),
-        {"username": "staff", "password": "password"},
-        content_type="application/json",
-    )
-    client.force_login(staff)
-    profile_response = client.get(reverse("client-profile"))
-
-    assert login_response.status_code == 403
-    assert profile_response.status_code == 403
-
-
-@pytest.mark.django_db
-def test_non_staff_cannot_login_to_staff_session_endpoint(client):
-    create_user(username="client", email="client@example.com")
-
-    response = client.post(
-        reverse("api-staff-login"),
-        {"username": "client", "password": "password"},
-        content_type="application/json",
-    )
-
-    assert response.status_code == 403
-
-
-@pytest.mark.django_db
 def test_staff_admin_endpoints_deny_anonymous_users(client):
     orders_response = client.get(reverse("admin-order-list"))
     metrics_response = client.get(reverse("admin-dashboard-metrics"))
@@ -323,24 +255,6 @@ def test_ticket_status_transition_cannot_skip_to_resolved(client):
     assert response.status_code == 400
     ticket.refresh_from_db()
     assert ticket.status == Ticket.Status.OPEN
-
-
-@pytest.mark.django_db
-def test_superuser_can_login_to_staff_session_endpoint_with_default_role(client):
-    get_user_model().objects.create_superuser(
-        username="owner",
-        email="owner@example.com",
-        password="password",
-    )
-
-    response = client.post(
-        reverse("api-staff-login"),
-        {"username": "owner", "password": "password"},
-        content_type="application/json",
-    )
-
-    assert response.status_code == 200
-    assert response.json()["user"]["username"] == "owner"
 
 
 @pytest.mark.django_db

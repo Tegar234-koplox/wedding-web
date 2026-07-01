@@ -4,7 +4,6 @@ import {
   CheckCircle2,
   Download,
   LifeBuoy,
-  LogOut,
   Music2,
   Pencil,
   Plus,
@@ -14,8 +13,6 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import type { Route } from "next";
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { env } from "@/lib/env";
@@ -57,15 +54,6 @@ type ClientInvitation = {
     };
   };
   updated_at: string;
-};
-
-type ClientProfile = {
-  user: {
-    username: string;
-    email: string;
-    role: string;
-    display_name: string;
-  };
 };
 
 type Guest = {
@@ -165,9 +153,6 @@ type TicketForm = typeof emptyTicketForm;
 type TicketFormField = keyof TicketForm;
 const ticketCategories = ["technical", "dns", "billing", "general"];
 
-const clientLoginPath = "/client/login";
-const clientGateCookie = "niskala_client_gate";
-
 class ClientFetchError extends Error {
   constructor(
     message: string,
@@ -180,11 +165,6 @@ class ClientFetchError extends Error {
   get isAuthError(): boolean {
     return this.status === 401 || this.status === 403;
   }
-}
-
-function redirectToClientLogin() {
-  document.cookie = `${clientGateCookie}=; Path=/; Max-Age=0; SameSite=Lax; Secure`;
-  window.location.replace(clientLoginPath);
 }
 
 function formFromInvitation(invitation: ClientInvitation | undefined): DraftForm {
@@ -287,7 +267,6 @@ function isInvitationLocked(invitation: ClientInvitation | undefined): boolean {
 }
 
 export function ClientOperations() {
-  const [profile, setProfile] = useState<ClientProfile["user"] | null>(null);
   const [orders, setOrders] = useState<ClientOrder[]>([]);
   const [invitations, setInvitations] = useState<ClientInvitation[]>([]);
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
@@ -331,13 +310,11 @@ export function ClientOperations() {
     setLoading(true);
     setError("");
     try {
-      const [nextProfile, nextOrders, nextInvitations, nextTickets] = await Promise.all([
-        clientFetch<ClientProfile>("/client/profile"),
+      const [nextOrders, nextInvitations, nextTickets] = await Promise.all([
         clientFetch<ClientOrder[]>("/client/orders"),
         clientFetch<ClientInvitation[]>("/client/invitations"),
         clientFetch<SupportTicket[]>("/client/tickets"),
       ]);
-      setProfile(nextProfile.user);
       setOrders(nextOrders);
       setInvitations(nextInvitations);
       setTickets(nextTickets);
@@ -353,10 +330,6 @@ export function ClientOperations() {
       setSelectedSlug(nextSlug);
       setDraftForm(formFromInvitation(nextSelectedForForm));
     } catch (caught) {
-      if (caught instanceof ClientFetchError && caught.isAuthError) {
-        redirectToClientLogin();
-        return;
-      }
       setError(
         caught instanceof Error
           ? caught.message
@@ -409,20 +382,6 @@ export function ClientOperations() {
     }, 0);
     return () => window.clearTimeout(timer);
   }, [loadInvitationOperations, selectedInvitation?.public_slug]);
-
-  async function logoutClient() {
-    setSavingAction("logout");
-    setError("");
-    try {
-      await clientFetch<{ ok: boolean }>("/auth/logout", { method: "POST" });
-    } catch (caught) {
-      if (!(caught instanceof ClientFetchError && caught.isAuthError)) {
-        setError(caught instanceof Error ? caught.message : "Logout client gagal.");
-      }
-    } finally {
-      redirectToClientLogin();
-    }
-  }
 
   async function copyPublicLink(invitation: ClientInvitation) {
     setError("");
@@ -728,11 +687,6 @@ export function ClientOperations() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          {profile ? (
-            <p className="text-xs uppercase tracking-[0.14em] text-white/45">
-              {profile.display_name} / {profile.role}
-            </p>
-          ) : null}
           <button
             className="inline-flex min-h-11 items-center gap-3 border border-white/15 px-4 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-white/70 transition hover:border-[var(--color-gold)] hover:text-[var(--color-gold)]"
             disabled={loading}
@@ -742,29 +696,13 @@ export function ClientOperations() {
             <RefreshCw size={15} />
             Refresh
           </button>
-          {profile ? (
-            <button
-              className="inline-flex min-h-11 items-center gap-3 border border-white/15 px-4 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-white/70 transition hover:border-[var(--color-gold)] hover:text-[var(--color-gold)]"
-              disabled={savingAction === "logout"}
-              onClick={() => void logoutClient()}
-              type="button"
-            >
-              <LogOut size={15} />
-              Logout
-            </button>
-          ) : null}
         </div>
       </div>
 
       {error ? (
         <div className="border border-[#d5ad55]/40 bg-[#d5ad55]/10 p-5 text-sm leading-6 text-[#f4ddb0]">
-          {error}. Login sebagai client yang memiliki order/invitation, lalu refresh.{" "}
-          <Link
-            className="font-semibold underline decoration-[#d5ad55]/50 underline-offset-4"
-            href={"/client/login" as Route}
-          >
-            Buka client login
-          </Link>
+          {error}. Auth lama sudah dicabut; sambungkan dashboard ke auth baru saat
+          alur baru siap.
         </div>
       ) : null}
 
