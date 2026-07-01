@@ -336,9 +336,7 @@ class StaffOrderDetailSerializer(serializers.Serializer):
             "id": str(revision.id),
             "revision_number": revision.revision_number,
             "label": (
-                "Final Check"
-                if revision.is_final_check
-                else f"Revisi {revision.revision_number}"
+                "Final Check" if revision.is_final_check else f"Revisi {revision.revision_number}"
             ),
             "note": revision.note,
             "is_final_check": revision.is_final_check,

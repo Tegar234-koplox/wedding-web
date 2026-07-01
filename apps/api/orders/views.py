@@ -61,31 +61,28 @@ class StaffOrderDetailView(RetrieveUpdateAPIView):
     lookup_field = "reference"
 
     def get_queryset(self):
-        return (
-            Order.objects.select_related(
-                "theme",
-                "package",
-                "invitation",
-                "invitation__theme",
-                "invitation__package",
-                "whatsapp_intent",
-                "assigned_staff",
-                "client_user",
-            )
-            .prefetch_related(
-                Prefetch(
-                    "invitation__events",
-                    queryset=WeddingEvent.objects.select_related("location"),
-                ),
-                Prefetch(
-                    "invitation__media",
-                    queryset=InvitationMedia.objects.select_related("asset"),
-                ),
-                Prefetch(
-                    "invitation__revisions",
-                    queryset=InvitationRevision.objects.select_related("created_by"),
-                ),
-            )
+        return Order.objects.select_related(
+            "theme",
+            "package",
+            "invitation",
+            "invitation__theme",
+            "invitation__package",
+            "whatsapp_intent",
+            "assigned_staff",
+            "client_user",
+        ).prefetch_related(
+            Prefetch(
+                "invitation__events",
+                queryset=WeddingEvent.objects.select_related("location"),
+            ),
+            Prefetch(
+                "invitation__media",
+                queryset=InvitationMedia.objects.select_related("asset"),
+            ),
+            Prefetch(
+                "invitation__revisions",
+                queryset=InvitationRevision.objects.select_related("created_by"),
+            ),
         )
 
     def get(self, request, *args, **kwargs) -> Response:
