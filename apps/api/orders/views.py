@@ -1,7 +1,7 @@
 from datetime import timedelta
 
 from django.conf import settings
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, Max, Prefetch, Q, Sum
 from django.utils import timezone
 from rest_framework.generics import ListAPIView, ListCreateAPIView, RetrieveUpdateAPIView
 from rest_framework.permissions import AllowAny
@@ -10,7 +10,7 @@ from rest_framework.views import APIView
 
 from common.models import AuditEvent
 from common.notifications import enqueue_client_notification
-from invitations.models import Invitation
+from invitations.models import Invitation, InvitationMedia, InvitationRevision, WeddingEvent
 from leads.models import WhatsAppIntent
 from orders.lifecycle import (
     archive_expired_wedding,
@@ -23,6 +23,8 @@ from orders.permissions import IsStaffRole
 from orders.serializers import (
     OrderSerializer,
     StaffClientLifecycleSerializer,
+    StaffOrderDetailSerializer,
+    StaffOrderRevisionCreateSerializer,
     StaffRejectOrderSerializer,
     StaffVerificationActionSerializer,
 )
@@ -59,7 +61,92 @@ class StaffOrderDetailView(RetrieveUpdateAPIView):
     lookup_field = "reference"
 
     def get_queryset(self):
-        return Order.objects.select_related("theme", "package", "invitation", "whatsapp_intent")
+        return (
+            Order.objects.select_related(
+                "theme",
+                "package",
+                "invitation",
+                "invitation__theme",
+                "invitation__package",
+                "whatsapp_intent",
+                "assigned_staff",
+                "client_user",
+            )
+            .prefetch_related(
+                Prefetch(
+                    "invitation__events",
+                    queryset=WeddingEvent.objects.select_related("location"),
+                ),
+                Prefetch(
+                    "invitation__media",
+                    queryset=InvitationMedia.objects.select_related("asset"),
+                ),
+                Prefetch(
+                    "invitation__revisions",
+                    queryset=InvitationRevision.objects.select_related("created_by"),
+                ),
+            )
+        )
+
+    def get(self, request, *args, **kwargs) -> Response:
+        order = self.get_object()
+        serializer = StaffOrderDetailSerializer(order, context={"request": request})
+        return Response(serializer.data)
+
+    def patch(self, request, *args, **kwargs) -> Response:
+        order = self.get_object()
+        serializer = self.get_serializer(
+            order,
+            data=request.data,
+            partial=True,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        updated = serializer.save()
+        detail = StaffOrderDetailSerializer(updated, context={"request": request})
+        return Response(detail.data)
+
+
+class StaffOrderRevisionListCreateView(APIView):
+    permission_classes = [IsStaffRole]
+
+    def post(self, request, reference: str) -> Response:
+        order = Order.objects.select_related("invitation").filter(reference=reference).first()
+        if order is None or order.invitation_id is None:
+            from django.http import Http404
+
+            raise Http404
+
+        serializer = StaffOrderRevisionCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        next_number = (
+            order.invitation.revisions.aggregate(max_number=Max("revision_number"))["max_number"]
+            or 0
+        ) + 1
+        revision = InvitationRevision.objects.create(
+            invitation=order.invitation,
+            revision_number=next_number,
+            content=order.invitation.content,
+            note=serializer.validated_data["note"],
+            is_final_check=serializer.validated_data["is_final_check"],
+            created_by=request.user,
+        )
+        AuditEvent.objects.create(
+            actor=request.user,
+            action="invitation.revision_noted",
+            resource_type="order",
+            resource_reference=order.reference,
+            metadata={
+                "invitation": order.invitation.public_slug,
+                "revision_number": revision.revision_number,
+                "is_final_check": revision.is_final_check,
+            },
+        )
+        detail = StaffOrderDetailSerializer(
+            order,
+            context={"request": request},
+        )
+        return Response(detail.data, status=201)
 
 
 class StaffVerificationQueueView(ListAPIView):

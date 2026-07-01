@@ -9,7 +9,7 @@ from rest_framework.exceptions import ValidationError
 
 from analytics.models import AnalyticsEvent
 from common.models import AuditEvent
-from invitations.models import Guest
+from invitations.models import Guest, InvitationMedia, WeddingEvent
 from leads.models import WhatsAppIntent
 from media_library.models import MediaAsset
 from orders.lifecycle import ensure_order_transition
@@ -29,6 +29,68 @@ def create_user(*, username: str, email: str, role: str = "client", is_staff: bo
     )
 
 
+def create_staff_order_fixture(reference: str = "staff-ops-001"):
+    staff = create_user(
+        username=f"staff-{reference}",
+        email=f"{reference}@staff.test",
+        role="staff",
+        is_staff=True,
+    )
+    theme = create_theme(slug=f"theme-{reference}")
+    package = create_package(code=f"pkg-{reference}")
+    invitation = create_invitation(theme=theme, public_slug=f"inv-{reference}", is_sample=False)
+    invitation.package = package
+    invitation.content = {
+        **invitation.content,
+        "bank_accounts": [
+            {"bank": "BCA", "number": "1234567890", "name": "Niskala Studio"},
+        ],
+    }
+    invitation.save(update_fields=["package", "content", "updated_at"])
+    order = Order.objects.create(
+        reference=reference,
+        status=Order.Status.IN_DESIGN,
+        payment_status=Order.PaymentStatus.UNPAID,
+        theme=theme,
+        package=package,
+        invitation=invitation,
+        assigned_staff=staff,
+        client_name="Alya & Raka",
+        client_email="client@example.com",
+        client_phone="+62812",
+        total_amount="649000",
+    )
+    WeddingEvent.objects.create(
+        invitation=invitation,
+        event_type=WeddingEvent.EventType.CEREMONY,
+        starts_at=timezone.now(),
+        venue_name="Masjid Agung",
+        address="Jakarta",
+        sort_order=1,
+    )
+    MediaAsset.objects.create(
+        public_id=f"{reference}/photo",
+        resource_type=MediaAsset.ResourceType.IMAGE,
+        secure_url="https://res.cloudinary.com/demo/image/upload/photo.jpg",
+        folder="test",
+    )
+    asset = MediaAsset.objects.get(public_id=f"{reference}/photo")
+    InvitationMedia.objects.create(
+        invitation=invitation,
+        asset=asset,
+        role=InvitationMedia.Role.PHOTO,
+    )
+    Guest.objects.create(
+        invitation=invitation,
+        access_token_hash=f"accepted-{reference}",
+        display_name="Keluarga Budi",
+        email="guest@example.com",
+        rsvp_status=Guest.RSVPStatus.ACCEPTED,
+        attendance_count=2,
+    )
+    return staff, order
+
+
 @pytest.mark.django_db
 def test_staff_admin_endpoints_deny_anonymous_users(client):
     orders_response = client.get(reverse("admin-order-list"))
@@ -36,6 +98,63 @@ def test_staff_admin_endpoints_deny_anonymous_users(client):
 
     assert orders_response.status_code in {401, 403}
     assert metrics_response.status_code in {401, 403}
+
+
+@pytest.mark.django_db
+def test_staff_order_detail_returns_operational_payload_without_guest_rows(client):
+    staff, order = create_staff_order_fixture("staff-detail-001")
+    client.force_login(staff)
+
+    response = client.get(reverse("admin-order-detail", kwargs={"reference": order.reference}))
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["order"]["payment_status"] == Order.PaymentStatus.UNPAID
+    assert payload["order"]["workflow_label"] == "Proses"
+    assert payload["invitation"]["public_slug"] == order.invitation.public_slug
+    assert payload["events"][0]["event_type"] == WeddingEvent.EventType.CEREMONY
+    assert payload["media"][0]["role"] == InvitationMedia.Role.PHOTO
+    assert payload["rsvp"]["total_invited"] == 2
+    assert payload["rsvp"]["total_confirmed"] == 1
+    assert payload["invitation"]["bank_accounts"][0]["bank"] == "BCA"
+    content = response.content.decode()
+    assert "Keluarga Budi" not in content
+    assert "guest@example.com" not in content
+
+
+@pytest.mark.django_db
+def test_staff_can_update_order_payment_status_from_detail_endpoint(client):
+    staff, order = create_staff_order_fixture("staff-payment-001")
+    client.force_login(staff)
+
+    response = client.patch(
+        reverse("admin-order-detail", kwargs={"reference": order.reference}),
+        {"payment_status": Order.PaymentStatus.DP},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200
+    order.refresh_from_db()
+    assert order.payment_status == Order.PaymentStatus.DP
+    assert response.json()["order"]["payment_status_label"] == "DP"
+
+
+@pytest.mark.django_db
+def test_staff_can_add_revision_note_from_order_dashboard(client):
+    staff, order = create_staff_order_fixture("staff-revision-001")
+    client.force_login(staff)
+
+    response = client.post(
+        reverse("admin-order-revisions", kwargs={"reference": order.reference}),
+        {"note": "Perbaiki urutan galeri.", "is_final_check": False},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 201
+    revision = order.invitation.revisions.get()
+    assert revision.revision_number == 1
+    assert revision.note == "Perbaiki urutan galeri."
+    assert response.json()["revisions"][0]["label"] == "Revisi 1"
 
 
 @pytest.mark.django_db
@@ -416,7 +535,7 @@ def test_staff_order_package_update_syncs_linked_invitation_package(client):
 
     invitation.refresh_from_db()
     assert response.status_code == 200
-    assert response.json()["package_code"] == "couture"
+    assert response.json()["order"]["package_code"] == "couture"
     assert invitation.package == couture
 
 

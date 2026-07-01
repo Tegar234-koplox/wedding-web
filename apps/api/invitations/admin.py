@@ -73,8 +73,22 @@ class GuestAdmin(admin.ModelAdmin):
 
 @admin.register(InvitationRevision)
 class InvitationRevisionAdmin(admin.ModelAdmin):
-    list_display = ["invitation", "revision_number", "created_by", "created_at"]
-    readonly_fields = ["invitation", "revision_number", "content", "created_by", "created_at"]
+    list_display = [
+        "invitation",
+        "revision_number",
+        "is_final_check",
+        "created_by",
+        "created_at",
+    ]
+    readonly_fields = [
+        "invitation",
+        "revision_number",
+        "content",
+        "note",
+        "is_final_check",
+        "created_by",
+        "created_at",
+    ]
 
     def has_add_permission(self, request):
         return False

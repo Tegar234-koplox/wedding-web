@@ -8,6 +8,7 @@ from orders.views import (
     StaffDashboardMetricsView,
     StaffOrderDetailView,
     StaffOrderListCreateView,
+    StaffOrderRevisionListCreateView,
     StaffRejectOrderView,
     StaffVerificationQueueView,
 )
@@ -38,6 +39,11 @@ urlpatterns = [
         "admin/orders/<slug:reference>",
         StaffOrderDetailView.as_view(),
         name="admin-order-detail",
+    ),
+    path(
+        "admin/orders/<slug:reference>/revisions",
+        StaffOrderRevisionListCreateView.as_view(),
+        name="admin-order-revisions",
     ),
     path(
         "admin/client-lifecycle",

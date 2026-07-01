@@ -1,6 +1,16 @@
 "use client";
 
-import { LifeBuoy, LogOut, Music2, Plus, RefreshCw, Save } from "lucide-react";
+import {
+  CheckCircle2,
+  Copy,
+  ExternalLink,
+  LogOut,
+  Plus,
+  RefreshCw,
+  Save,
+  Search,
+} from "lucide-react";
+import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { env } from "@/lib/env";
@@ -17,6 +27,9 @@ type Order = {
   id: string;
   reference: string;
   status: string;
+  payment_status: PaymentStatus;
+  payment_status_label?: string;
+  workflow_label?: string;
   theme_slug: string | null;
   package_code: string | null;
   invitation_slug: string | null;
@@ -28,19 +41,13 @@ type Order = {
   event_date: string | null;
   total_amount: string;
   currency: string;
+  payment_method?: string;
+  proof_url?: string;
   notes: string;
   updated_at: string;
 };
 
-type Lead = {
-  id: string;
-  theme_slug: string;
-  package_code: string;
-  locale: string;
-  campaign: string;
-  source: string;
-  created_at: string;
-};
+type PaymentStatus = "unpaid" | "dp" | "paid";
 
 type ThemeOption = {
   slug: string;
@@ -59,144 +66,130 @@ type PackageOption = {
   currency: string;
 };
 
-type AuditEvent = {
-  id: string;
-  actor_email: string | null;
-  action: string;
-  resource_type: string;
-  resource_reference: string;
-  metadata?: Record<string, unknown>;
-  created_at: string;
-};
-
 type StaffUser = {
   username: string;
   email: string;
+  display_name: string;
   role: string;
 };
 
 type StaffSession = {
-  user: {
-    username: string;
-    email: string;
-    role: string;
-    display_name: string;
+  user: StaffUser;
+};
+
+type DetailEvent = {
+  id: string;
+  event_type: "ceremony" | "reception" | "other";
+  starts_at: string;
+  ends_at: string | null;
+  timezone: string;
+  venue_name: string;
+  address: string;
+  map_url: string;
+  location: null | {
+    province: string;
+    regency: string;
+    district: string;
+    village: string;
+    bmkg_adm4: string;
+    latitude: string | null;
+    longitude: string | null;
   };
 };
 
-type StaffInvitation = {
-  public_slug: string;
-  theme_slug: string;
-  package_code: string | null;
-  status: string;
-  approval_status: string;
-  default_locale: string;
-  client_email: string | null;
-  order_reference: string | null;
-  order_status: string | null;
-  order_client_name: string;
-  published_at: string | null;
-  updated_at: string;
-};
-
-type SupportTicket = {
+type DetailMedia = {
   id: string;
-  invitation_slug: string;
-  category: string;
-  description: string;
-  attachment_url: string;
-  status: string;
-  resolution_note: string;
-  created_by_email: string;
-  assigned_staff_username: string | null;
-  resolved_at: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
-type GuestAggregate = {
-  wedding_id: string;
-  total_invited: number;
-  total_confirmed: number;
-  total_declined: number;
-  response_rate: number;
-};
-
-type MusicAsset = {
-  id: string;
-  public_id: string;
-  resource_type: string;
-  format: string;
-  secure_url: string;
-  original_filename: string;
-};
-
-type InvitationMusic = {
-  current: {
+  role: "photo" | "gallery" | "backsound" | string;
+  sort_order: number;
+  asset: {
     id: string;
-    asset: MusicAsset;
-  } | null;
-  available_assets: MusicAsset[];
+    public_id: string;
+    resource_type: string;
+    format: string;
+    secure_url: string;
+    original_filename: string;
+  };
 };
+
+type DetailRevision = {
+  id: string;
+  revision_number: number;
+  label: string;
+  note: string;
+  is_final_check: boolean;
+  created_at: string;
+  created_by_email: string | null;
+};
+
+type StaffOrderDetail = {
+  order: Order;
+  invitation: null | {
+    id: string;
+    public_slug: string;
+    status: string;
+    approval_status: string;
+    default_locale: string;
+    theme_slug: string;
+    package_code: string | null;
+    renderer_key: string;
+    bank_accounts: Array<Record<string, string>>;
+    partner_one: Record<string, string>;
+    partner_two: Record<string, string>;
+  };
+  events: DetailEvent[];
+  media: DetailMedia[];
+  rsvp: {
+    total_invited: number;
+    total_confirmed: number;
+    total_declined: number;
+    response_rate: number;
+  };
+  preview_url: string;
+  revisions: DetailRevision[];
+};
+
+const staffGateCookie = "niskala_staff_gate";
 
 const orderStatuses = [
   "lead",
+  "pending",
   "consulting",
   "confirmed",
   "in_design",
+  "verified",
   "client_review",
   "revision",
   "approved",
   "published",
   "completed",
   "cancelled",
+  "rejected",
 ];
 
-const ticketStatuses = ["open", "in_progress", "resolved"];
-const ticketCategories = ["technical", "dns", "billing", "general"];
+const workflowLabels = ["Baru", "Data Kurang", "Proses", "Revisi", "Final", "Publikasi"];
 
-const emptyOrderForm = {
-  client_email: "",
-  client_name: "",
-  client_phone: "",
-  currency: "IDR",
-  event_date: "",
-  package_code: "",
-  reference: "",
-  theme_slug: "",
-  total_amount: "",
-  whatsapp_intent_id: "",
+const paymentLabels: Record<PaymentStatus, string> = {
+  unpaid: "Belum Bayar",
+  dp: "DP",
+  paid: "Lunas",
 };
 
-type OrderForm = typeof emptyOrderForm;
-type OrderFormField = keyof OrderForm;
+const controlClassName =
+  "min-h-11 w-full border border-white/12 bg-black/20 px-3 text-sm text-white outline-none focus:border-[var(--color-gold)]";
 
-type MusicForm = {
-  assetId: string;
-  secureUrl: string;
-  title: string;
+const statusWorkflow: Record<string, string> = {
+  lead: "Baru",
+  pending: "Baru",
+  consulting: "Baru",
+  confirmed: "Data Kurang",
+  in_design: "Proses",
+  verified: "Proses",
+  revision: "Revisi",
+  client_review: "Revisi",
+  approved: "Final",
+  completed: "Final",
+  published: "Publikasi",
 };
-
-const orderFormFields: Array<{
-  field: OrderFormField;
-  label: string;
-  placeholder: string;
-  type?: "date" | "email" | "tel" | "text";
-}> = [
-  { field: "reference", label: "Reference", placeholder: "ord-001" },
-  { field: "client_name", label: "Client name", placeholder: "Alya & Raka" },
-  {
-    field: "client_email",
-    label: "Client email",
-    placeholder: "client@example.com",
-    type: "email",
-  },
-  { field: "client_phone", label: "Client phone", placeholder: "+62812", type: "tel" },
-  { field: "event_date", label: "Event date", placeholder: "2026-09-12", type: "date" },
-  { field: "total_amount", label: "Total amount", placeholder: "649000" },
-];
-
-const staffGateCookie = "niskala_staff_gate";
 
 class StaffFetchError extends Error {
   constructor(
@@ -206,14 +199,6 @@ class StaffFetchError extends Error {
     super(message);
     this.name = "StaffFetchError";
   }
-
-  get isAuthError(): boolean {
-    return this.status === 401 || this.status === 403;
-  }
-}
-
-function nextLeadReference(lead: Lead): string {
-  return `lead-${lead.id.slice(0, 8)}`;
 }
 
 function staffGateCookieAttributes(maxAge: number) {
@@ -224,23 +209,6 @@ function staffGateCookieAttributes(maxAge: number) {
 function redirectToLogin() {
   document.cookie = `${staffGateCookie}=; ${staffGateCookieAttributes(0)}`;
   window.location.replace("/admin/login");
-}
-
-function validateOrderForm(form: OrderForm): string[] {
-  const messages: string[] = [];
-  if (!form.reference.trim()) {
-    messages.push("Reference wajib diisi.");
-  }
-  if (!form.client_name.trim()) {
-    messages.push("Client name wajib diisi.");
-  }
-  if (form.client_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.client_email)) {
-    messages.push("Client email belum valid.");
-  }
-  if (form.total_amount && Number.isNaN(Number(form.total_amount))) {
-    messages.push("Total amount harus berupa angka.");
-  }
-  return messages;
 }
 
 async function csrfToken(): Promise<string> {
@@ -279,19 +247,19 @@ async function staffFetch<T>(path: string, init?: RequestInit): Promise<T> {
     let detail = "";
     try {
       const payload = (await response.json()) as {
+        detail?: string;
         error?: { details?: unknown; message?: string };
       };
       detail =
+        payload.detail ??
         payload.error?.message ??
-        (payload.error?.details
-          ? JSON.stringify(payload.error.details)
-          : "");
+        (payload.error?.details ? JSON.stringify(payload.error.details) : "");
     } catch {
       detail = response.statusText;
     }
     const label =
       response.status === 401 || response.status === 403
-        ? "Session staff tidak valid atau CSRF kedaluwarsa"
+        ? "Session staff tidak valid"
         : response.status >= 500
           ? "Backend staff API sedang error"
           : "Request staff API ditolak";
@@ -300,6 +268,7 @@ async function staffFetch<T>(path: string, init?: RequestInit): Promise<T> {
       response.status,
     );
   }
+
   return response.json() as Promise<T>;
 }
 
@@ -308,283 +277,193 @@ function formatCurrency(value: string | number): string {
     currency: "IDR",
     maximumFractionDigits: 0,
     style: "currency",
-  }).format(Number(value));
+  }).format(Number(value || 0));
 }
 
-function publicInvitationUrl(invitation: Pick<StaffInvitation, "default_locale" | "public_slug">) {
-  return `${env.NEXT_PUBLIC_SITE_URL}/${invitation.default_locale}/i/${invitation.public_slug}`;
+function formatDateTime(value?: string | null): string {
+  if (!value) {
+    return "Belum diisi";
+  }
+  return new Intl.DateTimeFormat("id-ID", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
+
+function workflowFor(order: Pick<Order, "status" | "workflow_label">): string {
+  return order.workflow_label ?? statusWorkflow[order.status] ?? order.status;
+}
+
+function safeValue(value?: string | null): string {
+  return value && value.trim() ? value : "Belum diisi";
+}
+
+function mediaCount(media: DetailMedia[], role: string): number {
+  return media.filter((item) => item.role === role).length;
 }
 
 export function AdminOperations() {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [tickets, setTickets] = useState<SupportTicket[]>([]);
-  const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
-  const [orderAuditEvents, setOrderAuditEvents] = useState<AuditEvent[]>([]);
-  const [pendingPublishItems, setPendingPublishItems] = useState<StaffInvitation[]>([]);
-  const [publishedInvitations, setPublishedInvitations] = useState<StaffInvitation[]>([]);
-  const [guestAggregate, setGuestAggregate] = useState<GuestAggregate | null>(null);
-  const [staffMusic, setStaffMusic] = useState<InvitationMusic | null>(null);
+  const [detail, setDetail] = useState<StaffOrderDetail | null>(null);
+  const [staffSession, setStaffSession] = useState<StaffUser | null>(null);
   const [staffUsers, setStaffUsers] = useState<StaffUser[]>([]);
-  const [staffSession, setStaffSession] = useState<StaffSession["user"] | null>(null);
   const [themes, setThemes] = useState<ThemeOption[]>([]);
   const [packages, setPackages] = useState<PackageOption[]>([]);
-  const [selectedReference, setSelectedReference] = useState<string>("");
-  const [selectedTicketId, setSelectedTicketId] = useState<string>("");
-  const [ticketCategoryFilter, setTicketCategoryFilter] = useState("");
-  const [ticketStatusFilter, setTicketStatusFilter] = useState("");
-  const [ticketResolutionNote, setTicketResolutionNote] = useState("");
-  const [ticketCustomDomain, setTicketCustomDomain] = useState("");
-  const [ticketReason, setTicketReason] = useState("");
-  const [savingTicket, setSavingTicket] = useState(false);
-  const [draftStatus, setDraftStatus] = useState<string>("");
-  const [draftStaff, setDraftStaff] = useState<string>("");
-  const [orderForm, setOrderForm] = useState(emptyOrderForm);
-  const [musicForm, setMusicForm] = useState<MusicForm>({
-    assetId: "",
-    secureUrl: "",
-    title: "",
-  });
-  const [formError, setFormError] = useState<string>("");
+  const [selectedReference, setSelectedReference] = useState("");
+  const [search, setSearch] = useState("");
+  const [workflowFilter, setWorkflowFilter] = useState("");
+  const [paymentFilter, setPaymentFilter] = useState("");
+  const [draftStatus, setDraftStatus] = useState("");
+  const [draftPaymentStatus, setDraftPaymentStatus] = useState<PaymentStatus>("unpaid");
+  const [draftStaff, setDraftStaff] = useState("");
+  const [draftTheme, setDraftTheme] = useState("");
+  const [draftPackage, setDraftPackage] = useState("");
+  const [revisionNote, setRevisionNote] = useState("");
+  const [finalCheck, setFinalCheck] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [loadingInvitationOps, setLoadingInvitationOps] = useState(false);
-  const [creating, setCreating] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [savingMusic, setSavingMusic] = useState(false);
-  const [error, setError] = useState<string>("");
+  const [savingRevision, setSavingRevision] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
   const selectedOrder = useMemo(
-    () => orders.find((order) => order.reference === selectedReference) ?? orders[0],
+    () => orders.find((order) => order.reference === selectedReference) ?? orders[0] ?? null,
     [orders, selectedReference],
   );
 
-  const selectedTicket = useMemo(
-    () => tickets.find((ticket) => ticket.id === selectedTicketId) ?? tickets[0],
-    [tickets, selectedTicketId],
-  );
+  const filteredOrders = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return orders.filter((order) => {
+      const workflow = workflowFor(order);
+      const matchesQuery =
+        !query ||
+        [
+          order.reference,
+          order.client_name,
+          order.client_email,
+          order.client_phone,
+          order.status,
+          workflow,
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(query);
+      const matchesWorkflow = !workflowFilter || workflow === workflowFilter;
+      const matchesPayment = !paymentFilter || order.payment_status === paymentFilter;
+      return matchesQuery && matchesWorkflow && matchesPayment;
+    });
+  }, [orders, paymentFilter, search, workflowFilter]);
 
-  async function loadOrderAudit(reference: string) {
+  const ceremony = detail?.events.find((event) => event.event_type === "ceremony") ?? null;
+  const reception = detail?.events.find((event) => event.event_type === "reception") ?? null;
+  const backsound = detail?.media.find((item) => item.role === "backsound") ?? null;
+  const photoTotal = detail ? mediaCount(detail.media, "photo") : 0;
+  const galleryTotal = detail ? mediaCount(detail.media, "gallery") : 0;
+  const activeOrder = detail?.order ?? selectedOrder;
+
+  const loadOrderDetail = useCallback(async (reference: string) => {
     if (!reference) {
-      setOrderAuditEvents([]);
+      setDetail(null);
       return;
     }
-    const nextAuditEvents = await staffFetch<AuditEvent[]>(
-      `/admin/audit-events?resource_type=order&resource_reference=${reference}`,
-    );
-    setOrderAuditEvents(nextAuditEvents);
-  }
+    setDetailLoading(true);
+    try {
+      const nextDetail = await staffFetch<StaffOrderDetail>(`/admin/orders/${reference}`);
+      setDetail(nextDetail);
+      setDraftStatus(nextDetail.order.status);
+      setDraftPaymentStatus(nextDetail.order.payment_status);
+      setDraftStaff(nextDetail.order.assigned_staff_username ?? "");
+      setDraftTheme(nextDetail.order.theme_slug ?? "");
+      setDraftPackage(nextDetail.order.package_code ?? "");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Detail order gagal dimuat.");
+    } finally {
+      setDetailLoading(false);
+    }
+  }, []);
 
-  const loadTicketQueue = useCallback(
-    async (preferredTicketId = selectedTicketId) => {
+  const loadDashboard = useCallback(
+    async (preferredReference = "") => {
+      setLoading(true);
       setError("");
+      setNotice("");
       try {
-        const params = new URLSearchParams();
-        if (ticketCategoryFilter) {
-          params.set("category", ticketCategoryFilter);
-        }
-        if (ticketStatusFilter) {
-          params.set("status", ticketStatusFilter);
-        }
-        const query = params.toString();
-        const nextTickets = await staffFetch<SupportTicket[]>(
-          `/admin/tickets${query ? `?${query}` : ""}`,
-        );
-        setTickets(nextTickets);
-        const nextSelected =
-          nextTickets.find((ticket) => ticket.id === preferredTicketId) ?? nextTickets[0];
-        setSelectedTicketId(nextSelected?.id ?? "");
-        setTicketResolutionNote(nextSelected?.resolution_note ?? "");
-        setTicketCustomDomain("");
-        setTicketReason("");
+        const [nextSession, nextMetrics, nextOrders, nextStaffUsers, nextThemes, nextPackages] =
+          await Promise.all([
+            staffFetch<StaffSession>("/auth/me"),
+            staffFetch<Metrics>("/admin/dashboard/metrics"),
+            staffFetch<Order[]>("/admin/orders"),
+            staffFetch<StaffUser[]>("/admin/staff-users"),
+            staffFetch<ThemePage>("/themes?locale=id&page_size=50"),
+            staffFetch<PackageOption[]>("/packages?locale=id"),
+          ]);
+        setStaffSession(nextSession.user);
+        setMetrics(nextMetrics);
+        setOrders(nextOrders);
+        setStaffUsers(nextStaffUsers);
+        setThemes(nextThemes.results);
+        setPackages(nextPackages);
+        const nextReference =
+          preferredReference && nextOrders.some((order) => order.reference === preferredReference)
+            ? preferredReference
+            : nextOrders[0]?.reference ?? "";
+        setSelectedReference(nextReference);
+        await loadOrderDetail(nextReference);
       } catch (caught) {
-        setError(caught instanceof Error ? caught.message : "Ticket queue gagal dimuat.");
+        setError(caught instanceof Error ? caught.message : "Dashboard staff gagal dimuat.");
+      } finally {
+        setLoading(false);
       }
     },
-    [selectedTicketId, ticketCategoryFilter, ticketStatusFilter],
+    [loadOrderDetail],
   );
-
-  const loadStaffInvitationOps = useCallback(async (publicSlug: string) => {
-    setLoadingInvitationOps(true);
-    setError("");
-    try {
-      const [nextGuestAggregate, nextMusic] = await Promise.all([
-        staffFetch<GuestAggregate>(`/admin/invitations/${publicSlug}/guests`),
-        staffFetch<InvitationMusic>(`/admin/invitations/${publicSlug}/music`),
-      ]);
-      setGuestAggregate(nextGuestAggregate);
-      setStaffMusic(nextMusic);
-      setMusicForm({
-        assetId: nextMusic.current?.asset.id ?? "",
-        secureUrl: "",
-        title: "",
-      });
-    } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : "Data RSVP atau backsound staff gagal dimuat.",
-      );
-    } finally {
-      setLoadingInvitationOps(false);
-    }
-  }, []);
-
-  function selectOrder(order: Order) {
-    setSelectedReference(order.reference);
-    setDraftStatus(order.status);
-    setDraftStaff(order.assigned_staff_username ?? "");
-    if (!order.invitation_slug) {
-      setGuestAggregate(null);
-      setStaffMusic(null);
-    }
-    void loadOrderAudit(order.reference);
-  }
-
-  function selectTicket(ticket: SupportTicket) {
-    setSelectedTicketId(ticket.id);
-    setTicketResolutionNote(ticket.resolution_note ?? "");
-    setTicketCustomDomain("");
-    setTicketReason("");
-  }
-
-  const loadDashboard = useCallback(async (preferredReference = "") => {
-    setLoading(true);
-    setError("");
-    try {
-      const [
-        nextSession,
-        nextMetrics,
-        nextOrders,
-        nextLeads,
-        nextTickets,
-        nextAuditEvents,
-        nextPendingPublishItems,
-        nextPublishedInvitations,
-        nextStaffUsers,
-        nextThemes,
-        nextPackages,
-      ] =
-        await Promise.all([
-          staffFetch<StaffSession>("/auth/me"),
-          staffFetch<Metrics>("/admin/dashboard/metrics"),
-          staffFetch<Order[]>("/admin/orders"),
-          staffFetch<Lead[]>("/admin/leads"),
-          staffFetch<SupportTicket[]>("/admin/tickets"),
-          staffFetch<AuditEvent[]>("/admin/audit-events"),
-          staffFetch<StaffInvitation[]>("/admin/invitations?state=pending_publish"),
-          staffFetch<StaffInvitation[]>("/admin/invitations?state=published"),
-          staffFetch<StaffUser[]>("/admin/staff-users"),
-          staffFetch<ThemePage>("/themes?locale=id&page_size=50"),
-          staffFetch<PackageOption[]>("/packages?locale=id"),
-        ]);
-      setStaffSession(nextSession.user);
-      setMetrics(nextMetrics);
-      setOrders(nextOrders);
-      setLeads(nextLeads);
-      setTickets(nextTickets);
-      setAuditEvents(nextAuditEvents);
-      setPendingPublishItems(nextPendingPublishItems);
-      setPublishedInvitations(nextPublishedInvitations);
-      setStaffUsers(nextStaffUsers);
-      setThemes(nextThemes.results);
-      setPackages(nextPackages);
-      const nextSelected =
-        nextOrders.find((order) => order.reference === preferredReference) ??
-        nextOrders[0];
-      if (nextSelected) {
-        setSelectedReference(nextSelected.reference);
-        setDraftStatus(nextSelected.status);
-        setDraftStaff(nextSelected.assigned_staff_username ?? "");
-        if (!nextSelected.invitation_slug) {
-          setGuestAggregate(null);
-          setStaffMusic(null);
-        }
-        await loadOrderAudit(nextSelected.reference);
-      } else {
-        setOrderAuditEvents([]);
-        setGuestAggregate(null);
-        setStaffMusic(null);
-      }
-      const nextTicket = nextTickets[0];
-      setSelectedTicketId(nextTicket?.id ?? "");
-      setTicketResolutionNote(nextTicket?.resolution_note ?? "");
-      setTicketCustomDomain("");
-      setTicketReason("");
-    } catch (caught) {
-      if (caught instanceof StaffFetchError && caught.isAuthError) {
-        redirectToLogin();
-        return;
-      }
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : "Staff dashboard tidak dapat dimuat.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  async function logoutStaff() {
-    setSaving(true);
-    setError("");
-    try {
-      await staffFetch<{ ok: boolean }>("/auth/logout", { method: "POST" });
-    } catch (caught) {
-      if (!(caught instanceof StaffFetchError && caught.isAuthError)) {
-        setError(caught instanceof Error ? caught.message : "Logout staff gagal.");
-      }
-    } finally {
-      setSaving(false);
-      setStaffSession(null);
-      redirectToLogin();
-    }
-  }
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      void loadDashboard();
+      void loadDashboard("");
     }, 0);
     return () => window.clearTimeout(timer);
   }, [loadDashboard]);
 
-  useEffect(() => {
-    if (!selectedOrder?.invitation_slug) {
-      return;
-    }
-    const invitationSlug = selectedOrder.invitation_slug;
-    const timer = window.setTimeout(() => {
-      void loadStaffInvitationOps(invitationSlug);
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [loadStaffInvitationOps, selectedOrder?.invitation_slug]);
+  async function selectOrder(reference: string) {
+    setSelectedReference(reference);
+    setError("");
+    setNotice("");
+    await loadOrderDetail(reference);
+  }
 
-  async function saveSelectedOrder() {
-    if (!selectedOrder) {
+  async function saveOrder() {
+    if (!activeOrder) {
       return;
     }
     setSaving(true);
     setError("");
+    setNotice("");
     try {
-      const updated = await staffFetch<Order>(
-        `/admin/orders/${selectedOrder.reference}`,
+      const nextDetail = await staffFetch<StaffOrderDetail>(
+        `/admin/orders/${activeOrder.reference}`,
         {
           body: JSON.stringify({
             assigned_staff_username: draftStaff || null,
+            package_code: draftPackage || null,
+            payment_status: draftPaymentStatus,
             status: draftStatus,
+            theme_slug: draftTheme || null,
           }),
           method: "PATCH",
         },
       );
+      setDetail(nextDetail);
       setOrders((current) =>
         current.map((order) =>
-          order.reference === updated.reference ? updated : order,
+          order.reference === nextDetail.order.reference ? nextDetail.order : order,
         ),
       );
-      await loadOrderAudit(updated.reference);
       const nextMetrics = await staffFetch<Metrics>("/admin/dashboard/metrics");
       setMetrics(nextMetrics);
+      setNotice("Order tersimpan.");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Order gagal disimpan.");
     } finally {
@@ -592,203 +471,99 @@ export function AdminOperations() {
     }
   }
 
-  async function saveSelectedTicket(status?: string, assignToSelf = false) {
-    if (!selectedTicket) {
+  async function addRevisionNote() {
+    if (!activeOrder || !revisionNote.trim()) {
+      setError("Catatan revisi wajib diisi.");
       return;
     }
-    setSavingTicket(true);
+    setSavingRevision(true);
     setError("");
+    setNotice("");
     try {
-      const payload: Record<string, string | boolean> = {
-        assign_to_self: assignToSelf,
-        resolution_note: ticketResolutionNote,
-      };
-      if (status) {
-        payload.status = status;
-      }
-      if (selectedTicket.category === "dns" && ticketCustomDomain.trim()) {
-        payload.custom_domain = ticketCustomDomain.trim();
-        payload.reason = ticketReason.trim();
-      } else if (ticketReason.trim()) {
-        payload.reason = ticketReason.trim();
-      }
-      const updated = await staffFetch<SupportTicket>(
-        `/admin/tickets/${selectedTicket.id}`,
+      const nextDetail = await staffFetch<StaffOrderDetail>(
+        `/admin/orders/${activeOrder.reference}/revisions`,
         {
-          body: JSON.stringify(payload),
-          method: "PATCH",
+          body: JSON.stringify({
+            is_final_check: finalCheck,
+            note: revisionNote.trim(),
+          }),
+          method: "POST",
         },
       );
-      setTickets((current) =>
-        current.map((ticket) => (ticket.id === updated.id ? updated : ticket)),
-      );
-      selectTicket(updated);
-      const nextAuditEvents = await staffFetch<AuditEvent[]>("/admin/audit-events");
-      setAuditEvents(nextAuditEvents);
+      setDetail(nextDetail);
+      setRevisionNote("");
+      setFinalCheck(false);
+      setNotice("Catatan revisi ditambahkan.");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Ticket gagal disimpan.");
+      setError(caught instanceof Error ? caught.message : "Catatan revisi gagal ditambahkan.");
     } finally {
-      setSavingTicket(false);
+      setSavingRevision(false);
     }
   }
 
-  async function publishInvitation(publicSlug: string) {
+  async function publishFinal() {
+    if (!detail?.invitation) {
+      return;
+    }
     setSaving(true);
     setError("");
+    setNotice("");
     try {
       await staffFetch<{ status: string; approval_status: string }>(
-        `/admin/invitations/${publicSlug}/publish`,
+        `/admin/invitations/${detail.invitation.public_slug}/publish`,
         { method: "POST" },
       );
-      await loadDashboard(selectedReference);
+      await loadDashboard(activeOrder?.reference ?? selectedReference);
+      setNotice("Invitation sudah dipublikasi.");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Invitation gagal dipublish.");
+      setError(caught instanceof Error ? caught.message : "Publish final gagal.");
     } finally {
       setSaving(false);
     }
   }
 
-  async function copyPublicLink(invitation: StaffInvitation) {
-    setError("");
+  async function copyPreviewUrl() {
+    if (!detail?.preview_url) {
+      return;
+    }
     try {
-      await navigator.clipboard.writeText(publicInvitationUrl(invitation));
+      await navigator.clipboard.writeText(detail.preview_url);
+      setNotice("Link preview disalin.");
     } catch {
-      setError("Public link gagal disalin. Buka link lalu copy dari address bar.");
+      setError("Link preview gagal disalin. Buka link lalu copy dari address bar.");
     }
   }
 
-  async function createOrder() {
-    const validationMessages = validateOrderForm(orderForm);
-    if (validationMessages.length > 0) {
-      setFormError(validationMessages.join(" "));
-      return;
-    }
-    setCreating(true);
-    setError("");
-    setFormError("");
-    try {
-      const created = await staffFetch<Order>("/admin/orders", {
-        body: JSON.stringify({
-          client_email: orderForm.client_email.trim(),
-          client_name: orderForm.client_name.trim(),
-          client_phone: orderForm.client_phone.trim(),
-          currency: orderForm.currency || "IDR",
-          event_date: orderForm.event_date || null,
-          package_code: orderForm.package_code || null,
-          reference: orderForm.reference.trim(),
-          status: "lead",
-          theme_slug: orderForm.theme_slug || null,
-          total_amount: orderForm.total_amount || "0",
-          whatsapp_intent_id: orderForm.whatsapp_intent_id || null,
-        }),
-        method: "POST",
-      });
-      setOrders((current) => [created, ...current]);
-      setOrderForm(emptyOrderForm);
-      selectOrder(created);
-      const [nextMetrics, nextAuditEvents] = await Promise.all([
-        staffFetch<Metrics>("/admin/dashboard/metrics"),
-        staffFetch<AuditEvent[]>("/admin/audit-events"),
-      ]);
-      setMetrics(nextMetrics);
-      setAuditEvents(nextAuditEvents);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Order gagal dibuat.");
-    } finally {
-      setCreating(false);
-    }
-  }
-
-  function updateOrderForm(field: OrderFormField, value: string) {
-    setFormError("");
-    setOrderForm((current) => ({ ...current, [field]: value }));
-  }
-
-  async function saveStaffMusicSelection() {
-    if (!selectedOrder?.invitation_slug) {
-      setError("Order belum terhubung ke invitation.");
-      return;
-    }
-    setSavingMusic(true);
+  async function logoutStaff() {
+    setSaving(true);
     setError("");
     try {
-      const payload = musicForm.secureUrl.trim()
-        ? {
-            secure_url: musicForm.secureUrl.trim(),
-            title: musicForm.title.trim() || "Background music",
-          }
-        : { asset_id: musicForm.assetId || null };
-      const nextMusic = await staffFetch<InvitationMusic>(
-        `/admin/invitations/${selectedOrder.invitation_slug}/music`,
-        {
-          body: JSON.stringify(payload),
-          method: "PATCH",
-        },
-      );
-      setStaffMusic(nextMusic);
-      setMusicForm({
-        assetId: nextMusic.current?.asset.id ?? "",
-        secureUrl: "",
-        title: "",
-      });
-      const nextAuditEvents = await staffFetch<AuditEvent[]>("/admin/audit-events");
-      setAuditEvents(nextAuditEvents);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Backsound gagal disimpan.");
+      await staffFetch<{ ok: boolean }>("/auth/logout", { method: "POST" });
+    } catch {
+      // Logout tetap membersihkan gate lokal agar staf kembali ke form login.
     } finally {
-      setSavingMusic(false);
+      setSaving(false);
+      redirectToLogin();
     }
-  }
-
-  function updatePackage(value: string) {
-    const selectedPackage = packages.find((item) => item.code === value);
-    setFormError("");
-    setOrderForm((current) => ({
-      ...current,
-      package_code: value,
-      total_amount:
-        selectedPackage && !current.total_amount
-          ? selectedPackage.price
-          : current.total_amount,
-    }));
-  }
-
-  function applyLeadToOrder(lead: Lead) {
-    const selectedPackage = packages.find((item) => item.code === lead.package_code);
-    setFormError("");
-    setOrderForm((current) => ({
-      ...current,
-      package_code: lead.package_code || current.package_code,
-      reference: current.reference || nextLeadReference(lead),
-      theme_slug: lead.theme_slug || current.theme_slug,
-      total_amount:
-        selectedPackage && !current.total_amount
-          ? selectedPackage.price
-          : current.total_amount,
-      whatsapp_intent_id: lead.id,
-    }));
-    document.getElementById("create-order")?.scrollIntoView({ behavior: "smooth" });
   }
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="text-[0.65rem] uppercase tracking-[0.2em] text-[var(--color-gold)]">
-            Live Staff Data
-          </p>
+          <p className="text-xs uppercase text-[var(--color-gold)]">Live staff data</p>
           <p className="mt-2 text-sm text-white/55">
-            Kelola order, lead, assignment, dan riwayat perubahan dari frontend.
+            Dashboard operasional untuk order, data client, pembayaran, preview, dan revisi.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           {staffSession ? (
-            <p className="text-xs uppercase tracking-[0.14em] text-white/45">
+            <p className="text-xs uppercase text-white/45">
               {staffSession.display_name} / {staffSession.role}
             </p>
           ) : null}
           <button
-            className="inline-flex min-h-11 items-center gap-3 border border-white/15 px-4 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-white/70 transition hover:border-[var(--color-gold)] hover:text-[var(--color-gold)]"
+            className="inline-flex min-h-11 items-center gap-3 border border-white/15 px-4 text-xs font-semibold uppercase text-white/70 transition hover:border-[var(--color-gold)] hover:text-[var(--color-gold)] disabled:opacity-45"
             disabled={loading}
             onClick={() => void loadDashboard(selectedReference)}
             type="button"
@@ -797,7 +572,7 @@ export function AdminOperations() {
             Refresh
           </button>
           <button
-            className="inline-flex min-h-11 items-center gap-3 border border-white/15 px-4 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-white/70 transition hover:border-[var(--color-gold)] hover:text-[var(--color-gold)]"
+            className="inline-flex min-h-11 items-center gap-3 border border-white/15 px-4 text-xs font-semibold uppercase text-white/70 transition hover:border-[var(--color-gold)] hover:text-[var(--color-gold)] disabled:opacity-45"
             disabled={saving}
             onClick={() => void logoutStaff()}
             type="button"
@@ -810,722 +585,409 @@ export function AdminOperations() {
 
       {error ? (
         <div className="border border-[#d5ad55]/40 bg-[#d5ad55]/10 p-5 text-sm leading-6 text-[#f4ddb0]">
-          {error}. Jika session staff habis, login ulang dari halaman staff login.
+          {error}
+        </div>
+      ) : null}
+      {notice ? (
+        <div className="flex items-center gap-3 border border-emerald-400/30 bg-emerald-400/10 p-4 text-sm text-emerald-100">
+          <CheckCircle2 size={16} />
+          {notice}
         </div>
       ) : null}
 
-      {pendingPublishItems.length > 0 ? (
-        <section className="border border-[#d5ad55]/40 bg-[#d5ad55]/10 p-5">
-          <div className="grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
-            <div>
-              <p className="text-[0.65rem] uppercase tracking-[0.2em] text-[var(--color-gold)]">
-                Publish queue
-              </p>
-              <p className="mt-2 text-sm leading-6 text-[#f4ddb0]">
-                {pendingPublishItems.length} invitation sudah approved by client dan
-                menunggu staff publish final.
-              </p>
+      <section className="grid gap-px bg-white/10 md:grid-cols-4">
+        <MetricCard label="Order" value={String(orders.length)} />
+        <MetricCard label="Pipeline" value={formatCurrency(metrics?.revenue_pipeline ?? 0)} />
+        <MetricCard
+          label="Publikasi"
+          value={String(
+            orders.filter((order) => workflowFor(order) === "Publikasi").length,
+          )}
+        />
+        <MetricCard label="Audit" value={String(metrics?.audit_events ?? 0)} />
+      </section>
+
+      <div
+        className="grid gap-8 xl:grid-cols-[21rem_minmax(0,1fr)_24rem]"
+        id="orders"
+      >
+        <aside className="space-y-4">
+          <Panel>
+            <PanelHeader eyebrow="Daftar Order" title="Semua order." />
+            <div className="mt-5 space-y-3">
+              <label className="flex min-h-11 items-center gap-3 border border-white/12 bg-black/20 px-3 text-sm text-white/60">
+                <Search size={15} />
+                <input
+                  className="w-full bg-transparent outline-none placeholder:text-white/30"
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Cari client, ref, status"
+                  value={search}
+                />
+              </label>
+              <select
+                className="min-h-11 w-full border border-white/12 bg-black/20 px-3 text-sm text-white/70 outline-none focus:border-[var(--color-gold)]"
+                onChange={(event) => setWorkflowFilter(event.target.value)}
+                value={workflowFilter}
+              >
+                <option value="">Semua status pengerjaan</option>
+                {workflowLabels.map((label) => (
+                  <option key={label} value={label}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="min-h-11 w-full border border-white/12 bg-black/20 px-3 text-sm text-white/70 outline-none focus:border-[var(--color-gold)]"
+                onChange={(event) => setPaymentFilter(event.target.value)}
+                value={paymentFilter}
+              >
+                <option value="">Semua pembayaran</option>
+                {Object.entries(paymentLabels).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
             </div>
-            <div className="grid gap-2">
-              {pendingPublishItems.map((item) => (
-                <article
-                  className="flex flex-wrap items-center justify-between gap-3 border border-[#d5ad55]/25 bg-black/20 p-3"
-                  key={item.public_slug}
+          </Panel>
+
+          <div className="max-h-[42rem] overflow-auto border border-white/12">
+            {loading ? (
+              <p className="p-5 text-sm text-white/45">Memuat order...</p>
+            ) : null}
+            {!loading && filteredOrders.length === 0 ? (
+              <p className="p-5 text-sm text-white/45">Tidak ada order yang cocok.</p>
+            ) : null}
+            {filteredOrders.map((order) => {
+              const selected = order.reference === activeOrder?.reference;
+              return (
+                <button
+                  className={cn(
+                    "block w-full border-b border-white/10 p-4 text-left transition last:border-b-0 hover:bg-white/[0.04]",
+                    selected ? "bg-[#d5ad55]/14" : "bg-[#11110f]",
+                  )}
+                  key={order.reference}
+                  onClick={() => void selectOrder(order.reference)}
+                  type="button"
                 >
-                  <div>
-                    <p className="font-semibold text-[#f4ddb0]">{item.public_slug}</p>
-                    <p className="mt-1 text-[0.62rem] uppercase tracking-[0.12em] text-white/45">
-                      {item.order_reference ?? "No order"} /{" "}
-                      {item.order_client_name || item.client_email || "No client"}
-                    </p>
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="font-semibold text-white">{order.client_name}</p>
+                      <p className="mt-1 text-xs text-white/45">{order.reference}</p>
+                    </div>
+                    <span className="text-xs text-[var(--color-gold)]">
+                      {workflowFor(order)}
+                    </span>
                   </div>
+                  <div className="mt-4 flex items-center justify-between gap-3 text-xs text-white/45">
+                    <span>{paymentLabels[order.payment_status] ?? order.payment_status}</span>
+                    <span>{formatCurrency(order.total_amount)}</span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </aside>
+
+        <main className="space-y-6" id="detail">
+          <Panel>
+            <PanelHeader
+              eyebrow="Status pengerjaan"
+              title={activeOrder?.client_name ?? "Pilih order."}
+              aside={activeOrder ? workflowFor(activeOrder) : undefined}
+            />
+            {activeOrder ? (
+              <div className="mt-6 grid gap-4 md:grid-cols-3">
+                <Field label="Status">
+                  <select
+                    className={controlClassName}
+                    onChange={(event) => setDraftStatus(event.target.value)}
+                    value={draftStatus}
+                  >
+                    {orderStatuses.map((status) => (
+                      <option key={status} value={status}>
+                        {status}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Assigned staff">
+                  <select
+                    className={controlClassName}
+                    onChange={(event) => setDraftStaff(event.target.value)}
+                    value={draftStaff}
+                  >
+                    <option value="">Belum assigned</option>
+                    {staffUsers.map((staff) => (
+                      <option key={staff.username} value={staff.username}>
+                        {staff.display_name || staff.username}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Pembayaran">
+                  <select
+                    className={controlClassName}
+                    onChange={(event) => setDraftPaymentStatus(event.target.value as PaymentStatus)}
+                    value={draftPaymentStatus}
+                  >
+                    {Object.entries(paymentLabels).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+            ) : (
+              <p className="mt-6 text-sm text-white/45">Pilih order dari daftar kiri.</p>
+            )}
+          </Panel>
+
+          <Panel>
+            <PanelHeader eyebrow="Data Client" title="Informasi acara." />
+            {detailLoading ? (
+              <p className="mt-6 text-sm text-white/45">Memuat detail order...</p>
+            ) : (
+              <div className="mt-6 grid gap-px bg-white/10 md:grid-cols-2">
+                <Info label="Nama" value={safeValue(activeOrder?.client_name)} />
+                <Info label="Kontak" value={safeValue(activeOrder?.client_email)} />
+                <Info label="Telepon" value={safeValue(activeOrder?.client_phone)} />
+                <Info label="Tanggal akad" value={formatDateTime(ceremony?.starts_at)} />
+                <Info label="Tanggal resepsi" value={formatDateTime(reception?.starts_at)} />
+                <Info label="Lokasi akad" value={safeValue(ceremony?.venue_name)} />
+                <Info label="Lokasi resepsi" value={safeValue(reception?.venue_name)} />
+                <Info label="Alamat" value={safeValue(reception?.address ?? ceremony?.address)} />
+              </div>
+            )}
+          </Panel>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Panel>
+              <PanelHeader eyebrow="Tema & Paket" title="Pilihan produk." />
+              <div className="mt-6 space-y-4">
+                <Field label="Tema">
+                  <select
+                    className={controlClassName}
+                    onChange={(event) => setDraftTheme(event.target.value)}
+                    value={draftTheme}
+                  >
+                    <option value="">Belum memilih tema</option>
+                    {themes.map((theme) => (
+                      <option key={theme.slug} value={theme.slug}>
+                        {theme.name}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Paket">
+                  <select
+                    className={controlClassName}
+                    onChange={(event) => setDraftPackage(event.target.value)}
+                    value={draftPackage}
+                  >
+                    <option value="">Belum memilih paket</option>
+                    {packages.map((pack) => (
+                      <option key={pack.code} value={pack.code}>
+                        {pack.name}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <button
+                  className="inline-flex min-h-11 w-full items-center justify-center gap-3 bg-[var(--color-gold)] px-4 text-xs font-semibold uppercase text-black transition hover:bg-[#f4ddb0] disabled:opacity-50"
+                  disabled={!activeOrder || saving}
+                  onClick={() => void saveOrder()}
+                  type="button"
+                >
+                  <Save size={15} />
+                  {saving ? "Menyimpan" : "Simpan order"}
+                </button>
+              </div>
+            </Panel>
+
+            <Panel>
+              <PanelHeader eyebrow="Link Preview" title="Akses customer." />
+              <div className="mt-6 space-y-4">
+                <div className="border border-white/12 bg-black/20 p-4">
+                  <p className="break-all text-sm leading-6 text-white/70">
+                    {detail?.preview_url || "Belum ada invitation yang terhubung."}
+                  </p>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
                   <button
-                    className="min-h-10 bg-[var(--color-gold)] px-4 text-[0.62rem] font-bold uppercase tracking-[0.14em] text-[#17140d] transition hover:brightness-110 disabled:opacity-50"
+                    className="inline-flex min-h-11 items-center justify-center gap-3 border border-white/15 px-4 text-xs font-semibold uppercase text-white/70 transition hover:border-[var(--color-gold)] hover:text-[var(--color-gold)] disabled:opacity-45"
+                    disabled={!detail?.preview_url}
+                    onClick={() => void copyPreviewUrl()}
+                    type="button"
+                  >
+                    <Copy size={15} />
+                    Copy
+                  </button>
+                  <a
+                    className={cn(
+                      "inline-flex min-h-11 items-center justify-center gap-3 border border-white/15 px-4 text-xs font-semibold uppercase text-white/70 transition hover:border-[var(--color-gold)] hover:text-[var(--color-gold)]",
+                      !detail?.preview_url && "pointer-events-none opacity-45",
+                    )}
+                    href={detail?.preview_url || "#"}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    <ExternalLink size={15} />
+                    Buka
+                  </a>
+                </div>
+                {detail?.invitation?.approval_status === "approved_for_publish" ? (
+                  <button
+                    className="inline-flex min-h-11 w-full items-center justify-center gap-3 border border-[#d5ad55]/40 bg-[#d5ad55]/10 px-4 text-xs font-semibold uppercase text-[#f4ddb0] transition hover:bg-[#d5ad55]/20 disabled:opacity-50"
                     disabled={saving}
-                    onClick={() => void publishInvitation(item.public_slug)}
+                    onClick={() => void publishFinal()}
                     type="button"
                   >
                     Publish final
                   </button>
+                ) : null}
+              </div>
+            </Panel>
+          </div>
+        </main>
+
+        <aside className="space-y-6" id="revisi">
+          <Panel>
+            <PanelHeader eyebrow="Catatan Revisi" title="Timeline." />
+            <div className="mt-6 space-y-3">
+              <textarea
+                className="min-h-28 w-full border border-white/12 bg-black/20 p-3 text-sm text-white outline-none focus:border-[var(--color-gold)]"
+                onChange={(event) => setRevisionNote(event.target.value)}
+                placeholder="Tulis ringkasan revisi atau final check..."
+                value={revisionNote}
+              />
+              <label className="flex items-center gap-3 text-sm text-white/60">
+                <input
+                  checked={finalCheck}
+                  onChange={(event) => setFinalCheck(event.target.checked)}
+                  type="checkbox"
+                />
+                Tandai sebagai Final Check
+              </label>
+              <button
+                className="inline-flex min-h-11 w-full items-center justify-center gap-3 border border-white/15 px-4 text-xs font-semibold uppercase text-white/70 transition hover:border-[var(--color-gold)] hover:text-[var(--color-gold)] disabled:opacity-45"
+                disabled={!activeOrder || savingRevision}
+                onClick={() => void addRevisionNote()}
+                type="button"
+              >
+                <Plus size={15} />
+                {savingRevision ? "Menyimpan" : "Tambah catatan"}
+              </button>
+            </div>
+            <div className="mt-6 space-y-3">
+              {detail?.revisions.map((revision) => (
+                <article className="border border-white/10 bg-black/20 p-4" key={revision.id}>
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-white">{revision.label}</p>
+                    <p className="text-xs text-white/35">
+                      {new Date(revision.created_at).toLocaleDateString("id-ID")}
+                    </p>
+                  </div>
+                  <p className="mt-3 text-sm leading-6 text-white/62">
+                    {revision.note || "Tidak ada catatan."}
+                  </p>
+                  <p className="mt-3 text-xs text-white/35">
+                    {revision.created_by_email ?? "system"}
+                  </p>
                 </article>
               ))}
-            </div>
-          </div>
-        </section>
-      ) : null}
-
-      <div className="grid gap-px bg-white/12 md:grid-cols-4">
-        {[
-          ["Orders", Object.values(metrics?.orders ?? {}).reduce((a, b) => a + b, 0)],
-          ["Leads", metrics?.leads ?? 0],
-          ["Pipeline", formatCurrency(metrics?.revenue_pipeline ?? 0)],
-          ["Audit", metrics?.audit_events ?? 0],
-        ].map(([label, value]) => (
-          <article className="bg-[#181815] p-5" key={label}>
-            <p className="text-[0.6rem] uppercase tracking-[0.18em] text-white/45">
-              {label}
-            </p>
-            <p className="mt-5 font-serif text-4xl">{value}</p>
-          </article>
-        ))}
-      </div>
-
-      {publishedInvitations.length > 0 ? (
-        <section className="border border-white/12 bg-[#181815] p-5">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="text-[0.65rem] uppercase tracking-[0.2em] text-[var(--color-gold)]">
-                Published delivery
-              </p>
-              <p className="mt-2 text-sm leading-6 text-white/55">
-                Link final undangan yang sudah publish dan siap dikirim ke client.
-              </p>
-            </div>
-            <span className="text-xs uppercase tracking-[0.16em] text-white/45">
-              {publishedInvitations.length} published
-            </span>
-          </div>
-          <div className="grid gap-2">
-            {publishedInvitations.slice(0, 5).map((invitation) => (
-              <article
-                className="grid gap-3 border border-white/10 bg-black/20 p-3 md:grid-cols-[1fr_auto]"
-                key={invitation.public_slug}
-              >
-                <div>
-                  <p className="font-semibold">{invitation.public_slug}</p>
-                  <p className="mt-1 break-all text-sm text-white/55">
-                    {publicInvitationUrl(invitation)}
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <a
-                    className="inline-flex min-h-10 items-center px-4 text-[0.62rem] font-bold uppercase tracking-[0.14em] text-white/75 transition hover:text-[var(--color-gold)]"
-                    href={publicInvitationUrl(invitation)}
-                    rel="noreferrer"
-                    target="_blank"
-                  >
-                    Open
-                  </a>
-                  <button
-                    className="min-h-10 border border-white/15 px-4 text-[0.62rem] font-bold uppercase tracking-[0.14em] text-white/75 transition hover:border-[var(--color-gold)] hover:text-[var(--color-gold)]"
-                    onClick={() => void copyPublicLink(invitation)}
-                    type="button"
-                  >
-                    Copy link
-                  </button>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      <section
-        className="grid gap-6 border border-white/12 bg-[#181815] p-5 lg:grid-cols-[0.7fr_1.3fr]"
-        id="create-order"
-      >
-        <div>
-          <p className="text-[0.65rem] uppercase tracking-[0.2em] text-[var(--color-gold)]">
-            Create order
-          </p>
-          <h2 className="mt-4 font-serif text-4xl">Input manual staff.</h2>
-          <p className="mt-5 text-sm leading-6 text-white/55">
-            Pakai reference unik. Theme/package boleh dikosongkan dulu kalau lead
-            belum menentukan pilihan.
-          </p>
-        </div>
-        <div className="grid gap-3 md:grid-cols-2">
-          {orderFormFields.map(({ field, label, placeholder, type }) => (
-            <label className="grid gap-2" key={field}>
-              <span className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">
-                {label}
-              </span>
-              <input
-                className="min-h-11 border border-white/15 bg-black/30 px-3 text-sm outline-none transition focus:border-[var(--color-gold)]"
-                onChange={(event) => updateOrderForm(field, event.target.value)}
-                placeholder={placeholder}
-                type={type ?? "text"}
-                value={orderForm[field]}
-              />
-            </label>
-          ))}
-          <label className="grid gap-2">
-            <span className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">
-              Theme
-            </span>
-            <select
-              className="min-h-11 border border-white/15 bg-black/30 px-3 text-sm outline-none transition focus:border-[var(--color-gold)]"
-              onChange={(event) => updateOrderForm("theme_slug", event.target.value)}
-              value={orderForm.theme_slug}
-            >
-              <option value="">Belum dipilih</option>
-              {themes.map((theme) => (
-                <option key={theme.slug} value={theme.slug}>
-                  {theme.name} / {theme.category}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="grid gap-2">
-            <span className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">
-              Package
-            </span>
-            <select
-              className="min-h-11 border border-white/15 bg-black/30 px-3 text-sm outline-none transition focus:border-[var(--color-gold)]"
-              onChange={(event) => updatePackage(event.target.value)}
-              value={orderForm.package_code}
-            >
-              <option value="">Belum dipilih</option>
-              {packages.map((item) => (
-                <option key={item.code} value={item.code}>
-                  {item.name} / {formatCurrency(item.price)}
-                </option>
-              ))}
-            </select>
-          </label>
-          {orderForm.whatsapp_intent_id ? (
-            <div className="border border-white/10 bg-black/20 p-3 text-xs uppercase tracking-[0.12em] text-white/45 md:col-span-2">
-              Linked lead: {orderForm.whatsapp_intent_id}
-            </div>
-          ) : null}
-          {formError ? (
-            <div className="border border-[#d5ad55]/40 bg-[#d5ad55]/10 p-3 text-sm leading-6 text-[#f4ddb0] md:col-span-2">
-              {formError}
-            </div>
-          ) : null}
-          <button
-            className="inline-flex min-h-11 items-center justify-center gap-3 bg-[var(--color-gold)] px-4 text-[0.65rem] font-bold uppercase tracking-[0.16em] text-[#17140d] transition hover:brightness-110 disabled:opacity-50 md:col-span-2"
-            disabled={creating || !orderForm.reference || !orderForm.client_name}
-            onClick={() => void createOrder()}
-            type="button"
-          >
-            <Plus size={15} />
-            {creating ? "Creating" : "Create order"}
-          </button>
-        </div>
-      </section>
-
-      <div className="grid gap-8 xl:grid-cols-[1fr_24rem]">
-        <section id="orders">
-          <div className="mb-4 flex items-center justify-between gap-4">
-            <h2 className="font-serif text-4xl">Order queue</h2>
-            <span className="text-xs uppercase tracking-[0.16em] text-white/45">
-              {orders.length} active
-            </span>
-          </div>
-          <div className="overflow-x-auto border border-white/12">
-            <table className="min-w-full border-collapse text-left text-sm">
-              <thead className="bg-black/30 text-[0.6rem] uppercase tracking-[0.16em] text-white/45">
-                <tr>
-                  <th className="px-4 py-3">Ref</th>
-                  <th className="px-4 py-3">Client</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Package</th>
-                  <th className="px-4 py-3">Staff</th>
-                </tr>
-              </thead>
-              <tbody>
-                {orders.map((order) => (
-                  <tr
-                    className={cn(
-                      "cursor-pointer border-t border-white/10 transition hover:bg-white/5",
-                      selectedOrder?.reference === order.reference && "bg-[#d5ad55]/10",
-                    )}
-                    key={order.reference}
-                    onClick={() => selectOrder(order)}
-                  >
-                    <td className="px-4 py-4 font-semibold">{order.reference}</td>
-                    <td className="px-4 py-4 text-white/70">{order.client_name}</td>
-                    <td className="px-4 py-4 text-[var(--color-gold)]">
-                      {order.status}
-                    </td>
-                    <td className="px-4 py-4 text-white/60">
-                      {order.package_code ?? "-"}
-                    </td>
-                    <td className="px-4 py-4 text-white/60">
-                      {order.assigned_staff_username ?? "-"}
-                    </td>
-                  </tr>
-                ))}
-                {loading ? (
-                  <tr>
-                    <td className="px-4 py-8 text-white/45" colSpan={5}>
-                      Memuat order staff...
-                    </td>
-                  </tr>
-                ) : null}
-                {!loading && orders.length === 0 ? (
-                  <tr>
-                    <td className="px-4 py-8 text-white/45" colSpan={5}>
-                      Belum ada order. Buat order pertama lewat form di atas.
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <aside className="border border-white/12 bg-[#181815] p-5">
-          <h2 className="font-serif text-3xl">Order detail</h2>
-          {selectedOrder ? (
-            <div className="mt-6 space-y-5">
-              <div>
-                <p className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">
-                  Reference
-                </p>
-                <p className="mt-2 font-semibold">{selectedOrder.reference}</p>
-              </div>
-              <div>
-                <label className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">
-                  Status
-                </label>
-                <select
-                  className="mt-2 w-full border border-white/15 bg-black/30 px-3 py-3 text-sm"
-                  onChange={(event) => setDraftStatus(event.target.value)}
-                  value={draftStatus}
-                >
-                  {orderStatuses.map((status) => (
-                    <option key={status} value={status}>
-                      {status}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">
-                  Assigned staff
-                </label>
-                <select
-                  className="mt-2 w-full border border-white/15 bg-black/30 px-3 py-3 text-sm"
-                  onChange={(event) => setDraftStaff(event.target.value)}
-                  value={draftStaff}
-                >
-                  <option value="">Unassigned</option>
-                  {staffUsers.map((user) => (
-                    <option key={user.username} value={user.username}>
-                      {user.username} - {user.role}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="grid gap-4 border-t border-white/10 pt-5 text-sm text-white/60">
-                <p>{selectedOrder.client_email || "No email"}</p>
-                <p>{selectedOrder.client_phone || "No phone"}</p>
-                <p>{formatCurrency(selectedOrder.total_amount)}</p>
-              </div>
-              <button
-                className="inline-flex min-h-11 w-full items-center justify-center gap-3 bg-[var(--color-gold)] px-4 text-[0.65rem] font-bold uppercase tracking-[0.16em] text-[#17140d] transition hover:brightness-110 disabled:opacity-50"
-                disabled={saving}
-                onClick={() => void saveSelectedOrder()}
-                type="button"
-              >
-                <Save size={15} />
-                {saving ? "Saving" : "Save order"}
-              </button>
-              <div className="border-t border-white/10 pt-5">
-                <p className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">
-                  Order audit
-                </p>
-                <div className="mt-3 grid gap-2">
-                  {orderAuditEvents.slice(0, 5).map((event) => (
-                    <article className="border border-white/10 p-3" key={event.id}>
-                      <p className="text-sm text-white/75">{event.action}</p>
-                      <p className="mt-2 text-[0.62rem] uppercase tracking-[0.12em] text-white/40">
-                        {event.actor_email ?? "system"} /{" "}
-                        {new Date(event.created_at).toLocaleString("id-ID")}
-                      </p>
-                    </article>
-                  ))}
-                  {orderAuditEvents.length === 0 ? (
-                    <p className="text-sm text-white/45">
-                      Belum ada audit event untuk order ini.
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <p className="mt-6 text-sm text-white/45">Pilih order dari queue.</p>
-          )}
-        </aside>
-      </div>
-
-      <div className="grid gap-8 xl:grid-cols-[1fr_24rem]" id="tickets">
-        <section>
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="text-[0.65rem] uppercase tracking-[0.2em] text-[var(--color-gold)]">
-                Support queue
-              </p>
-              <h2 className="mt-3 font-serif text-4xl">Ticket staff.</h2>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <select
-                className="min-h-10 border border-white/15 bg-black/30 px-3 text-xs uppercase tracking-[0.12em] text-white/70 outline-none transition focus:border-[var(--color-gold)]"
-                onChange={(event) => setTicketCategoryFilter(event.target.value)}
-                value={ticketCategoryFilter}
-              >
-                <option value="">All category</option>
-                {ticketCategories.map((category) => (
-                  <option key={category} value={category}>
-                    {category}
-                  </option>
-                ))}
-              </select>
-              <select
-                className="min-h-10 border border-white/15 bg-black/30 px-3 text-xs uppercase tracking-[0.12em] text-white/70 outline-none transition focus:border-[var(--color-gold)]"
-                onChange={(event) => setTicketStatusFilter(event.target.value)}
-                value={ticketStatusFilter}
-              >
-                <option value="">All status</option>
-                {ticketStatuses.map((status) => (
-                  <option key={status} value={status}>
-                    {status}
-                  </option>
-                ))}
-              </select>
-              <button
-                className="inline-flex min-h-10 items-center gap-2 border border-white/15 px-3 text-[0.62rem] font-bold uppercase tracking-[0.14em] text-white/70 transition hover:border-[var(--color-gold)] hover:text-[var(--color-gold)]"
-                onClick={() => void loadTicketQueue()}
-                type="button"
-              >
-                <RefreshCw size={14} />
-                Filter
-              </button>
-            </div>
-          </div>
-          <div className="grid gap-px bg-white/12">
-            {tickets.map((ticket) => (
-              <button
-                className={cn(
-                  "grid gap-3 bg-[#181815] p-4 text-left transition hover:bg-white/5 md:grid-cols-[1fr_auto]",
-                  selectedTicket?.id === ticket.id && "bg-[#d5ad55]/10",
-                )}
-                key={ticket.id}
-                onClick={() => selectTicket(ticket)}
-                type="button"
-              >
-                <div>
-                  <p className="font-semibold">
-                    {ticket.category} / {ticket.invitation_slug}
-                  </p>
-                  <p className="mt-2 line-clamp-2 text-sm leading-6 text-white/55">
-                    {ticket.description}
-                  </p>
-                  <p className="mt-2 text-xs uppercase tracking-[0.13em] text-white/40">
-                    {ticket.created_by_email} / assigned{" "}
-                    {ticket.assigned_staff_username ?? "-"}
-                  </p>
-                </div>
-                <span className="text-xs uppercase tracking-[0.14em] text-[var(--color-gold)]">
-                  {ticket.status}
-                </span>
-              </button>
-            ))}
-            {!loading && tickets.length === 0 ? (
-              <article className="bg-[#181815] p-4 text-sm text-white/45">
-                Belum ada support ticket untuk filter ini.
-              </article>
-            ) : null}
-          </div>
-        </section>
-
-        <aside className="border border-white/12 bg-[#181815] p-5">
-          {selectedTicket ? (
-            <div className="grid gap-5">
-              <div>
-                <p className="text-[0.65rem] uppercase tracking-[0.2em] text-[var(--color-gold)]">
-                  Ticket detail
-                </p>
-                <h3 className="mt-3 font-serif text-3xl">
-                  {selectedTicket.category}
-                </h3>
-                <p className="mt-3 text-sm leading-6 text-white/55">
-                  {selectedTicket.description}
-                </p>
-                {selectedTicket.attachment_url ? (
-                  <a
-                    className="mt-3 inline-flex text-sm text-[var(--color-gold)] underline underline-offset-4"
-                    href={selectedTicket.attachment_url}
-                    rel="noreferrer"
-                    target="_blank"
-                  >
-                    Open attachment
-                  </a>
-                ) : null}
-              </div>
-              <label className="grid gap-2">
-                <span className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">
-                  Resolution note
-                </span>
-                <textarea
-                  className="min-h-24 border border-white/15 bg-black/30 px-3 py-3 text-sm outline-none transition focus:border-[var(--color-gold)]"
-                  onChange={(event) => setTicketResolutionNote(event.target.value)}
-                  value={ticketResolutionNote}
-                />
-              </label>
-              {selectedTicket.category === "dns" ? (
-                <>
-                  <label className="grid gap-2">
-                    <span className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">
-                      Custom domain
-                    </span>
-                    <input
-                      className="min-h-11 border border-white/15 bg-black/30 px-3 text-sm outline-none transition focus:border-[var(--color-gold)]"
-                      onChange={(event) => setTicketCustomDomain(event.target.value)}
-                      placeholder="undangan.example.com"
-                      value={ticketCustomDomain}
-                    />
-                  </label>
-                  <label className="grid gap-2">
-                    <span className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">
-                      Reason
-                    </span>
-                    <input
-                      className="min-h-11 border border-white/15 bg-black/30 px-3 text-sm outline-none transition focus:border-[var(--color-gold)]"
-                      onChange={(event) => setTicketReason(event.target.value)}
-                      placeholder="DNS ownership verified"
-                      value={ticketReason}
-                    />
-                  </label>
-                </>
+              {detail && detail.revisions.length === 0 ? (
+                <p className="text-sm text-white/45">Belum ada catatan revisi.</p>
               ) : null}
-              <div className="grid gap-2">
-                <button
-                  className="inline-flex min-h-11 items-center justify-center gap-3 border border-white/15 px-4 text-[0.65rem] font-bold uppercase tracking-[0.16em] text-white/70 transition hover:border-[var(--color-gold)] hover:text-[var(--color-gold)] disabled:opacity-50"
-                  disabled={savingTicket}
-                  onClick={() => void saveSelectedTicket(undefined, true)}
-                  type="button"
-                >
-                  <LifeBuoy size={15} />
-                  Assign to self
-                </button>
-                {ticketStatuses.map((status) => (
-                  <button
-                    className="inline-flex min-h-11 items-center justify-center gap-3 bg-[var(--color-gold)] px-4 text-[0.65rem] font-bold uppercase tracking-[0.16em] text-[#17140d] transition hover:brightness-110 disabled:opacity-50"
-                    disabled={savingTicket || selectedTicket.status === status}
-                    key={status}
-                    onClick={() => void saveSelectedTicket(status)}
-                    type="button"
-                  >
-                    Set {status}
-                  </button>
-                ))}
-              </div>
             </div>
-          ) : (
-            <p className="text-sm leading-6 text-white/45">
-              Pilih ticket untuk assignment, update status, atau resolusi DNS.
-            </p>
-          )}
-        </aside>
-      </div>
+          </Panel>
 
-      <div className="grid gap-8 lg:grid-cols-2" id="rsvp">
-        <section className="border border-white/12 bg-[#181815] p-5">
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="text-[0.65rem] uppercase tracking-[0.2em] text-[var(--color-gold)]">
-                RSVP aggregate
-              </p>
-              <h2 className="mt-3 font-serif text-3xl">Ringkasan tamu.</h2>
+          <Panel>
+            <PanelHeader eyebrow="Aset & RSVP" title="Ringkasan." />
+            <div className="mt-6 grid gap-px bg-white/10">
+              <Info label="Foto utama" value={`${photoTotal} asset`} />
+              <Info label="Galeri" value={`${galleryTotal} asset`} />
+              <Info
+                label="Musik"
+                value={backsound?.asset.original_filename || backsound?.asset.public_id || "Belum dipilih"}
+              />
+              <Info label="RSVP invited" value={String(detail?.rsvp.total_invited ?? 0)} />
+              <Info label="RSVP hadir" value={String(detail?.rsvp.total_confirmed ?? 0)} />
+              <Info label="RSVP tidak hadir" value={String(detail?.rsvp.total_declined ?? 0)} />
+              <Info label="Response rate" value={`${detail?.rsvp.response_rate ?? 0}%`} />
             </div>
-            <span className="text-xs uppercase tracking-[0.16em] text-white/45">
-              aggregate only
-            </span>
-          </div>
-          {selectedOrder?.invitation_slug ? (
-            <div className="space-y-5">
-              <div className="grid gap-px bg-white/12 md:grid-cols-2">
-                {[
-                  ["Total invited", guestAggregate?.total_invited ?? 0],
-                  ["Confirmed", guestAggregate?.total_confirmed ?? 0],
-                  ["Declined", guestAggregate?.total_declined ?? 0],
-                  [
-                    "Response rate",
-                    `${Math.round(guestAggregate?.response_rate ?? 0)}%`,
-                  ],
-                ].map(([label, value]) => (
-                  <article className="bg-black/20 p-4" key={label}>
-                    <p className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">
-                      {label}
-                    </p>
-                    <p className="mt-4 font-serif text-3xl">{value}</p>
-                  </article>
-                ))}
-                {loadingInvitationOps ? (
-                  <article className="bg-black/20 p-4 text-sm text-white/45 md:col-span-2">
-                    Memuat ringkasan RSVP...
-                  </article>
-                ) : null}
-              </div>
-              <p className="text-sm leading-6 text-white/45">
-                Staff hanya melihat angka agregat. Nama, kontak, ucapan, dan detail
-                tamu dikelola oleh client atau public RSVP flow.
-              </p>
-            </div>
-          ) : (
-            <p className="text-sm leading-6 text-white/45">
-              Pilih order yang sudah terhubung ke invitation untuk mengelola RSVP.
-            </p>
-          )}
-        </section>
-
-        <section className="border border-white/12 bg-[#181815] p-5" id="music">
-          <p className="text-[0.65rem] uppercase tracking-[0.2em] text-[var(--color-gold)]">
-            Backsound
-          </p>
-          <h2 className="mt-3 font-serif text-3xl">Musik undangan.</h2>
-          {selectedOrder?.invitation_slug ? (
-            <div className="mt-5 grid gap-3">
-              <div className="border border-white/10 bg-black/20 p-4 text-sm text-white/60">
-                {staffMusic?.current ? (
-                  <>
-                    <p className="font-semibold text-white/80">
-                      {staffMusic.current.asset.original_filename ||
-                        "Background music"}
-                    </p>
-                    <p className="mt-2 break-all">
-                      {staffMusic.current.asset.secure_url}
-                    </p>
-                  </>
+            <div className="mt-6">
+              <p className="text-xs uppercase text-[var(--color-gold)]">Rekening</p>
+              <div className="mt-3 space-y-2">
+                {detail?.invitation?.bank_accounts?.length ? (
+                  detail.invitation.bank_accounts.map((account, index) => (
+                    <div className="border border-white/10 bg-black/20 p-3 text-sm" key={index}>
+                      <p className="text-white">{account.bank ?? account.name ?? "Bank account"}</p>
+                      <p className="mt-1 text-white/50">
+                        {account.number ?? account.account_number ?? "Nomor belum diisi"}
+                      </p>
+                    </div>
+                  ))
                 ) : (
-                  <p>Belum ada backsound yang dipilih.</p>
+                  <p className="text-sm text-white/45">Belum ada data rekening.</p>
                 )}
               </div>
-              <label className="grid gap-2">
-                <span className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">
-                  Pilih asset tersedia
-                </span>
-                <select
-                  className="min-h-11 border border-white/15 bg-black/30 px-3 text-sm outline-none transition focus:border-[var(--color-gold)]"
-                  onChange={(event) =>
-                    setMusicForm((current) => ({
-                      ...current,
-                      assetId: event.target.value,
-                      secureUrl: "",
-                    }))
-                  }
-                  value={musicForm.assetId}
-                >
-                  <option value="">Tidak memakai asset tersimpan</option>
-                  {staffMusic?.available_assets.map((asset) => (
-                    <option key={asset.id} value={asset.id}>
-                      {asset.original_filename || asset.public_id}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="grid gap-2">
-                <span className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">
-                  Atau Cloudinary audio URL
-                </span>
-                <input
-                  className="min-h-11 border border-white/15 bg-black/30 px-3 text-sm outline-none transition focus:border-[var(--color-gold)]"
-                  onChange={(event) =>
-                    setMusicForm((current) => ({
-                      ...current,
-                      assetId: "",
-                      secureUrl: event.target.value,
-                    }))
-                  }
-                  placeholder="https://res.cloudinary.com/.../song.mp3"
-                  value={musicForm.secureUrl}
-                />
-              </label>
-              <label className="grid gap-2">
-                <span className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">
-                  Judul musik
-                </span>
-                <input
-                  className="min-h-11 border border-white/15 bg-black/30 px-3 text-sm outline-none transition focus:border-[var(--color-gold)]"
-                  disabled={!musicForm.secureUrl}
-                  onChange={(event) =>
-                    setMusicForm((current) => ({
-                      ...current,
-                      title: event.target.value,
-                    }))
-                  }
-                  placeholder="Background music"
-                  value={musicForm.title}
-                />
-              </label>
-              <button
-                className="inline-flex min-h-11 items-center justify-center gap-3 bg-[var(--color-gold)] px-4 text-[0.65rem] font-bold uppercase tracking-[0.16em] text-[#17140d] transition hover:brightness-110 disabled:opacity-50"
-                disabled={savingMusic}
-                onClick={() => void saveStaffMusicSelection()}
-                type="button"
-              >
-                <Music2 size={15} />
-                {savingMusic ? "Saving music" : "Save backsound"}
-              </button>
             </div>
-          ) : (
-            <p className="mt-5 text-sm leading-6 text-white/45">
-              Pilih order yang sudah memiliki invitation untuk mengatur backsound.
-            </p>
-          )}
-        </section>
+          </Panel>
+        </aside>
       </div>
+    </div>
+  );
+}
 
-      <div className="grid gap-8 lg:grid-cols-2">
-        <section id="leads">
-          <h2 className="mb-4 font-serif text-4xl">Recent leads</h2>
-          <div className="grid gap-px bg-white/12">
-            {leads.slice(0, 8).map((lead) => (
-              <article className="bg-[#181815] p-4" key={lead.id}>
-                <div className="flex flex-wrap justify-between gap-3 text-sm">
-                  <span>{lead.theme_slug || "General inquiry"}</span>
-                  <span className="text-[var(--color-gold)]">
-                    {lead.package_code || "package unset"}
-                  </span>
-                </div>
-                <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-xs uppercase tracking-[0.14em] text-white/40">
-                    {lead.source || "direct"} / {lead.campaign || "no campaign"}
-                  </p>
-                  <button
-                    className="min-h-9 border border-white/15 px-3 text-[0.6rem] font-semibold uppercase tracking-[0.14em] text-white/65 transition hover:border-[var(--color-gold)] hover:text-[var(--color-gold)]"
-                    onClick={() => applyLeadToOrder(lead)}
-                    type="button"
-                  >
-                    Use lead
-                  </button>
-                </div>
-              </article>
-            ))}
-            {!loading && leads.length === 0 ? (
-              <article className="bg-[#181815] p-4 text-sm text-white/45">
-                Belum ada lead WhatsApp.
-              </article>
-            ) : null}
-          </div>
-        </section>
+function Panel({ children }: { children: ReactNode }) {
+  return <section className="border border-white/12 bg-[#141411] p-5">{children}</section>;
+}
 
-        <section id="audit">
-          <h2 className="mb-4 font-serif text-4xl">Audit trail</h2>
-          <div className="grid gap-px bg-white/12">
-            {auditEvents.slice(0, 8).map((event) => (
-              <article className="bg-[#181815] p-4" key={event.id}>
-                <div className="flex flex-wrap justify-between gap-3 text-sm">
-                  <span>{event.action}</span>
-                  <span className="text-white/45">{event.resource_reference}</span>
-                </div>
-                <p className="mt-3 text-xs uppercase tracking-[0.14em] text-white/40">
-                  {event.actor_email ?? "system"} /{" "}
-                  {new Date(event.created_at).toLocaleString("id-ID")}
-                </p>
-              </article>
-            ))}
-            {!loading && auditEvents.length === 0 ? (
-              <article className="bg-[#181815] p-4 text-sm text-white/45">
-                Belum ada audit event global.
-              </article>
-            ) : null}
-          </div>
-        </section>
+function PanelHeader({
+  aside,
+  eyebrow,
+  title,
+}: {
+  aside?: string;
+  eyebrow: string;
+  title: string;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div>
+        <p className="text-xs uppercase text-[var(--color-gold)]">{eyebrow}</p>
+        <h2 className="mt-3 font-serif text-3xl leading-tight">{title}</h2>
       </div>
+      {aside ? <p className="text-xs uppercase text-white/45">{aside}</p> : null}
+    </div>
+  );
+}
+
+function MetricCard({ label, value }: { label: string; value: string }) {
+  return (
+    <article className="bg-[#181815] p-5">
+      <p className="text-xs uppercase text-white/45">{label}</p>
+      <p className="mt-6 font-serif text-4xl">{value}</p>
+    </article>
+  );
+}
+
+function Field({ children, label }: { children: ReactNode; label: string }) {
+  return (
+    <label className="block">
+      <span className="text-xs uppercase text-white/45">{label}</span>
+      <div className="mt-2">{children}</div>
+    </label>
+  );
+}
+
+function Info({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="bg-[#181815] p-4">
+      <p className="text-xs uppercase text-white/38">{label}</p>
+      <p className="mt-2 break-words text-sm leading-6 text-white/72">{value}</p>
     </div>
   );
 }
