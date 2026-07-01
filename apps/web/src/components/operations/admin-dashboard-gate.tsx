@@ -22,8 +22,8 @@ const staffGateCookie = "niskala_staff_gate";
 const nav: Array<{ href: Route; label: string }> = [
   { href: "/admin", label: "Overview" },
   { href: "/admin#orders", label: "Orders" },
-  { href: "/admin#content", label: "Content" },
-  { href: "/admin#audit", label: "Audit" },
+  { href: "/admin#detail", label: "Detail" },
+  { href: "/admin#revisi", label: "Revisi" },
 ];
 
 function staffGateCookieAttributes(maxAge: number) {

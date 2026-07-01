@@ -20,8 +20,19 @@ class Order(UUIDTimeStampedModel, ArchivableModel):
         COMPLETED = "completed", "Completed"
         CANCELLED = "cancelled", "Cancelled"
 
+    class PaymentStatus(models.TextChoices):
+        UNPAID = "unpaid", "Belum Bayar"
+        DP = "dp", "DP"
+        PAID = "paid", "Lunas"
+
     reference = models.SlugField(max_length=40, unique=True)
     status = models.CharField(max_length=24, choices=Status.choices, default=Status.LEAD)
+    payment_status = models.CharField(
+        max_length=16,
+        choices=PaymentStatus.choices,
+        default=PaymentStatus.UNPAID,
+        db_index=True,
+    )
     whatsapp_intent = models.ForeignKey(
         "leads.WhatsAppIntent",
         blank=True,

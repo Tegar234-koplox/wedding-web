@@ -127,6 +127,8 @@ class EventLocation(UUIDTimeStampedModel):
 
 class InvitationMedia(UUIDTimeStampedModel):
     class Role(models.TextChoices):
+        PHOTO = "photo", "Photo"
+        GALLERY = "gallery", "Gallery"
         BACKSOUND = "backsound", "Backsound"
 
     invitation = models.ForeignKey(Invitation, on_delete=models.CASCADE, related_name="media")
@@ -189,6 +191,8 @@ class InvitationRevision(UUIDTimeStampedModel):
     invitation = models.ForeignKey(Invitation, on_delete=models.CASCADE, related_name="revisions")
     revision_number = models.PositiveIntegerField()
     content = models.JSONField(validators=[validate_invitation_content])
+    note = models.TextField(blank=True)
+    is_final_check = models.BooleanField(default=False)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         blank=True,
