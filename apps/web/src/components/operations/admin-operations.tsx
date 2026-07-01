@@ -1,8 +1,6 @@
 "use client";
 
-import { LifeBuoy, LogOut, Music2, Plus, RefreshCw, Save } from "lucide-react";
-import type { Route } from "next";
-import Link from "next/link";
+import { LifeBuoy, Music2, Plus, RefreshCw, Save } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { env } from "@/lib/env";
@@ -75,15 +73,6 @@ type StaffUser = {
   username: string;
   email: string;
   role: string;
-};
-
-type StaffSession = {
-  user: {
-    username: string;
-    email: string;
-    role: string;
-    display_name: string;
-  };
 };
 
 type StaffInvitation = {
@@ -198,9 +187,6 @@ const orderFormFields: Array<{
   { field: "total_amount", label: "Total amount", placeholder: "649000" },
 ];
 
-const adminLoginPath = "/admin/login";
-const staffGateCookie = "niskala_staff_gate";
-
 class StaffFetchError extends Error {
   constructor(
     message: string,
@@ -213,11 +199,6 @@ class StaffFetchError extends Error {
   get isAuthError(): boolean {
     return this.status === 401 || this.status === 403;
   }
-}
-
-function redirectToLogin() {
-  document.cookie = `${staffGateCookie}=; Path=/; Max-Age=0; SameSite=Lax; Secure`;
-  window.location.replace(adminLoginPath);
 }
 
 function nextLeadReference(lead: Lead): string {
@@ -327,7 +308,6 @@ export function AdminOperations() {
   const [staffUsers, setStaffUsers] = useState<StaffUser[]>([]);
   const [themes, setThemes] = useState<ThemeOption[]>([]);
   const [packages, setPackages] = useState<PackageOption[]>([]);
-  const [staffSession, setStaffSession] = useState<StaffSession["user"] | null>(null);
   const [selectedReference, setSelectedReference] = useState<string>("");
   const [selectedTicketId, setSelectedTicketId] = useState<string>("");
   const [ticketCategoryFilter, setTicketCategoryFilter] = useState("");
@@ -418,10 +398,6 @@ export function AdminOperations() {
         title: "",
       });
     } catch (caught) {
-      if (caught instanceof StaffFetchError && caught.isAuthError) {
-        redirectToLogin();
-        return;
-      }
       setError(
         caught instanceof Error
           ? caught.message
@@ -455,7 +431,6 @@ export function AdminOperations() {
     setError("");
     try {
       const [
-        nextSession,
         nextMetrics,
         nextOrders,
         nextLeads,
@@ -468,7 +443,6 @@ export function AdminOperations() {
         nextPackages,
       ] =
         await Promise.all([
-          staffFetch<StaffSession>("/auth/me"),
           staffFetch<Metrics>("/admin/dashboard/metrics"),
           staffFetch<Order[]>("/admin/orders"),
           staffFetch<Lead[]>("/admin/leads"),
@@ -480,7 +454,6 @@ export function AdminOperations() {
           staffFetch<ThemePage>("/themes?locale=id&page_size=50"),
           staffFetch<PackageOption[]>("/packages?locale=id"),
         ]);
-      setStaffSession(nextSession.user);
       setMetrics(nextMetrics);
       setOrders(nextOrders);
       setLeads(nextLeads);
@@ -523,32 +496,6 @@ export function AdminOperations() {
       setLoading(false);
     }
   }, []);
-
-  async function logoutStaff() {
-    setSaving(true);
-    setError("");
-    try {
-      await staffFetch<{ ok: boolean }>("/auth/logout", { method: "POST" });
-      setStaffSession(null);
-      setMetrics(null);
-      setOrders([]);
-      setLeads([]);
-      setTickets([]);
-      setAuditEvents([]);
-      setOrderAuditEvents([]);
-      setGuestAggregate(null);
-      setStaffMusic(null);
-      setSelectedReference("");
-      setSelectedTicketId("");
-    } catch (caught) {
-      if (!(caught instanceof StaffFetchError && caught.isAuthError)) {
-        setError(caught instanceof Error ? caught.message : "Logout staff gagal.");
-      }
-    } finally {
-      setSaving(false);
-      redirectToLogin();
-    }
-  }
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -790,11 +737,6 @@ export function AdminOperations() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          {staffSession ? (
-            <p className="text-xs uppercase tracking-[0.14em] text-white/45">
-              {staffSession.display_name} / {staffSession.role}
-            </p>
-          ) : null}
           <button
             className="inline-flex min-h-11 items-center gap-3 border border-white/15 px-4 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-white/70 transition hover:border-[var(--color-gold)] hover:text-[var(--color-gold)]"
             disabled={loading}
@@ -804,29 +746,13 @@ export function AdminOperations() {
             <RefreshCw size={15} />
             Refresh
           </button>
-          {staffSession ? (
-            <button
-              className="inline-flex min-h-11 items-center gap-3 border border-white/15 px-4 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-white/70 transition hover:border-[var(--color-gold)] hover:text-[var(--color-gold)]"
-              disabled={saving}
-              onClick={() => void logoutStaff()}
-              type="button"
-            >
-              <LogOut size={15} />
-              Logout
-            </button>
-          ) : null}
         </div>
       </div>
 
       {error ? (
         <div className="border border-[#d5ad55]/40 bg-[#d5ad55]/10 p-5 text-sm leading-6 text-[#f4ddb0]">
-          {error}. Pastikan sudah login sebagai staff dan Redis aktif.{" "}
-          <Link
-            className="font-semibold underline decoration-[#d5ad55]/50 underline-offset-4"
-            href={"/admin/login" as Route}
-          >
-            Buka staff login
-          </Link>
+          {error}. Auth lama sudah dicabut; sambungkan dashboard ke auth baru saat
+          alur baru siap.
         </div>
       ) : null}
 
