@@ -33,5 +33,3 @@ class CsrfTokenView(APIView):
 
     def get(self, request) -> Response:
         return Response({"csrfToken": get_token(request)})
-
-
