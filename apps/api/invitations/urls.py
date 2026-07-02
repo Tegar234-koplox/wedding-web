@@ -2,6 +2,7 @@ from django.urls import path
 
 from invitations.views import (
     InvitationDetailView,
+    InvitationPreviewDetailView,
     InvitationRSVPView,
     InvitationWeatherView,
     PublicGuestRSVPCreateView,
@@ -18,6 +19,11 @@ urlpatterns = [
         "invitations/<slug:public_slug>",
         InvitationDetailView.as_view(),
         name="invitation-detail",
+    ),
+    path(
+        "invitations/<slug:public_slug>/preview",
+        InvitationPreviewDetailView.as_view(),
+        name="invitation-preview-detail",
     ),
     path(
         "invitations/<slug:public_slug>/weather",

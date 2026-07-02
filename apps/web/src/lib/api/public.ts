@@ -30,10 +30,14 @@ async function apiFetch(path: string): Promise<unknown> {
 
 export async function fetchPublicInvitation(
   publicSlug: string,
+  previewToken?: string,
 ): Promise<PublicInvitation | null> {
   try {
+    const path = previewToken
+      ? `/invitations/${publicSlug}/preview?token=${encodeURIComponent(previewToken)}`
+      : `/invitations/${publicSlug}`;
     return publicInvitationSchema.parse(
-      await apiFetch(`/invitations/${publicSlug}`),
+      await apiFetch(path),
     );
   } catch {
     return null;

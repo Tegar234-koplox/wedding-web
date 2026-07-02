@@ -1,3 +1,5 @@
+from urllib.parse import urlencode
+
 from rest_framework import serializers
 
 from catalog.models import Package, Theme
@@ -10,6 +12,7 @@ from invitations.models import (
     InvitationRevision,
     WeddingEvent,
 )
+from invitations.preview import preview_token_for
 from leads.models import WhatsAppIntent
 from orders.models import Order
 from users.models import User
@@ -325,12 +328,13 @@ class StaffOrderDetailSerializer(serializers.Serializer):
 
     def _preview_url(self, invitation: Invitation, request) -> str:
         path = f"/{invitation.default_locale}/i/{invitation.public_slug}"
+        preview_path = f"{path}?{urlencode({'preview': preview_token_for(invitation)})}"
         if request is None:
-            return path
+            return preview_path
         origin = request.headers.get("Origin", "").rstrip("/")
         if origin:
-            return f"{origin}{path}"
-        return request.build_absolute_uri(path)
+            return f"{origin}{preview_path}"
+        return request.build_absolute_uri(preview_path)
 
     def _revision_payload(self, revision: InvitationRevision) -> dict:
         return {
