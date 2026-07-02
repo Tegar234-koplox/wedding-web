@@ -34,6 +34,7 @@ export type OverlayAsset = {
   src: string;
   mode: "frame" | "motif";
   objectFit: "contain" | "cover";
+  mobileBlend?: "side-pair";
   desktopInstances: 1 | 3;
   mobileInstances: 1 | 2;
   perimeterMask: boolean;
@@ -268,6 +269,7 @@ export const premiumVisualConfig: Record<
         src: "/images/invitation-decorations/islamic-soft/golden-brown-moon-stars-overlay.svg",
         mode: "frame",
         objectFit: "cover",
+        mobileBlend: "side-pair",
         desktopInstances: 1,
         mobileInstances: 1,
         perimeterMask: true,
@@ -293,6 +295,7 @@ export const premiumVisualConfig: Record<
         src: "/images/invitation-decorations/islamic-soft/golden-brown-moon-stars-overlay.svg",
         mode: "frame",
         objectFit: "cover",
+        mobileBlend: "side-pair",
         desktopInstances: 1,
         mobileInstances: 1,
         perimeterMask: true,

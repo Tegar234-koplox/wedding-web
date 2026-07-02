@@ -194,6 +194,18 @@ describe("premium presentation configuration", () => {
       });
     });
   });
+  it("boosts Islamic Soft overlay visibility on mobile without changing other updated themes", () => {
+    const islamicOverlay = getPremiumVisualConfig("islamic-soft", "signature").overlay;
+
+    expect(islamicOverlay?.mobileBlend).toBe("side-pair");
+    ["minimalist-white", "dark-cinematic", "floral-romantic"].forEach((theme) => {
+      const overlay = getPremiumVisualConfig(
+        theme as "minimalist-white" | "dark-cinematic" | "floral-romantic",
+        "signature",
+      ).overlay;
+      expect(overlay?.mobileBlend).toBeUndefined();
+    });
+  });
   it("falls back invalid or missing packages to Essential", () => {
     expect(resolvePackageCode("essential")).toBe("essential");
     expect(resolvePackageCode("signature")).toBe("signature");
