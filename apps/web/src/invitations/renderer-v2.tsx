@@ -43,6 +43,34 @@ export type RendererV2Props = {
   weather?: InvitationWeather | null;
 };
 
+const textFadeTransition = { duration: 0.85, ease: [0.22, 1, 0.36, 1] } as const;
+
+function FadeText({
+  children,
+  className = "",
+  delay = 0,
+  distance = 18,
+  once = true,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  delay?: number;
+  distance?: number;
+  once?: boolean;
+}) {
+  return (
+    <motion.div
+      className={className}
+      initial={{ opacity: 0, y: distance }}
+      transition={{ ...textFadeTransition, delay }}
+      viewport={{ once, amount: 0.28 }}
+      whileInView={{ opacity: 1, y: 0 }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
 function Cover({
   invitation,
   packageCode,
@@ -90,10 +118,15 @@ function Cover({
       <div className="absolute inset-5 border border-current/25 md:inset-9" />
 
       <div className="relative z-10 grid min-h-svh grid-rows-[auto_1fr_auto] px-7 pb-24 pt-7 sm:pb-28 md:px-14 md:py-12">
-        <div className="flex justify-between text-[0.58rem] uppercase tracking-[0.24em]">
+        <motion.div
+          animate={{ opacity: 1, y: 0 }}
+          className="flex justify-between text-[0.58rem] uppercase tracking-[0.24em]"
+          initial={{ opacity: 0, y: 12 }}
+          transition={{ ...textFadeTransition, delay: 0.1 }}
+        >
           <span>{opening.eyebrow}</span>
           <span>{event.dateLabel}</span>
-        </div>
+        </motion.div>
 
         <div
           className={`grid content-center py-7 sm:py-10 md:py-16 ${
@@ -102,7 +135,12 @@ function Cover({
               : "place-items-center text-center"
           }`}
         >
-          <div className="max-w-5xl">
+          <motion.div
+            animate={{ opacity: 1, y: 0 }}
+            className="max-w-5xl"
+            initial={{ opacity: 0, y: 22 }}
+            transition={{ ...textFadeTransition, delay: 0.22 }}
+          >
             <p
               className={`text-xs uppercase tracking-[0.28em] ${design.accent}`}
             >
@@ -124,10 +162,15 @@ function Cover({
             >
               {opening.message}
             </p>
-          </div>
+          </motion.div>
         </div>
 
-        <div className="flex flex-col items-center gap-4">
+        <motion.div
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-col items-center gap-4"
+          initial={{ opacity: 0, y: 16 }}
+          transition={{ ...textFadeTransition, delay: 0.42 }}
+        >
           <button
             className={`min-h-13 border px-8 text-[0.65rem] font-semibold uppercase tracking-[0.22em] transition hover:-translate-y-0.5 ${design.border} ${design.glow}`}
             onClick={onOpen}
@@ -151,7 +194,7 @@ function Cover({
                 ? "Preview audio segera tersedia"
                 : "Preview audio coming soon"}
           </p>
-        </div>
+        </motion.div>
       </div>
     </motion.section>
   );
@@ -208,12 +251,14 @@ function EventStory({
           showOverlay={packageCode === "couture"}
         />
         <div className="relative z-30 mx-auto max-w-6xl">
-          <p className="text-center text-[0.6rem] uppercase tracking-[0.25em] opacity-55">
-            {id ? "Waktu & Tempat" : "Time & Place"}
-          </p>
-          <h2 className="mx-auto mt-7 max-w-4xl text-center font-serif text-[clamp(3rem,8vw,7rem)] leading-[0.86] tracking-[-0.05em]">
-            {event.dateLabel}
-          </h2>
+          <FadeText className="text-center">
+            <p className="text-[0.6rem] uppercase tracking-[0.25em] opacity-55">
+              {id ? "Waktu & Tempat" : "Time & Place"}
+            </p>
+            <h2 className="mx-auto mt-7 max-w-4xl font-serif text-[clamp(3rem,8vw,7rem)] leading-[0.86] tracking-[-0.05em]">
+              {event.dateLabel}
+            </h2>
+          </FadeText>
           <div className="mt-16 grid gap-px bg-current/15 md:grid-cols-3">
             {[
               {
@@ -227,25 +272,31 @@ function EventStory({
                 Icon: CalendarDays,
               },
               { label: event.venue, value: event.address, Icon: MapPin },
-            ].map(({ label, value, Icon }) => (
-              <div className={`${design.surface} p-7`} key={label}>
+            ].map(({ label, value, Icon }, index) => (
+              <FadeText
+                className={`${design.surface} p-7`}
+                delay={index * 0.08}
+                key={label}
+              >
                 <Icon size={19} />
                 <p className="mt-9 text-[0.6rem] uppercase tracking-[0.18em] opacity-55">
                   {label}
                 </p>
                 <p className="mt-3 font-serif text-2xl leading-8">{value}</p>
-              </div>
+              </FadeText>
             ))}
           </div>
-          <a
-            className={`mx-auto mt-9 flex w-fit items-center gap-2 border-b pb-1 text-[0.62rem] uppercase tracking-[0.18em] ${design.border}`}
-            href={event.mapUrl}
-            rel="noopener noreferrer"
-            target="_blank"
-          >
-            <MapPin size={14} />
-            {id ? "Buka peta" : "Open map"}
-          </a>
+          <FadeText delay={0.18}>
+            <a
+              className={`mx-auto mt-9 flex w-fit items-center gap-2 border-b pb-1 text-[0.62rem] uppercase tracking-[0.18em] ${design.border}`}
+              href={event.mapUrl}
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              <MapPin size={14} />
+              {id ? "Buka peta" : "Open map"}
+            </a>
+          </FadeText>
         </div>
       </motion.section>
 
@@ -257,6 +308,7 @@ function EventStory({
         <div className="relative z-30 mx-auto grid max-w-6xl gap-14 lg:grid-cols-[0.85fr_1.15fr]">
           <motion.div
             initial={{ opacity: 0, x: -revealDistance }}
+            transition={textFadeTransition}
             viewport={{ once: true, amount: 0.3 }}
             whileInView={{ opacity: 1, x: 0 }}
           >
@@ -270,6 +322,7 @@ function EventStory({
           <motion.div
             className="lg:pt-20"
             initial={{ opacity: 0, y: revealDistance }}
+            transition={{ ...textFadeTransition, delay: 0.12 }}
             viewport={{ once: true, amount: 0.3 }}
             whileInView={{ opacity: 1, y: 0 }}
           >
@@ -463,7 +516,7 @@ export function RendererV2({
                 config={premium}
                 showOverlay={packageCode === "couture"}
               />
-              <div className="relative z-30 max-w-4xl">
+              <FadeText className="relative z-30 max-w-4xl" distance={24}>
                 <Volume2 className={`mx-auto ${design.accent}`} size={26} />
                 <h2 className="mt-10 font-serif text-[clamp(4rem,10vw,9rem)] leading-[0.82] tracking-[-0.055em]">
                   {closing.heading}
@@ -474,7 +527,7 @@ export function RendererV2({
                 <p className="mt-14 font-serif text-2xl italic">
                   {couple.partnerOne} &amp; {couple.partnerTwo}
                 </p>
-              </div>
+              </FadeText>
             </motion.section>
           </div>
         </div>
