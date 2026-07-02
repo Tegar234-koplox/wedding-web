@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 
 import {
   formatCurrency,
+  normalizeCurrencyInput,
   paymentLabels,
   staffFetch,
   type DetailRevision,
@@ -188,6 +189,7 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
       const totalDeclined = Number(form.rsvp_declined || 0);
       const responded = totalConfirmed + totalDeclined;
       const responseRate = totalInvited ? Math.round((responded / totalInvited) * 1000) / 10 : 0;
+      const totalAmount = normalizeCurrencyInput(form.total_amount);
       const updated = await staffFetch<StaffOrderDetail>(`/admin/orders/${reference}`, {
         body: JSON.stringify({
           bank_accounts: [
@@ -230,7 +232,7 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
           },
           status: workflowStatusDefaults[form.status_label] ?? "lead",
           theme_slug: form.theme_slug || null,
-          total_amount: form.total_amount || "0",
+          total_amount: totalAmount,
         }),
         method: "PATCH",
       });

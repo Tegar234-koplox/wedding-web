@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import {
   formatCurrency,
   formatDate,
+  normalizeCurrencyInput,
   paymentLabels,
   redirectToStaffLogin,
   staffFetch,
@@ -142,6 +143,7 @@ export function AdminOperations() {
     setError("");
     setNotice("");
     try {
+      const totalAmount = normalizeCurrencyInput(orderForm.total_amount);
       const created = await staffFetch<Order>("/admin/orders", {
         body: JSON.stringify({
           client_email: orderForm.client_email.trim(),
@@ -152,7 +154,7 @@ export function AdminOperations() {
           payment_status: orderForm.payment_status,
           reference: orderForm.reference.trim(),
           status: "lead",
-          total_amount: orderForm.total_amount || "0",
+          total_amount: totalAmount,
         }),
         method: "POST",
       });
@@ -450,7 +452,7 @@ export function AdminOperations() {
                   onChange={(event) =>
                     setOrderForm((current) => ({ ...current, total_amount: event.target.value }))
                   }
-                  placeholder="345000"
+                  placeholder="345000 atau 345.000"
                   value={orderForm.total_amount}
                 />
               </Field>
