@@ -16,7 +16,8 @@ type PreviewPageProps = {
 const livePreviewAudio = {
   default_volume: 0.35,
   loop: true,
-  secure_url: "/audio/niskala-preview-ambient.wav",
+  secure_url:
+    "https://res.cloudinary.com/djhewrs1n/video/upload/v1782990901/Billie_Eilish_-_watch_mixed_2_f41hzn.mp3",
   title: "Niskala preview music",
 };
 
