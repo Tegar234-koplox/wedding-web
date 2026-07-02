@@ -214,14 +214,47 @@ function OverlayArtwork({
 
   if (asset.mode === "frame") {
     return (
-      <motion.div
-        animate={animated ? { scale: [1, 1.018, 1], y: [0, -4, 0] } : undefined}
-        className="absolute inset-0"
-        style={mask}
-        transition={{ duration: 10, ease: "easeInOut", repeat: Infinity }}
-      >
-        <AssetImage objectFit={asset.objectFit} src={asset.src} />
-      </motion.div>
+      <>
+        {asset.mobileBlend === "side-pair" ? (
+          <div className="absolute inset-0 md:hidden" style={mask}>
+            <motion.div
+              animate={animated ? { scale: [1, 1.02, 1], x: [0, 4, 0] } : undefined}
+              className="absolute inset-0 opacity-85"
+              transition={{ duration: 10, ease: "easeInOut", repeat: Infinity }}
+            >
+              <AssetImage
+                objectFit={asset.objectFit}
+                objectPosition="left center"
+                src={asset.src}
+              />
+            </motion.div>
+            <motion.div
+              animate={animated ? { scale: [1, 1.02, 1], x: [0, -4, 0] } : undefined}
+              className="absolute inset-0 opacity-85"
+              transition={{
+                delay: 0.7,
+                duration: 10,
+                ease: "easeInOut",
+                repeat: Infinity,
+              }}
+            >
+              <AssetImage
+                objectFit={asset.objectFit}
+                objectPosition="right center"
+                src={asset.src}
+              />
+            </motion.div>
+          </div>
+        ) : null}
+        <motion.div
+          animate={animated ? { scale: [1, 1.018, 1], y: [0, -4, 0] } : undefined}
+          className={`absolute inset-0 ${asset.mobileBlend === "side-pair" ? "hidden md:block" : ""}`}
+          style={mask}
+          transition={{ duration: 10, ease: "easeInOut", repeat: Infinity }}
+        >
+          <AssetImage objectFit={asset.objectFit} src={asset.src} />
+        </motion.div>
+      </>
     );
   }
 
