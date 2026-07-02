@@ -22,15 +22,27 @@ function themeFromApi(theme: PublicTheme): Theme {
   };
 }
 
+function compactPackagePrice(value: string, currency: string, locale: Locale): string {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) {
+    return value;
+  }
+  const prefix = currency === "IDR" ? "Rp" : currency;
+  if (amount >= 1_000 && amount % 1_000 === 0) {
+    return `${prefix} ${amount / 1_000}k`;
+  }
+  return new Intl.NumberFormat(locale === "id" ? "id-ID" : "en-US", {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
 function packageFromApi(item: PublicPackage, locale: Locale): ServicePackage {
   return {
     code: item.code,
     name: item.name,
-    price: new Intl.NumberFormat(locale === "id" ? "id-ID" : "en-US", {
-      style: "currency",
-      currency: item.currency,
-      maximumFractionDigits: 0,
-    }).format(Number(item.price)),
+    price: compactPackagePrice(item.price, item.currency, locale),
     featured: item.is_featured,
     description: { id: item.summary, en: item.summary },
     features: {

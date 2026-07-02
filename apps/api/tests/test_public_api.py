@@ -30,8 +30,8 @@ def test_package_list_returns_public_features(client):
     response = client.get(reverse("package-list"), {"locale": "id"})
 
     assert response.status_code == 200
-    assert response.json()[0]["code"] == "signature"
-    assert response.json()[0]["features"][0]["label"] == "Cuaca BMKG"
+    signature = next(item for item in response.json() if item["code"] == "signature")
+    assert signature["features"][4]["label"] == "Prakiraan cuaca di lokasi acara"
 
 
 @pytest.mark.django_db

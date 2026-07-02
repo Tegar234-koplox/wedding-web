@@ -81,23 +81,32 @@ def create_theme(
 
 
 def create_package(*, code: str = "signature") -> Package:
-    package = Package.objects.create(
+    package, _ = Package.objects.update_or_create(
         code=code,
-        price="649000",
-        currency="IDR",
-        is_active=True,
-        is_featured=code == "signature",
+        defaults={
+            "price": "249000",
+            "currency": "IDR",
+            "is_active": True,
+            "is_featured": code == "signature",
+        },
     )
-    PackageTranslation.objects.create(
+    PackageTranslation.objects.update_or_create(
         package=package,
         locale="id",
-        name=code.title(),
-        summary="Pengalaman lengkap.",
+        defaults={
+            "name": code.title(),
+            "summary": "Pengalaman lengkap.",
+        },
     )
-    PackageFeature.objects.create(
+    PackageFeature.objects.update_or_create(
         package=package,
         feature_key="weather",
-        labels={"id": "Cuaca BMKG", "en": "BMKG Weather"},
+        defaults={
+            "labels": {
+                "id": "Prakiraan cuaca di lokasi acara",
+                "en": "Weather forecast at the event location",
+            },
+        },
     )
     return package
 
