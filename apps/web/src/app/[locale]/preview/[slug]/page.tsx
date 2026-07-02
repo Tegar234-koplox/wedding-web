@@ -13,6 +13,13 @@ type PreviewPageProps = {
   searchParams: Promise<{ package?: string }>;
 };
 
+const livePreviewAudio = {
+  default_volume: 0.35,
+  loop: true,
+  secure_url: "/audio/niskala-preview-ambient.wav",
+  title: "Niskala preview music",
+};
+
 export function generateStaticParams() {
   return locales.flatMap((locale) =>
     themes.map((theme) => ({ locale, slug: theme.slug })),
@@ -58,7 +65,11 @@ export default async function PreviewPage({
         selected={packageCode}
         theme={theme.name[locale]}
       />
-      <InvitationRenderer invitation={invitation} packageCode={packageCode} />
+      <InvitationRenderer
+        audio={livePreviewAudio}
+        invitation={invitation}
+        packageCode={packageCode}
+      />
     </>
   );
 }
