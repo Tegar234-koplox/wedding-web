@@ -237,6 +237,8 @@ def test_staff_can_update_manual_order_detail_payload(client):
     assert order.invitation.media.filter(role=InvitationMedia.Role.BACKSOUND).count() == 1
     assert order.invitation.content["bank_accounts"][0]["bank"] == "BCA"
     assert order.invitation.content["rsvp_manual"]["total_invited"] == 100
+    assert response.json()["preview_url"].startswith("http://testserver/id/i/")
+    assert "preview=" in response.json()["preview_url"]
 
 
 @pytest.mark.django_db

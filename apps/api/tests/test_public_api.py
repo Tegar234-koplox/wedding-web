@@ -3,6 +3,7 @@ from django.urls import reverse
 
 from catalog.models import Theme, ThemeMedia
 from invitations.models import Invitation, InvitationMedia
+from invitations.preview import preview_token_for
 from media_library.models import MediaAsset
 from tests.factories import create_invitation, create_package, create_theme
 
@@ -64,6 +65,29 @@ def test_draft_invitation_is_not_public(client):
     )
 
     assert response.status_code == 404
+
+
+@pytest.mark.django_db
+def test_draft_invitation_preview_requires_valid_token(client):
+    theme = create_theme()
+    invitation = create_invitation(
+        theme=theme,
+        status=Invitation.Status.DRAFT,
+        public_slug="draft-preview",
+    )
+
+    invalid_response = client.get(
+        reverse("invitation-preview-detail", kwargs={"public_slug": invitation.public_slug}),
+        {"token": "wrong"},
+    )
+    valid_response = client.get(
+        reverse("invitation-preview-detail", kwargs={"public_slug": invitation.public_slug}),
+        {"token": preview_token_for(invitation)},
+    )
+
+    assert invalid_response.status_code == 404
+    assert valid_response.status_code == 200
+    assert valid_response.json()["public_slug"] == invitation.public_slug
 
 
 @pytest.mark.django_db

@@ -13,14 +13,16 @@ import { isLocale } from "@/lib/locales";
 
 type PublicInvitationPageProps = {
   params: Promise<{ locale: string; publicSlug: string }>;
-  searchParams?: Promise<{ guest?: string }>;
+  searchParams?: Promise<{ guest?: string; preview?: string }>;
 };
 
 export async function generateMetadata({
   params,
+  searchParams,
 }: PublicInvitationPageProps): Promise<Metadata> {
   const { publicSlug } = await params;
-  const invitation = await fetchPublicInvitation(publicSlug);
+  const query = await searchParams;
+  const invitation = await fetchPublicInvitation(publicSlug, query?.preview);
   if (!invitation) {
     return {};
   }
@@ -44,7 +46,7 @@ export default async function PublicInvitationPage({
   }
 
   const [invitation, weather] = await Promise.all([
-    fetchPublicInvitation(publicSlug),
+    fetchPublicInvitation(publicSlug, query?.preview),
     fetchInvitationWeather(publicSlug),
   ]);
   if (!invitation) {

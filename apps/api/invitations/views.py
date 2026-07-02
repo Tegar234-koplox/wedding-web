@@ -19,6 +19,7 @@ from analytics.models import AnalyticsEvent
 from common.models import AuditEvent
 from common.notifications import enqueue_client_notification
 from invitations.models import Guest, Invitation, InvitationMedia
+from invitations.preview import preview_token_is_valid
 from invitations.selectors import public_invitations
 from invitations.serializers import (
     BacksoundAssetSerializer,
@@ -43,6 +44,22 @@ class InvitationDetailView(RetrieveAPIView):
 
     def get_queryset(self):
         return public_invitations()
+
+
+class InvitationPreviewDetailView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, public_slug: str) -> Response:
+        invitation = (
+            Invitation.objects.filter(public_slug=public_slug, archived_at__isnull=True)
+            .select_related("theme", "package")
+            .prefetch_related("events__location", "media__asset", "theme__media__asset")
+            .first()
+        )
+        token = request.query_params.get("token", "")
+        if invitation is None or not preview_token_is_valid(invitation, token):
+            raise Http404
+        return Response(PublicInvitationSerializer(invitation).data)
 
 
 class InvitationWeatherView(APIView):
