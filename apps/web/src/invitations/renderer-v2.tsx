@@ -350,6 +350,30 @@ export function RendererV2({
     };
   }, [audio]);
 
+  useEffect(() => {
+    const pauseAudio = () => {
+      const element = audioRef.current;
+      if (!element) {
+        return;
+      }
+      element.pause();
+      setPlaying(false);
+    };
+    const pauseWhenHidden = () => {
+      if (document.visibilityState === "hidden") {
+        pauseAudio();
+      }
+    };
+
+    document.addEventListener("visibilitychange", pauseWhenHidden);
+    window.addEventListener("pagehide", pauseAudio);
+    return () => {
+      document.removeEventListener("visibilitychange", pauseWhenHidden);
+      window.removeEventListener("pagehide", pauseAudio);
+      pauseAudio();
+    };
+  }, []);
+
   async function playAudio() {
     if (!audioRef.current || !audio) {
       return;
