@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1400" height="1400" viewBox="0 0 1400 1400" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Dark cinematic light blue flower petals transparent SVG overlay">
+  <title>Dark Cinematic Light Blue Flower Petals Overlay</title>
+  <desc>Transparent SVG overlay containing scattered light blue flower petals with cool cinematic glow and depth, designed for digital wedding invitation dark backgrounds.</desc>
+
+  <defs>
+    <!-- Light blue petal gradients -->
+    <radialGradient id="petalBlueA" cx="42%" cy="30%" r="72%">
+      <stop offset="0%" stop-color="#F1FBFF"/>
+      <stop offset="28%" stop-color="#AEEBFF"/>
+      <stop offset="58%" stop-color="#52BFE9"/>
+      <stop offset="84%" stop-color="#1C6D9B"/>
+      <stop offset="100%" stop-color="#092B45"/>
+    </radialGradient>
+
+    <radialGradient id="petalBlueB" cx="34%" cy="24%" r="78%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="32%" stop-color="#BDEFFF"/>
+      <stop offset="63%" stop-color="#65C8F2"/>
+      <stop offset="86%" stop-color="#246F9D"/>
+      <stop offset="100%" stop-color="#0A263D"/>
+    </radialGradient>
+
+    <linearGradient id="blueEdgeShine" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.9"/>
+      <stop offset="45%" stop-color="#9AE7FF" stop-opacity="0.32"/>
+      <stop offset="100%" stop-color="#08263D" stop-opacity="0"/>
+    </linearGradient>
+
+    <linearGradient id="blueVein" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.72"/>
+      <stop offset="100%" stop-color="#1B6D9C" stop-opacity="0.25"/>
+    </linearGradient>
+
+    <!-- Glow tuned for dark cinematic background -->
+    <filter id="icyGlow" x="-75%" y="-75%" width="250%" height="250%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#3ACBFF" flood-opacity="0.23"/>
+      <feDropShadow dx="0" dy="0" stdDeviation="8" flood-color="#BDEFFF" flood-opacity="0.20"/>
+    </filter>
+
+    <filter id="blueDepthBlur" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="0.85"/>
+      <feDropShadow dx="0" dy="12" stdDeviation="15" flood-color="#051A2D" flood-opacity="0.36"/>
+    </filter>
+
+    <!-- Petal 1: long falling petal -->
+    <g id="petal-long">
+      <path d="M3 84 C-17 50 -2 14 35 2 C73 -10 99 14 93 48 C88 82 49 108 3 84Z" fill="url(#petalBlueA)"/>
+      <path d="M9 79 C25 49 43 25 80 15" stroke="url(#blueVein)" stroke-width="2.2" stroke-linecap="round" opacity="0.7"/>
+      <path d="M20 77 C31 61 45 48 65 40" stroke="#FFFFFF" stroke-width="1.1" stroke-linecap="round" opacity="0.33"/>
+      <path d="M11 82 C-8 47 5 18 36 7 C61 -1 82 9 90 30 C69 21 46 21 28 35 C13 47 9 65 11 82Z" fill="url(#blueEdgeShine)" opacity="0.72"/>
+      <path d="M3 84 C-17 50 -2 14 35 2 C73 -10 99 14 93 48 C88 82 49 108 3 84Z" stroke="#E7FAFF" stroke-width="1.15" opacity="0.34"/>
+    </g>
+
+    <!-- Petal 2: curled petal -->
+    <g id="petal-curl">
+      <path d="M10 59 C-5 28 15 3 49 0 C84 -3 111 20 106 50 C101 80 59 92 24 78 C17 75 13 68 10 59Z" fill="url(#petalBlueB)"/>
+      <path d="M21 66 C39 45 60 28 94 20" stroke="url(#blueVein)" stroke-width="2" stroke-linecap="round" opacity="0.56"/>
+      <path d="M31 15 C55 7 83 16 98 35 C70 27 43 30 23 52 C18 38 20 25 31 15Z" fill="#E8FBFF" opacity="0.32"/>
+      <path d="M10 59 C-5 28 15 3 49 0 C84 -3 111 20 106 50 C101 80 59 92 24 78 C17 75 13 68 10 59Z" stroke="#E9FBFF" stroke-width="1" opacity="0.28"/>
+    </g>
+
+    <!-- Petal 3: small petal -->
+    <g id="petal-small">
+      <path d="M4 47 C-5 26 7 7 30 1 C53 -5 73 8 73 31 C73 55 38 70 4 47Z" fill="url(#petalBlueA)"/>
+      <path d="M11 44 C23 27 38 16 63 9" stroke="url(#blueVein)" stroke-width="1.6" stroke-linecap="round" opacity="0.6"/>
+      <path d="M6 46 C2 28 12 11 31 5 C46 1 61 5 69 17 C49 14 31 20 18 34 C13 39 9 43 6 46Z" fill="#EAFBFF" opacity="0.30"/>
+      <path d="M4 47 C-5 26 7 7 30 1 C53 -5 73 8 73 31 C73 55 38 70 4 47Z" stroke="#E9FBFF" stroke-width="1" opacity="0.22"/>
+    </g>
+
+    <!-- Petal 4: wide floating petal -->
+    <g id="petal-wide">
+      <path d="M0 55 C8 18 43 -6 83 2 C121 10 133 44 106 71 C80 99 25 91 0 55Z" fill="url(#petalBlueB)"/>
+      <path d="M15 58 C42 44 65 31 108 20" stroke="url(#blueVein)" stroke-width="2.2" stroke-linecap="round" opacity="0.52"/>
+      <path d="M15 50 C26 23 54 7 84 10 C103 12 117 22 123 35 C87 29 54 35 21 58Z" fill="#ECFCFF" opacity="0.30"/>
+      <path d="M0 55 C8 18 43 -6 83 2 C121 10 133 44 106 71 C80 99 25 91 0 55Z" stroke="#ECFCFF" stroke-width="1" opacity="0.24"/>
+    </g>
+
+    <!-- Petal 5: thin shard petal -->
+    <g id="petal-thin">
+      <path d="M1 72 C-8 38 9 10 41 1 C58 24 53 56 30 76 C19 85 8 84 1 72Z" fill="url(#petalBlueA)"/>
+      <path d="M12 68 C21 44 29 22 42 4" stroke="url(#blueVein)" stroke-width="1.8" stroke-linecap="round" opacity="0.58"/>
+      <path d="M6 64 C1 39 13 17 39 4 C33 29 24 48 10 69Z" fill="#FFFFFF" opacity="0.22"/>
+      <path d="M1 72 C-8 38 9 10 41 1 C58 24 53 56 30 76 C19 85 8 84 1 72Z" stroke="#E9FBFF" stroke-width="1" opacity="0.22"/>
+    </g>
+
+    <!-- Subtle icy sparkle -->
+    <g id="blue-spark">
+      <path d="M0 -13 L3.2 -3.2 L13 0 L3.2 3.2 L0 13 L-3.2 3.2 L-13 0 L-3.2 -3.2Z" fill="#BDEFFF" opacity="0.46"/>
+    </g>
+  </defs>
+
+  <!-- Transparent background intentionally left empty -->
+
+  <!-- Background-depth petals: lower opacity, slightly blurred -->
+  <g opacity="0.38" filter="url(#blueDepthBlur)">
+    <use href="#petal-long" transform="translate(118 182) rotate(-30) scale(0.78)"/>
+    <use href="#petal-curl" transform="translate(1088 148) rotate(38) scale(0.67)"/>
+    <use href="#petal-wide" transform="translate(272 1050) rotate(25) scale(0.62)"/>
+    <use href="#petal-small" transform="translate(1162 1038) rotate(-46) scale(0.72)"/>
+    <use href="#petal-thin" transform="translate(708 1110) rotate(74) scale(0.65)"/>
+    <use href="#petal-curl" transform="translate(532 205) rotate(12) scale(0.50)"/>
+    <use href="#petal-small" transform="translate(1214 618) rotate(68) scale(0.56)"/>
+    <use href="#petal-wide" transform="translate(136 686) rotate(-62) scale(0.48)"/>
+    <use href="#petal-thin" transform="translate(646 84) rotate(-18) scale(0.54)"/>
+  </g>
+
+  <!-- Main scattered light-blue petals -->
+  <g filter="url(#icyGlow)">
+    <use href="#petal-long" transform="translate(230 126) rotate(-16) scale(0.88)"/>
+    <use href="#petal-curl" transform="translate(438 82) rotate(27) scale(0.54)"/>
+    <use href="#petal-small" transform="translate(816 112) rotate(-35) scale(0.62)"/>
+    <use href="#petal-wide" transform="translate(1054 264) rotate(44) scale(0.55)"/>
+    <use href="#petal-thin" transform="translate(1210 196) rotate(18) scale(0.50)"/>
+
+    <use href="#petal-small" transform="translate(134 392) rotate(58) scale(0.58)"/>
+    <use href="#petal-wide" transform="translate(316 370) rotate(-34) scale(0.46)"/>
+    <use href="#petal-long" transform="translate(608 330) rotate(19) scale(0.75)"/>
+    <use href="#petal-curl" transform="translate(898 390) rotate(-21) scale(0.58)"/>
+    <use href="#petal-small" transform="translate(1190 414) rotate(32) scale(0.50)"/>
+
+    <use href="#petal-curl" transform="translate(212 602) rotate(-47) scale(0.70)"/>
+    <use href="#petal-thin" transform="translate(492 590) rotate(62) scale(0.64)"/>
+    <use href="#petal-wide" transform="translate(706 590) rotate(-12) scale(0.70)"/>
+    <use href="#petal-small" transform="translate(998 650) rotate(22) scale(0.56)"/>
+    <use href="#petal-long" transform="translate(1186 714) rotate(-56) scale(0.62)"/>
+
+    <use href="#petal-wide" transform="translate(158 858) rotate(35) scale(0.54)"/>
+    <use href="#petal-small" transform="translate(390 820) rotate(-15) scale(0.46)"/>
+    <use href="#petal-curl" transform="translate(634 850) rotate(39) scale(0.74)"/>
+    <use href="#petal-long" transform="translate(872 808) rotate(-30) scale(0.66)"/>
+    <use href="#petal-wide" transform="translate(1078 866) rotate(17) scale(0.47)"/>
+
+    <use href="#petal-small" transform="translate(310 1195) rotate(-28) scale(0.54)"/>
+    <use href="#petal-thin" transform="translate(530 1064) rotate(10) scale(0.70)"/>
+    <use href="#petal-curl" transform="translate(822 1106) rotate(-44) scale(0.58)"/>
+    <use href="#petal-wide" transform="translate(1006 1158) rotate(55) scale(0.50)"/>
+  </g>
+
+  <!-- Foreground accent petals -->
+  <g filter="url(#icyGlow)">
+    <use href="#petal-long" transform="translate(88 1024) rotate(-18) scale(0.82)" opacity="0.88"/>
+    <use href="#petal-wide" transform="translate(524 1238) rotate(-8) scale(0.62)" opacity="0.86"/>
+    <use href="#petal-curl" transform="translate(1128 1168) rotate(26) scale(0.68)" opacity="0.86"/>
+    <use href="#petal-small" transform="translate(1118 88) rotate(62) scale(0.55)" opacity="0.78"/>
+    <use href="#petal-thin" transform="translate(760 1228) rotate(-34) scale(0.50)" opacity="0.72"/>
+  </g>
+
+  <!-- Minimal cool spark highlights -->
+  <g>
+    <use href="#blue-spark" transform="translate(360 232) scale(0.45)"/>
+    <use href="#blue-spark" transform="translate(738 250) scale(0.38)"/>
+    <use href="#blue-spark" transform="translate(1008 532) scale(0.32)"/>
+    <use href="#blue-spark" transform="translate(292 752) scale(0.30)"/>
+    <use href="#blue-spark" transform="translate(812 972) scale(0.35)"/>
+    <use href="#blue-spark" transform="translate(1184 926) scale(0.28)"/>
+    <use href="#blue-spark" transform="translate(602 1168) scale(0.26)"/>
+  </g>
+</svg>

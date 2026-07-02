@@ -166,18 +166,33 @@ describe("premium presentation configuration", () => {
     });
   });
 
-  it("limits motif overlays to two mobile and three desktop instances", () => {
-    ["minimalist-white", "dark-cinematic", "floral-romantic"].forEach(
-      (theme) => {
+  it("uses supplied full-frame overlays for the four updated themes", () => {
+    const expectedOverlays = {
+      "dark-cinematic":
+        "/images/invitation-decorations/dark-cinematic/dark-cinematic-red-rose-petals-overlay.svg",
+      "floral-romantic":
+        "/images/invitation-decorations/floral-romantic/floral-romantic-light-blue-petals-overlay.svg",
+      "islamic-soft":
+        "/images/invitation-decorations/islamic-soft/golden-brown-moon-stars-overlay.svg",
+      "minimalist-white":
+        "/images/invitation-decorations/minimalist-white/minimalist-white-real-cloud-overlay.svg",
+    } as const;
+
+    Object.entries(expectedOverlays).forEach(([theme, expectedSrc]) => {
+      ["signature", "couture"].forEach((packageCode) => {
         const overlay = getPremiumVisualConfig(
-          theme as "minimalist-white" | "dark-cinematic" | "floral-romantic",
-          "couture",
+          theme as keyof typeof expectedOverlays,
+          packageCode as "signature" | "couture",
         ).overlay;
-        expect(overlay?.mode).toBe("motif");
-        expect(overlay?.mobileInstances).toBe(2);
-        expect(overlay?.desktopInstances).toBe(3);
-      },
-    );
+
+        expect(overlay?.src).toBe(expectedSrc);
+        expect(overlay?.mode).toBe("frame");
+        expect(overlay?.objectFit).toBe("cover");
+        expect(overlay?.mobileInstances).toBe(1);
+        expect(overlay?.desktopInstances).toBe(1);
+        expect(overlay?.perimeterMask).toBe(true);
+      });
+    });
   });
   it("falls back invalid or missing packages to Essential", () => {
     expect(resolvePackageCode("essential")).toBe("essential");
