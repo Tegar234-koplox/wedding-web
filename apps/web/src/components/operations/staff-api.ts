@@ -258,6 +258,34 @@ export function formatCurrency(value: string | number): string {
   }).format(Number(value || 0));
 }
 
+export function normalizeCurrencyInput(value: string): string {
+  const cleaned = value.trim().replace(/[^\d,.-]/g, "");
+  if (!cleaned) {
+    return "0.00";
+  }
+
+  let normalized = cleaned;
+  if (cleaned.includes(",")) {
+    const [integerPart, ...decimalParts] = cleaned.split(",");
+    const integer = (integerPart ?? "").replace(/[^\d-]/g, "");
+    const decimals = decimalParts.join("").replace(/\D/g, "").slice(0, 2);
+    normalized = decimals ? `${integer}.${decimals}` : integer;
+  } else if (cleaned.includes(".")) {
+    const parts = cleaned.split(".");
+    const last = parts.at(-1) ?? "";
+    normalized =
+      parts.length > 1 && last.length > 0 && last.length <= 2
+        ? `${parts.slice(0, -1).join("").replace(/[^\d-]/g, "")}.${last}`
+        : cleaned.replace(/[^\d-]/g, "");
+  }
+
+  const amount = Number(normalized);
+  if (!Number.isFinite(amount) || amount < 0) {
+    throw new Error("Harga harus berupa angka rupiah yang valid.");
+  }
+  return amount.toFixed(2);
+}
+
 export function formatDate(value?: string | null): string {
   if (!value) {
     return "-";
