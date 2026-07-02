@@ -1,0 +1,288 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1600" height="1000" viewBox="0 0 1600 1000" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Highly realistic white cloud overlay with transparent background">
+  <title>Highly Realistic White Cloud Overlay</title>
+  <desc>Transparent SVG overlay with realistic soft white clouds using layered gradients, procedural noise, displacement, feathered mist, subtle shadow, and volumetric shading.</desc>
+
+  <defs>
+    <radialGradient id="puffBright" cx="38%" cy="30%" r="75%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="1"/>
+      <stop offset="36%" stop-color="#FFFFFF" stop-opacity="0.96"/>
+      <stop offset="67%" stop-color="#F3F3F3" stop-opacity="0.82"/>
+      <stop offset="100%" stop-color="#DADADA" stop-opacity="0.20"/>
+    </radialGradient>
+
+    <radialGradient id="puffWhite" cx="42%" cy="34%" r="78%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.98"/>
+      <stop offset="44%" stop-color="#FAFAFA" stop-opacity="0.93"/>
+      <stop offset="76%" stop-color="#E9E9E9" stop-opacity="0.72"/>
+      <stop offset="100%" stop-color="#D1D1D1" stop-opacity="0.16"/>
+    </radialGradient>
+
+    <radialGradient id="puffWarm" cx="50%" cy="42%" r="78%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.92"/>
+      <stop offset="58%" stop-color="#F2F2F2" stop-opacity="0.72"/>
+      <stop offset="100%" stop-color="#CFCFCF" stop-opacity="0.10"/>
+    </radialGradient>
+
+    <radialGradient id="mistWhite" cx="50%" cy="50%" r="66%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.58"/>
+      <stop offset="72%" stop-color="#FFFFFF" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+
+    <radialGradient id="undersideShade" cx="46%" cy="35%" r="70%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.08"/>
+      <stop offset="54%" stop-color="#D7D7D7" stop-opacity="0.28"/>
+      <stop offset="100%" stop-color="#BDBDBD" stop-opacity="0.46"/>
+    </radialGradient>
+
+    <linearGradient id="bottomMassShade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0"/>
+      <stop offset="55%" stop-color="#D8D8D8" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#AFAFAF" stop-opacity="0.38"/>
+    </linearGradient>
+
+    <!-- Procedural cloud texture: stays SVG, no raster background -->
+    <filter id="microTexture" x="-24%" y="-35%" width="154%" height="188%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.018 0.028" numOctaves="5" seed="31" result="noise"/>
+      <feColorMatrix in="noise" type="matrix"
+        values="0 0 0 0 0.96
+                0 0 0 0 0.96
+                0 0 0 0 0.96
+                0 0 0 .18 0" result="softNoise"/>
+      <feComposite in="SourceGraphic" in2="softNoise" operator="arithmetic" k1="0" k2="1" k3="0.22" k4="0" result="textured"/>
+      <feGaussianBlur in="textured" stdDeviation="0.45"/>
+    </filter>
+
+    <!-- Uneven, less-vector edge -->
+    <filter id="cloudEdgeDisplace" x="-30%" y="-45%" width="170%" height="210%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.010 0.018" numOctaves="4" seed="11" result="edgeNoise"/>
+      <feDisplacementMap in="SourceGraphic" in2="edgeNoise" scale="8" xChannelSelector="R" yChannelSelector="G" result="displaced"/>
+      <feGaussianBlur in="displaced" stdDeviation="0.25"/>
+    </filter>
+
+    <filter id="realCloudDropShadow" x="-35%" y="-50%" width="180%" height="230%">
+      <feDropShadow dx="0" dy="11" stdDeviation="15" flood-color="#000000" flood-opacity="0.105"/>
+    </filter>
+
+    <filter id="mistFeather" x="-45%" y="-70%" width="210%" height="260%">
+      <feGaussianBlur stdDeviation="14"/>
+    </filter>
+
+    <filter id="shadeBlur" x="-35%" y="-50%" width="180%" height="220%">
+      <feGaussianBlur stdDeviation="8"/>
+    </filter>
+
+    <filter id="highlightBlur" x="-30%" y="-40%" width="170%" height="190%">
+      <feGaussianBlur stdDeviation="5"/>
+    </filter>
+
+    
+    <g id="cloudXL">
+      <g filter="url(#realCloudDropShadow)">
+        <g opacity="0.58" filter="url(#mistFeather)">
+          <ellipse cx="268.8" cy="174.0" rx="280.0" ry="72.0" fill="url(#mistWhite)"/>
+          <ellipse cx="201.6" cy="150.0" rx="201.6" ry="60.0" fill="url(#mistWhite)" opacity="0.72"/>
+          <ellipse cx="364.0" cy="159.0" rx="179.2" ry="54.0" fill="url(#mistWhite)" opacity="0.68"/>
+        </g>
+
+        <g filter="url(#cloudEdgeDisplace)">
+          <g filter="url(#microTexture)">
+            <ellipse class="" cx="72" cy="180" rx="92" ry="52" fill="url(#puffWhite)" opacity="0.86"/>
+          <ellipse class="" cx="150" cy="138" rx="120" ry="78" fill="url(#puffBright)" opacity="0.95"/>
+          <ellipse class="" cx="250" cy="112" rx="135" ry="88" fill="url(#puffBright)" opacity="0.98"/>
+          <ellipse class="" cx="380" cy="124" rx="128" ry="82" fill="url(#puffWhite)" opacity="0.94"/>
+          <ellipse class="" cx="486" cy="170" rx="105" ry="58" fill="url(#puffWhite)" opacity="0.86"/>
+          <ellipse class="" cx="178" cy="210" rx="180" ry="70" fill="url(#puffWhite)" opacity="0.92"/>
+          <ellipse class="" cx="330" cy="218" rx="210" ry="76" fill="url(#puffWarm)" opacity="0.9"/>
+          <ellipse class="" cx="456" cy="235" rx="142" ry="54" fill="url(#puffWarm)" opacity="0.76"/>
+          <ellipse class="" cx="82" cy="226" rx="85" ry="38" fill="url(#puffWarm)" opacity="0.7"/>
+          </g>
+          <g opacity="0.75" filter="url(#shadeBlur)">
+            <ellipse class="" cx="72" cy="197.68" rx="87.39999999999999" ry="17.68" fill="url(#undersideShade)" opacity="0.34400000000000003"/>
+          <ellipse class="" cx="150" cy="164.52" rx="114.0" ry="26.520000000000003" fill="url(#undersideShade)" opacity="0.38"/>
+          <ellipse class="" cx="250" cy="141.92000000000002" rx="128.25" ry="29.92" fill="url(#undersideShade)" opacity="0.38"/>
+          <ellipse class="" cx="380" cy="151.88" rx="121.6" ry="27.880000000000003" fill="url(#undersideShade)" opacity="0.376"/>
+          <ellipse class="" cx="486" cy="189.72" rx="99.75" ry="19.720000000000002" fill="url(#undersideShade)" opacity="0.34400000000000003"/>
+          <ellipse class="" cx="178" cy="233.8" rx="171.0" ry="23.8" fill="url(#undersideShade)" opacity="0.36800000000000005"/>
+          <ellipse class="" cx="330" cy="243.84" rx="199.5" ry="25.840000000000003" fill="url(#undersideShade)" opacity="0.36000000000000004"/>
+          <ellipse class="" cx="456" cy="253.36" rx="134.9" ry="18.360000000000003" fill="url(#undersideShade)" opacity="0.30400000000000005"/>
+          <ellipse class="" cx="82" cy="238.92000000000002" rx="80.75" ry="12.920000000000002" fill="url(#undersideShade)" opacity="0.27999999999999997"/>
+          </g>
+          <g opacity="0.85" filter="url(#highlightBlur)">
+            <ellipse class="" cx="55.44" cy="165.44" rx="38.64" ry="11.44" fill="#FFFFFF" opacity="0.2924"/>
+          <ellipse class="" cx="225.7" cy="87.36" rx="56.699999999999996" ry="19.36" fill="#FFFFFF" opacity="0.3332"/>
+          <ellipse class="" cx="467.1" cy="153.76" rx="44.1" ry="12.76" fill="#FFFFFF" opacity="0.2924"/>
+          <ellipse class="" cx="292.2" cy="196.72" rx="88.2" ry="16.72" fill="#FFFFFF" opacity="0.30600000000000005"/>
+          <ellipse class="" cx="66.7" cy="215.36" rx="35.699999999999996" ry="8.36" fill="#FFFFFF" opacity="0.238"/>
+          </g>
+        </g>
+
+        <path d="M22.4 195.0
+                 C95.2 255.0, 212.8 273.0, 319.2 246.0
+                 C403.2 225.0, 487.2 240.0, 548.8 192.0
+                 C520.8 276.0, 414.4 309.0, 280.0 309.0
+                 C134.4 309.0, 39.2 273.0, 22.4 195.0Z"
+              fill="url(#bottomMassShade)" opacity="0.58" filter="url(#shadeBlur)"/>
+      </g>
+    </g>
+    
+    <g id="cloudM">
+      <g filter="url(#realCloudDropShadow)">
+        <g opacity="0.58" filter="url(#mistFeather)">
+          <ellipse cx="196.8" cy="136.3" rx="205.0" ry="56.4" fill="url(#mistWhite)"/>
+          <ellipse cx="147.6" cy="117.5" rx="147.6" ry="47.0" fill="url(#mistWhite)" opacity="0.72"/>
+          <ellipse cx="266.5" cy="124.6" rx="131.2" ry="42.3" fill="url(#mistWhite)" opacity="0.68"/>
+        </g>
+
+        <g filter="url(#cloudEdgeDisplace)">
+          <g filter="url(#microTexture)">
+            <ellipse class="" cx="56" cy="142" rx="72" ry="42" fill="url(#puffWhite)" opacity="0.82"/>
+          <ellipse class="" cx="118" cy="104" rx="94" ry="62" fill="url(#puffBright)" opacity="0.94"/>
+          <ellipse class="" cx="202" cy="88" rx="102" ry="68" fill="url(#puffBright)" opacity="0.96"/>
+          <ellipse class="" cx="298" cy="112" rx="90" ry="58" fill="url(#puffWhite)" opacity="0.9"/>
+          <ellipse class="" cx="366" cy="146" rx="70" ry="42" fill="url(#puffWhite)" opacity="0.78"/>
+          <ellipse class="" cx="156" cy="168" rx="144" ry="54" fill="url(#puffWhite)" opacity="0.88"/>
+          <ellipse class="" cx="270" cy="176" rx="154" ry="56" fill="url(#puffWarm)" opacity="0.84"/>
+          <ellipse class="" cx="54" cy="176" rx="62" ry="30" fill="url(#puffWarm)" opacity="0.64"/>
+          </g>
+          <g opacity="0.75" filter="url(#shadeBlur)">
+            <ellipse class="" cx="56" cy="156.28" rx="68.39999999999999" ry="14.280000000000001" fill="url(#undersideShade)" opacity="0.328"/>
+          <ellipse class="" cx="118" cy="125.08" rx="89.3" ry="21.080000000000002" fill="url(#undersideShade)" opacity="0.376"/>
+          <ellipse class="" cx="202" cy="111.12" rx="96.89999999999999" ry="23.12" fill="url(#undersideShade)" opacity="0.38"/>
+          <ellipse class="" cx="298" cy="131.72" rx="85.5" ry="19.720000000000002" fill="url(#undersideShade)" opacity="0.36000000000000004"/>
+          <ellipse class="" cx="366" cy="160.28" rx="66.5" ry="14.280000000000001" fill="url(#undersideShade)" opacity="0.31200000000000006"/>
+          <ellipse class="" cx="156" cy="186.36" rx="136.79999999999998" ry="18.360000000000003" fill="url(#undersideShade)" opacity="0.35200000000000004"/>
+          <ellipse class="" cx="270" cy="195.04" rx="146.29999999999998" ry="19.040000000000003" fill="url(#undersideShade)" opacity="0.336"/>
+          <ellipse class="" cx="54" cy="186.2" rx="58.9" ry="10.200000000000001" fill="url(#undersideShade)" opacity="0.256"/>
+          </g>
+          <g opacity="0.85" filter="url(#highlightBlur)">
+            <ellipse class="" cx="43.04" cy="130.24" rx="30.24" ry="9.24" fill="#FFFFFF" opacity="0.2788"/>
+          <ellipse class="" cx="183.64" cy="68.96" rx="42.839999999999996" ry="14.96" fill="#FFFFFF" opacity="0.3264"/>
+          <ellipse class="" cx="353.4" cy="134.24" rx="29.4" ry="9.24" fill="#FFFFFF" opacity="0.26520000000000005"/>
+          <ellipse class="" cx="242.28" cy="160.32" rx="64.67999999999999" ry="12.32" fill="#FFFFFF" opacity="0.2856"/>
+          </g>
+        </g>
+
+        <path d="M16.4 152.8
+                 C69.7 199.8, 155.8 213.8, 233.7 192.7
+                 C295.2 176.2, 356.7 188.0, 401.8 150.4
+                 C381.3 216.2, 303.4 242.1, 205.0 242.1
+                 C98.4 242.1, 28.7 213.8, 16.4 152.8Z"
+              fill="url(#bottomMassShade)" opacity="0.58" filter="url(#shadeBlur)"/>
+      </g>
+    </g>
+    
+    <g id="cloudS">
+      <g filter="url(#realCloudDropShadow)">
+        <g opacity="0.58" filter="url(#mistFeather)">
+          <ellipse cx="124.8" cy="98.6" rx="130.0" ry="40.8" fill="url(#mistWhite)"/>
+          <ellipse cx="93.6" cy="85.0" rx="93.6" ry="34.0" fill="url(#mistWhite)" opacity="0.72"/>
+          <ellipse cx="169.0" cy="90.1" rx="83.2" ry="30.6" fill="url(#mistWhite)" opacity="0.68"/>
+        </g>
+
+        <g filter="url(#cloudEdgeDisplace)">
+          <g filter="url(#microTexture)">
+            <ellipse class="" cx="40" cy="98" rx="50" ry="30" fill="url(#puffWhite)" opacity="0.78"/>
+          <ellipse class="" cx="84" cy="72" rx="66" ry="44" fill="url(#puffBright)" opacity="0.9"/>
+          <ellipse class="" cx="144" cy="64" rx="72" ry="46" fill="url(#puffBright)" opacity="0.92"/>
+          <ellipse class="" cx="210" cy="88" rx="58" ry="36" fill="url(#puffWhite)" opacity="0.82"/>
+          <ellipse class="" cx="112" cy="116" rx="116" ry="38" fill="url(#puffWhite)" opacity="0.82"/>
+          <ellipse class="" cx="196" cy="122" rx="80" ry="30" fill="url(#puffWarm)" opacity="0.72"/>
+          </g>
+          <g opacity="0.75" filter="url(#shadeBlur)">
+            <ellipse class="" cx="40" cy="108.2" rx="47.5" ry="10.200000000000001" fill="url(#undersideShade)" opacity="0.31200000000000006"/>
+          <ellipse class="" cx="84" cy="86.96000000000001" rx="62.699999999999996" ry="14.96" fill="url(#undersideShade)" opacity="0.36000000000000004"/>
+          <ellipse class="" cx="144" cy="79.64" rx="68.39999999999999" ry="15.64" fill="url(#undersideShade)" opacity="0.36800000000000005"/>
+          <ellipse class="" cx="210" cy="100.24" rx="55.099999999999994" ry="12.24" fill="url(#undersideShade)" opacity="0.328"/>
+          <ellipse class="" cx="112" cy="128.92000000000002" rx="110.19999999999999" ry="12.920000000000002" fill="url(#undersideShade)" opacity="0.328"/>
+          <ellipse class="" cx="196" cy="132.2" rx="76.0" ry="10.200000000000001" fill="url(#undersideShade)" opacity="0.288"/>
+          </g>
+          <g opacity="0.85" filter="url(#highlightBlur)">
+            <ellipse class="" cx="31.0" cy="89.6" rx="21.0" ry="6.6" fill="#FFFFFF" opacity="0.26520000000000005"/>
+          <ellipse class="" cx="131.04" cy="51.12" rx="30.24" ry="10.12" fill="#FFFFFF" opacity="0.3128"/>
+          <ellipse class="" cx="91.12" cy="105.36" rx="48.72" ry="8.36" fill="#FFFFFF" opacity="0.2788"/>
+          </g>
+        </g>
+
+        <path d="M10.4 110.5
+                 C44.2 144.5, 98.8 154.7, 148.2 139.4
+                 C187.2 127.5, 226.2 136.0, 254.8 108.8
+                 C241.8 156.4, 192.4 175.1, 130.0 175.1
+                 C62.4 175.1, 18.2 154.7, 10.4 110.5Z"
+              fill="url(#bottomMassShade)" opacity="0.58" filter="url(#shadeBlur)"/>
+      </g>
+    </g>
+    
+    <g id="cloudXS">
+      <g filter="url(#realCloudDropShadow)">
+        <g opacity="0.58" filter="url(#mistFeather)">
+          <ellipse cx="91.2" cy="72.5" rx="95.0" ry="30.0" fill="url(#mistWhite)"/>
+          <ellipse cx="68.4" cy="62.5" rx="68.4" ry="25.0" fill="url(#mistWhite)" opacity="0.72"/>
+          <ellipse cx="123.5" cy="66.2" rx="60.8" ry="22.5" fill="url(#mistWhite)" opacity="0.68"/>
+        </g>
+
+        <g filter="url(#cloudEdgeDisplace)">
+          <g filter="url(#microTexture)">
+            <ellipse class="" cx="32" cy="70" rx="38" ry="23" fill="url(#puffWhite)" opacity="0.72"/>
+          <ellipse class="" cx="66" cy="52" rx="50" ry="34" fill="url(#puffBright)" opacity="0.86"/>
+          <ellipse class="" cx="112" cy="50" rx="52" ry="34" fill="url(#puffBright)" opacity="0.86"/>
+          <ellipse class="" cx="158" cy="68" rx="42" ry="26" fill="url(#puffWhite)" opacity="0.72"/>
+          <ellipse class="" cx="88" cy="88" rx="86" ry="29" fill="url(#puffWhite)" opacity="0.76"/>
+          <ellipse class="" cx="148" cy="92" rx="58" ry="22" fill="url(#puffWarm)" opacity="0.62"/>
+          </g>
+          <g opacity="0.75" filter="url(#shadeBlur)">
+            <ellipse class="" cx="32" cy="77.82" rx="36.1" ry="7.82" fill="url(#undersideShade)" opacity="0.288"/>
+          <ellipse class="" cx="66" cy="63.56" rx="47.5" ry="11.56" fill="url(#undersideShade)" opacity="0.34400000000000003"/>
+          <ellipse class="" cx="112" cy="61.56" rx="49.4" ry="11.56" fill="url(#undersideShade)" opacity="0.34400000000000003"/>
+          <ellipse class="" cx="158" cy="76.84" rx="39.9" ry="8.84" fill="url(#undersideShade)" opacity="0.288"/>
+          <ellipse class="" cx="88" cy="97.86" rx="81.7" ry="9.860000000000001" fill="url(#undersideShade)" opacity="0.30400000000000005"/>
+          <ellipse class="" cx="148" cy="99.48" rx="55.099999999999994" ry="7.48" fill="url(#undersideShade)" opacity="0.248"/>
+          </g>
+          <g opacity="0.85" filter="url(#highlightBlur)">
+            <ellipse class="" cx="25.16" cy="63.56" rx="15.959999999999999" ry="5.06" fill="#FFFFFF" opacity="0.24480000000000002"/>
+          <ellipse class="" cx="102.64" cy="40.48" rx="21.84" ry="7.48" fill="#FFFFFF" opacity="0.2924"/>
+          <ellipse class="" cx="72.52" cy="79.88" rx="36.12" ry="6.38" fill="#FFFFFF" opacity="0.2584"/>
+          </g>
+        </g>
+
+        <path d="M7.6 81.2
+                 C32.3 106.2, 72.2 113.8, 108.3 102.5
+                 C136.8 93.8, 165.3 100.0, 186.2 80.0
+                 C176.7 115.0, 140.6 128.8, 95.0 128.8
+                 C45.6 128.8, 13.3 113.8, 7.6 81.2Z"
+              fill="url(#bottomMassShade)" opacity="0.58" filter="url(#shadeBlur)"/>
+      </g>
+    </g>
+  </defs>
+
+  <!-- Transparent background intentionally empty -->
+
+  <!-- Edge-positioned realistic clouds for overlay use; center remains usable for text/content -->
+  <use href="#cloudXL" transform="translate(-28 30) scale(1.08)" opacity="0.97"/>
+  <use href="#cloudM" transform="translate(326 22) scale(0.88)" opacity="0.88"/>
+  <use href="#cloudS" transform="translate(198 226) scale(0.78)" opacity="0.78"/>
+
+  <use href="#cloudM" transform="translate(1138 42) scale(0.94)" opacity="0.88"/>
+  <use href="#cloudS" transform="translate(1352 182) scale(0.78)" opacity="0.76"/>
+  <use href="#cloudXS" transform="translate(1058 228) scale(0.78)" opacity="0.68"/>
+
+  <use href="#cloudS" transform="translate(510 130) scale(0.70)" opacity="0.58"/>
+  <use href="#cloudXS" transform="translate(766 92) scale(0.72)" opacity="0.50"/>
+  <use href="#cloudXS" transform="translate(918 174) scale(0.66)" opacity="0.50"/>
+
+  <use href="#cloudXS" transform="translate(470 472) scale(0.64)" opacity="0.46"/>
+  <use href="#cloudS" transform="translate(716 430) scale(0.58)" opacity="0.44"/>
+  <use href="#cloudXS" transform="translate(1000 508) scale(0.68)" opacity="0.48"/>
+
+  <use href="#cloudM" transform="translate(8 754) scale(1.04)" opacity="0.90"/>
+  <use href="#cloudS" transform="translate(326 846) scale(0.76)" opacity="0.74"/>
+  <use href="#cloudXS" transform="translate(202 700) scale(0.70)" opacity="0.58"/>
+
+  <use href="#cloudXL" transform="translate(1064 710) scale(1.02)" opacity="0.94"/>
+  <use href="#cloudS" transform="translate(944 842) scale(0.72)" opacity="0.72"/>
+  <use href="#cloudXS" transform="translate(1392 698) scale(0.70)" opacity="0.62"/>
+
+  <use href="#cloudS" transform="translate(626 748) scale(0.74)" opacity="0.62"/>
+  <use href="#cloudXS" transform="translate(858 804) scale(0.68)" opacity="0.52"/>
+</svg>
