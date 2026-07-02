@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import React from "react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -60,6 +60,35 @@ describe("renderer v2 invitation experience", () => {
     );
 
     expect(screen.queryByLabelText(/^Play /)).toBeNull();
+  });
+
+  it("starts music after opening and pauses it when the page is hidden", async () => {
+    const play = vi.mocked(HTMLMediaElement.prototype.play);
+    const pause = vi.mocked(HTMLMediaElement.prototype.pause);
+
+    render(
+      <RendererV2
+        audio={{
+          default_volume: 0.55,
+          loop: true,
+          secure_url: "https://res.cloudinary.com/demo/video/upload/song.mp3",
+          title: "Wedding music",
+        }}
+        invitation={getSampleInvitation("islamic-soft", "id")}
+        packageCode="signature"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Buka Undangan" }));
+    await waitFor(() => expect(play).toHaveBeenCalled());
+
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "hidden",
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+
+    expect(pause).toHaveBeenCalled();
   });
 
   it("keeps premium decoration non-interactive and exposes it after opening", () => {
