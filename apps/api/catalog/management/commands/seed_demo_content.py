@@ -27,29 +27,68 @@ THEMES = [
 ]
 
 PACKAGES = [
-    ("essential", 349000, False),
-    ("signature", 649000, True),
-    ("couture", 1249000, False),
+    ("essential", 99000, False),
+    ("signature", 249000, True),
+    ("couture", 549000, False),
 ]
 
 PACKAGE_FEATURES = {
     "essential": [
-        ("responsive", "Responsive", "Responsive"),
-        ("cover", "Cover undangan", "Invitation cover"),
-        ("audio", "Musik setelah undangan dibuka", "Music after opening"),
+        ("theme", "1 tema pilihan", "1 selected theme"),
+        ("event-info", "Informasi acara", "Event details"),
+        ("gallery-8", "Galeri 8 foto", "8-photo gallery"),
+        ("location-map", "Peta lokasi", "Location map"),
+        ("gift", "Gift", "Gift"),
+        ("backsound", "Musik latar belakang", "Background music"),
+        ("revisions-3", "Revisi 3 kali", "3 revisions"),
     ],
     "signature": [
         ("essential", "Semua fitur Essential", "Everything in Essential"),
-        ("themed-visuals", "Overlay, dekorasi, dan motion sesuai tema", "Themed visuals"),
-        ("weather", "Prakiraan cuaca BMKG", "BMKG weather forecast"),
-        ("audio", "Backsound pilihan", "Selected background music"),
+        ("story-timeline", "Love story & timeline", "Love story & timeline"),
+        ("rsvp-wishes", "RSVP dan ucapan", "RSVP and wishes"),
+        (
+            "gallery-plus-3",
+            "Galeri +3 foto dari paket Essential",
+            "Gallery +3 photos from Essential",
+        ),
+        (
+            "weather",
+            "Prakiraan cuaca di lokasi acara",
+            "Weather forecast at the event location",
+        ),
+        ("revisions-5", "Revisi 5 kali", "5 revisions"),
     ],
     "couture": [
         ("signature", "Semua fitur Signature", "Everything in Signature"),
         ("art-direction", "Art direction khusus", "Bespoke art direction"),
-        ("refined-motion", "Motion dan parallax premium", "Premium motion and parallax"),
-        ("audio", "Backsound pilihan", "Selected background music"),
+        (
+            "color-typography",
+            "Penyesuaian warna dan tipografi",
+            "Custom color and typography",
+        ),
+        ("motion-sequence", "Motion sequence khusus", "Custom motion sequence"),
+        ("revisions-8", "Revisi 8 kali", "8 revisions"),
+        (
+            "gallery-plus-4",
+            "Galeri +4 foto dari paket Signature",
+            "Gallery +4 photos from Signature",
+        ),
     ],
+}
+
+PACKAGE_SUMMARIES = {
+    "essential": {
+        "id": "Untuk pasangan yang membutuhkan undangan digital rapi dan personal.",
+        "en": "For couples who need a neat and personal digital invitation.",
+    },
+    "signature": {
+        "id": "Pengalaman lengkap dengan cerita, RSVP, dan sentuhan editorial.",
+        "en": "A complete experience with story, RSVP, and editorial touches.",
+    },
+    "couture": {
+        "id": "Art direction khusus untuk perayaan yang ingin tampil benar-benar berbeda.",
+        "en": "Bespoke art direction for celebrations that want to feel truly distinct.",
+    },
 }
 
 
@@ -193,7 +232,7 @@ class Command(BaseCommand):
                 locale="id",
                 defaults={
                     "name": code.title(),
-                    "summary": "Paket undangan digital yang dirancang dengan perhatian.",
+                    "summary": PACKAGE_SUMMARIES[code]["id"],
                 },
             )
             PackageTranslation.objects.update_or_create(
@@ -201,7 +240,7 @@ class Command(BaseCommand):
                 locale="en",
                 defaults={
                     "name": code.title(),
-                    "summary": "A thoughtfully crafted digital invitation package.",
+                    "summary": PACKAGE_SUMMARIES[code]["en"],
                 },
             )
             feature_keys = []

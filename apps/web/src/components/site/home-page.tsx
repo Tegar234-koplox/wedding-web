@@ -198,7 +198,7 @@ export function EditorialHome({ locale }: { locale: Locale }) {
               {[
                 ["01", id ? "Cerita personal" : "A personal story"],
                 ["02", id ? "Informasi yang jelas" : "Clear information"],
-                ["03", id ? "Cuaca dari BMKG" : "Weather by BMKG"],
+                ["03", id ? "Cuaca" : "Weather"],
                 ["04", id ? "Siap dibagikan" : "Ready to share"],
               ].map(([number, label]) => (
                 <div className="min-h-44 bg-[#d7cbb6] p-6" key={number}>

@@ -112,7 +112,7 @@ export const packages: ServicePackage[] = [
   {
     code: "essential",
     name: "Essential",
-    price: "Rp 349K",
+    price: "Rp 99k",
     description: {
       id: "Untuk pasangan yang membutuhkan undangan digital rapi dan personal.",
       en: "For couples who want a polished, personal digital invitation.",
@@ -123,7 +123,9 @@ export const packages: ServicePackage[] = [
         "Informasi acara",
         "Galeri 8 foto",
         "Peta lokasi",
-        "Musik latar",
+        "Gift",
+        "Musik latar belakang",
+        "Revisi 3 kali",
       ],
       en: [
         "1 selected theme",
@@ -137,7 +139,7 @@ export const packages: ServicePackage[] = [
   {
     code: "signature",
     name: "Signature",
-    price: "Rp 649K",
+    price: "Rp 249k",
     featured: true,
     description: {
       id: "Pengalaman lengkap dengan cerita, RSVP, dan sentuhan editorial.",
@@ -148,10 +150,9 @@ export const packages: ServicePackage[] = [
         "Semua fitur Essential",
         "Love story & timeline",
         "RSVP dan ucapan",
-        "Galeri 20 foto",
-        "Prakiraan cuaca BMKG",
-        "Overlay, dekorasi, dan motion sesuai tema",
-        "Revisi hingga 3 kali",
+        "Galeri +3 foto dari paket Essential",
+        "Prakiraan cuaca di lokasi acara",
+        "Revisi 5 kali",
       ],
       en: [
         "Everything in Essential",
@@ -167,7 +168,7 @@ export const packages: ServicePackage[] = [
   {
     code: "couture",
     name: "Couture",
-    price: "Rp 1.249K",
+    price: "Rp 549k",
     description: {
       id: "Art direction khusus untuk perayaan yang ingin tampil benar-benar berbeda.",
       en: "Bespoke art direction for celebrations that need a singular presence.",
@@ -176,11 +177,10 @@ export const packages: ServicePackage[] = [
       id: [
         "Semua fitur Signature",
         "Art direction khusus",
-        "Penyesuaian warna & tipografi",
+        "Penyesuaian warna dan tipografi",
         "Motion sequence khusus",
-        "Layered overlay & refined parallax",
-        "Galeri tanpa batas",
-        "Prioritas pengerjaan",
+        "Revisi 8 kali",
+        "Galeri +4 foto dari paket Signature",
       ],
       en: [
         "Everything in Signature",
