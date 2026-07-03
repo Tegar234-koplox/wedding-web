@@ -89,6 +89,9 @@ function Cover({
   const capability = packageCapabilities[resolvedPackage];
   const couture = resolvedPackage === "couture";
   const id = invitation.locale === "id";
+  const essential = resolvedPackage === "essential";
+  const supportTextClass =
+    "font-medium !text-current opacity-95 drop-shadow-[0_1px_5px_rgba(0,0,0,.45)]";
 
   return (
     <motion.section
@@ -152,10 +155,12 @@ function Cover({
               <span className="block">{couple.partnerTwo}</span>
             </h1>
             <p
-              className={`mt-9 max-w-lg text-sm leading-7 ${design.muted} ${
+              className={`mt-9 max-w-lg text-sm leading-7 ${
+                essential ? supportTextClass : design.muted
+              } ${
                 design.coverLayout === "editorial" ? "" : "mx-auto"
               } ${
-                premium.textContrast
+                !essential && premium.textContrast
                   ? "font-medium !text-current drop-shadow-[0_1px_5px_rgba(255,255,255,.75)]"
                   : ""
               }`}
@@ -180,9 +185,11 @@ function Cover({
           </button>
           <p
             className={`flex items-center gap-2 text-[0.55rem] uppercase tracking-[0.16em] ${
-              premium.textContrast
-                ? "font-semibold !text-current opacity-95 drop-shadow-[0_1px_6px_rgba(255,255,255,.95)]"
-                : "opacity-55"
+              essential
+                ? `font-semibold ${supportTextClass}`
+                : premium.textContrast
+                  ? "font-semibold !text-current opacity-95 drop-shadow-[0_1px_6px_rgba(255,255,255,.95)]"
+                  : "opacity-55"
             }`}
           >
             {audioAvailable ? <Music2 size={12} /> : null}
