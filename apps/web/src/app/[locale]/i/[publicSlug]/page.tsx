@@ -60,16 +60,21 @@ export default async function PublicInvitationPage({
     locale,
     content: invitation.content,
   };
+  const packageCode = resolvePackageCode(invitation.package_code);
+  const rsvpForm = (
+    <PublicRSVPForm initialToken={query?.guest} publicSlug={publicSlug} />
+  );
 
   return (
     <>
       <InvitationRenderer
         audio={invitation.audio}
         invitation={localizedInvitation}
-        packageCode={resolvePackageCode(invitation.package_code)}
+        packageCode={packageCode}
+        rsvpSlot={packageCode === "signature" ? rsvpForm : undefined}
         weather={weather}
       />
-      <PublicRSVPForm initialToken={query?.guest} publicSlug={publicSlug} />
+      {packageCode === "signature" ? null : rsvpForm}
     </>
   );
 }

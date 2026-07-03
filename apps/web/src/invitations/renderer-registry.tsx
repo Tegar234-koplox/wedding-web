@@ -12,7 +12,7 @@ import {
   Wind,
 } from "lucide-react";
 import Image from "next/image";
-import type { ComponentType } from "react";
+import type { ComponentType, ReactNode } from "react";
 
 import { RendererV2 } from "@/invitations/renderer-v2";
 import type { InvitationAudio, InvitationWeather } from "@/lib/api/contracts";
@@ -21,6 +21,7 @@ type RendererProps = {
   invitation: InvitationEnvelope;
   packageCode?: PackageCode;
   audio?: InvitationAudio | null;
+  rsvpSlot?: ReactNode;
   weather?: InvitationWeather | null;
 };
 
@@ -586,6 +587,7 @@ export function InvitationRenderer({
   invitation,
   packageCode,
   audio,
+  rsvpSlot,
   weather,
 }: RendererProps) {
   const Renderer =
@@ -616,6 +618,7 @@ export function InvitationRenderer({
       invitation={invitation}
       key={`${invitation.rendererKey}-${invitation.rendererVersion}-${packageCode ?? "essential"}`}
       packageCode={packageCode ?? "essential"}
+      rsvpSlot={rsvpSlot}
       weather={weather}
     />
   );
