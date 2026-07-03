@@ -4,6 +4,7 @@ import {
   packageCapabilities,
   type InvitationEnvelope,
   type PackageCode,
+  type RendererKey,
 } from "@wedding/invitation-themes";
 import {
   AnimatePresence,
@@ -17,6 +18,7 @@ import {
   Music2,
   Pause,
   Play,
+  Send,
   Volume2,
 } from "lucide-react";
 import Image from "next/image";
@@ -40,6 +42,7 @@ export type RendererV2Props = {
   invitation: InvitationEnvelope;
   packageCode?: PackageCode;
   audio?: InvitationAudio | null;
+  rsvpSlot?: React.ReactNode;
   weather?: InvitationWeather | null;
 };
 
@@ -77,6 +80,71 @@ const essentialSectionSixPhotos = [
     src: "/images/invitation-essential/section-6/bottom.png",
   },
 ] as const;
+
+const signatureSectionPhotos = {
+  4: [
+    {
+      alt: "Signature wedding story photo top",
+      src: "/images/invitation-signature/section-4/top.jpg",
+    },
+    {
+      alt: "Signature wedding story photo middle",
+      src: "/images/invitation-signature/section-4/middle.jpg",
+    },
+    {
+      alt: "Signature wedding story photo bottom",
+      src: "/images/invitation-signature/section-4/bottom.jpg",
+    },
+  ],
+  6: [
+    {
+      alt: "Signature timeline photo top",
+      src: "/images/invitation-signature/section-6/top.jpg",
+    },
+    {
+      alt: "Signature timeline photo middle",
+      src: "/images/invitation-signature/section-6/middle.jpg",
+    },
+    {
+      alt: "Signature timeline photo bottom",
+      src: "/images/invitation-signature/section-6/bottom.jpg",
+    },
+  ],
+  8: [
+    {
+      alt: "Signature blessing photo top",
+      src: "/images/invitation-signature/section-8/top.png",
+    },
+    {
+      alt: "Signature blessing photo middle",
+      src: "/images/invitation-signature/section-8/middle.png",
+    },
+    {
+      alt: "Signature blessing photo bottom",
+      src: "/images/invitation-signature/section-8/bottom.png",
+    },
+  ],
+  10: [
+    {
+      alt: "Signature RSVP closing photo top",
+      src: "/images/invitation-signature/section-10/top.png",
+    },
+    {
+      alt: "Signature RSVP closing photo bottom",
+      src: "/images/invitation-signature/section-10/bottom.png",
+    },
+  ],
+} as const;
+
+const signatureGiftFolders: Record<RendererKey, string> = {
+  "dark-cinematic": "dark-cinematic",
+  "elegant-classic": "elegant-classic",
+  "floral-romantic": "floral-romantic",
+  "islamic-soft": "islamic-soft",
+  "javanese-traditional": "javanese-traditional",
+  "luxury-gold": "luxury-gold",
+  "minimalist-white": "minimalist-white",
+};
 
 function FadeText({
   children,
@@ -283,6 +351,66 @@ function getGiftAccount(invitation: InvitationEnvelope, id: boolean) {
   };
 }
 
+function GiftIconButton({
+  alt,
+  borderClass,
+  glowClass,
+  opened,
+  onOpen,
+  src,
+}: {
+  alt: string;
+  borderClass: string;
+  glowClass: string;
+  opened: boolean;
+  onOpen: () => void;
+  src: string;
+}) {
+  return (
+    <button
+      aria-expanded={opened}
+      className={`group relative grid size-32 place-items-center rounded-full border ${borderClass} ${glowClass} transition hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-current/35`}
+      onClick={onOpen}
+      type="button"
+    >
+      <AnimatePresence initial={false} mode="popLayout">
+        <motion.span
+          animate={{
+            borderRadius: "50%",
+            filter: "blur(0px)",
+            opacity: 1,
+            rotate: 0,
+            scale: 1,
+          }}
+          className="relative block size-24"
+          exit={{
+            filter: "blur(8px)",
+            opacity: 0,
+            rotate: opened ? 10 : -10,
+            scale: 1.08,
+          }}
+          initial={{
+            filter: "blur(8px)",
+            opacity: 0,
+            rotate: opened ? -10 : 10,
+            scale: 0.82,
+          }}
+          key={src}
+          transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
+        >
+          <Image
+            alt={alt}
+            className="object-contain transition duration-500 group-hover:scale-105"
+            fill
+            sizes="6rem"
+            src={src}
+          />
+        </motion.span>
+      </AnimatePresence>
+    </button>
+  );
+}
+
 function EssentialPhotoSection({
   design,
   photos,
@@ -394,24 +522,330 @@ function EssentialGiftSection({
       </FadeText>
 
       <div className="relative z-10 mt-12 flex flex-col items-center">
+        <GiftIconButton
+          alt={opened ? "Gift opened" : "Gift"}
+          borderClass={design.border}
+          glowClass={design.glow}
+          onOpen={() => setOpened(true)}
+          opened={opened}
+          src={
+            opened
+              ? "/images/invitation-essential/gift/gift-icon-opened.webp"
+              : "/images/invitation-essential/gift/gift-icon.webp"
+          }
+        />
+
+        <AnimatePresence>
+          {opened ? (
+            <motion.div
+              animate={{ opacity: 1, y: 0 }}
+              className={`mt-8 min-w-64 border px-7 py-5 ${design.border}`}
+              exit={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 14 }}
+              transition={textFadeTransition}
+            >
+              <p className={`text-[0.58rem] uppercase tracking-[0.22em] ${design.accent}`}>
+                {id ? "Rekening pengantin" : "Couple account"}
+              </p>
+              <p className="mt-3 font-serif text-2xl">{account.label}</p>
+              {account.name ? (
+                <p className={`mt-2 text-sm ${design.muted}`}>{account.name}</p>
+              ) : null}
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+      </div>
+    </section>
+  );
+}
+
+function SignaturePhotoSection({
+  design,
+  photos,
+  premium,
+  variant,
+}: {
+  design: ThemeVisual;
+  photos: readonly { alt: string; src: string }[];
+  premium: PremiumVisualConfig;
+  variant: "three" | "two";
+}) {
+  return (
+    <section className={`${design.page} relative overflow-hidden px-2 py-2`}>
+      <ThemeSectionDecoration config={premium} showOverlay={false} />
+      <div
+        className={`relative z-10 grid gap-2 ${
+          variant === "three" ? "md:grid-cols-3" : "md:grid-cols-2"
+        }`}
+      >
+        {photos.map((image, index) => (
+          <motion.div
+            className={`relative min-h-[58svh] overflow-hidden ${design.surface} ${
+              variant === "three" && index === 1 ? "md:min-h-[70svh]" : ""
+            }`}
+            initial={{ opacity: 0, scale: 1.015 }}
+            key={image.src}
+            viewport={{ once: true, amount: 0.18 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+          >
+            <Image
+              alt={image.alt}
+              className="object-cover"
+              fill
+              sizes={
+                variant === "three"
+                  ? "(max-width: 767px) 100vw, 33vw"
+                  : "(max-width: 767px) 100vw, 50vw"
+              }
+              src={image.src}
+            />
+          </motion.div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function SignatureGallerySection({
+  design,
+  gallery,
+  premium,
+}: {
+  design: ThemeVisual;
+  gallery: InvitationEnvelope["content"]["gallery"];
+  premium: PremiumVisualConfig;
+}) {
+  return (
+    <section className={`${design.page} relative overflow-hidden px-2 py-2`}>
+      <ThemeSectionDecoration config={premium} showOverlay={false} />
+      <div className="relative z-10 grid gap-2 md:grid-cols-3">
+        {gallery.slice(0, 3).map((image, index) => (
+          <motion.div
+            className={`relative min-h-[58svh] overflow-hidden ${design.surface} ${
+              index === 1 ? "md:min-h-[70svh]" : ""
+            }`}
+            initial={{ opacity: 0, scale: 1.015 }}
+            key={`${image.src}-${index}`}
+            viewport={{ once: true, amount: 0.18 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+          >
+            <Image
+              alt={image.alt}
+              className="object-cover"
+              fill
+              sizes="(max-width: 767px) 100vw, 33vw"
+              src={image.src}
+            />
+          </motion.div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function getTimelineEntries(invitation: InvitationEnvelope) {
+  const id = invitation.locale === "id";
+  return id
+    ? [
+        ["01", "Bertemu", "Sebuah awal yang sederhana membuka ruang untuk saling mengenal."],
+        ["02", "Bertumbuh", "Cerita itu tumbuh melalui waktu, jarak, dan pilihan untuk tetap bersama."],
+        ["03", "Hari ini", "Kini perjalanan itu menuju hari yang kami rayakan bersama orang-orang terdekat."],
+      ]
+    : [
+        ["01", "Meeting", "A simple beginning opened the way for two lives to know one another."],
+        ["02", "Growing", "The story grew through time, distance, and the choice to keep returning."],
+        ["03", "Today", "That journey now becomes a celebration shared with the people we love."],
+      ];
+}
+
+function SignatureStoryTimelineSection({
+  design,
+  includeIntro,
+  includeQuote,
+  invitation,
+  mode,
+  premium,
+}: {
+  design: ThemeVisual;
+  includeIntro: boolean;
+  includeQuote: boolean;
+  invitation: InvitationEnvelope;
+  mode: "opening" | "middle" | "final";
+  premium: PremiumVisualConfig;
+}) {
+  const { couple, quote, story } = invitation.content;
+  const id = invitation.locale === "id";
+  const timeline = getTimelineEntries(invitation);
+  const copy =
+    mode === "middle"
+      ? id
+        ? "Dari percakapan kecil, kami belajar merawat arah yang sama. Setiap musim membuat cerita ini semakin tenang dan utuh."
+        : "From small conversations, we learned to care for the same direction. Every season made the story steadier and whole."
+      : mode === "final"
+        ? id
+          ? "Kami membawa cerita ini ke hadapan keluarga dan sahabat, dengan rasa syukur atas perjalanan yang membentuk kami."
+          : "We bring this story before family and friends, grateful for every step that shaped us."
+        : story.body;
+
+  return (
+    <section className="relative overflow-hidden px-6 py-24 md:px-12 md:py-36">
+      <ThemeSectionDecoration config={premium} showOverlay={false} />
+      <div
+        className={`relative z-30 mx-auto grid max-w-6xl gap-14 ${
+          includeIntro ? "lg:grid-cols-[0.85fr_1.15fr]" : ""
+        }`}
+      >
+        {includeIntro ? (
+          <motion.div
+            initial={{ opacity: 0, x: -34 }}
+            transition={textFadeTransition}
+            viewport={{ once: true, amount: 0.3 }}
+            whileInView={{ opacity: 1, x: 0 }}
+          >
+            <p className={`text-5xl ${design.accent}`} aria-hidden>
+              {couple.monogram}
+            </p>
+            <h2 className="mt-8 font-serif text-[clamp(3rem,7vw,6rem)] leading-[0.88] tracking-[-0.045em]">
+              {story.heading}
+            </h2>
+          </motion.div>
+        ) : null}
+
+        <motion.div
+          className={includeIntro ? "lg:pt-20" : "mx-auto max-w-4xl"}
+          initial={{ opacity: 0, y: 34 }}
+          transition={{ ...textFadeTransition, delay: 0.12 }}
+          viewport={{ once: true, amount: 0.3 }}
+          whileInView={{ opacity: 1, y: 0 }}
+        >
+          <p className={`text-lg leading-9 ${design.muted}`}>{copy}</p>
+          <div className="mt-12 grid gap-px bg-current/15 md:grid-cols-3">
+            {timeline.map(([number, title, description]) => (
+              <div className={`${design.surface} p-6`} key={number}>
+                <p className={`text-[0.58rem] uppercase tracking-[0.2em] ${design.accent}`}>
+                  {number}
+                </p>
+                <h3 className="mt-5 font-serif text-2xl">{title}</h3>
+                <p className={`mt-4 text-sm leading-7 ${design.muted}`}>
+                  {description}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {includeQuote ? (
+            <blockquote className={`mt-14 border-l pl-7 ${design.border}`}>
+              <p className="font-serif text-2xl italic leading-9">
+                &quot;{quote.text}&quot;
+              </p>
+              <footer className="mt-5 text-[0.6rem] uppercase tracking-[0.2em] opacity-55">
+                {quote.attribution}
+              </footer>
+            </blockquote>
+          ) : null}
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
+function SignatureRsvpPreviewSection({
+  design,
+  invitation,
+  premium,
+  rsvpSlot,
+}: {
+  design: ThemeVisual;
+  invitation: InvitationEnvelope;
+  premium: PremiumVisualConfig;
+  rsvpSlot?: React.ReactNode;
+}) {
+  const id = invitation.locale === "id";
+
+  if (rsvpSlot) {
+    return (
+      <section className={`${design.page} relative overflow-hidden`}>
+        <ThemeSectionDecoration config={premium} showOverlay={false} />
+        <div className="relative z-30">{rsvpSlot}</div>
+      </section>
+    );
+  }
+
+  return (
+    <section className={`${design.surface} relative overflow-hidden px-6 py-24 md:px-12 md:py-36`}>
+      <ThemeSectionDecoration config={premium} showOverlay={false} />
+      <div className="relative z-30 mx-auto grid max-w-4xl gap-7 border border-current/20 p-6 md:p-10">
+        <div>
+          <p className={`text-[0.6rem] uppercase tracking-[0.25em] ${design.accent}`}>
+            RSVP
+          </p>
+          <h2 className="mt-4 font-serif text-[clamp(2.5rem,7vw,5.5rem)] leading-[0.9] tracking-[-0.04em]">
+            {id ? "Konfirmasi kehadiran." : "Confirm your attendance."}
+          </h2>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className={`border px-4 py-3 text-sm ${design.border}`}>{id ? "Hadir" : "Attending"}</div>
+          <div className={`border px-4 py-3 text-sm ${design.border}`}>1</div>
+          <div className={`min-h-28 border px-4 py-3 text-sm ${design.border} md:col-span-2`}>
+            {id ? "Ucapan untuk kedua mempelai" : "Your wishes for the couple"}
+          </div>
+        </div>
         <button
-          aria-expanded={opened}
-          className={`group relative grid size-32 place-items-center rounded-full border ${design.border} ${design.glow} transition hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-current/35`}
-          onClick={() => setOpened(true)}
+          className={`inline-flex min-h-12 items-center justify-center gap-3 border px-5 text-[0.62rem] font-bold uppercase tracking-[0.18em] ${design.border}`}
           type="button"
         >
-          <Image
-            alt={opened ? "Gift opened" : "Gift"}
-            className="object-contain p-3 transition duration-500 group-hover:scale-105"
-            fill
-            sizes="8rem"
-            src={
-              opened
-                ? "/images/invitation-essential/gift/gift-icon-opened.webp"
-                : "/images/invitation-essential/gift/gift-icon.webp"
-            }
-          />
+          <Send size={15} />
+          {id ? "Kirim RSVP" : "Send RSVP"}
         </button>
+      </div>
+    </section>
+  );
+}
+
+function SignatureGiftSection({
+  design,
+  invitation,
+  premium,
+}: {
+  design: ThemeVisual;
+  invitation: InvitationEnvelope;
+  premium: PremiumVisualConfig;
+}) {
+  const [opened, setOpened] = useState(false);
+  const id = invitation.locale === "id";
+  const account = getGiftAccount(invitation, id);
+  const folder = signatureGiftFolders[invitation.rendererKey];
+
+  return (
+    <section
+      className={`${design.surface} relative grid min-h-[78svh] place-items-center overflow-hidden px-6 py-24 text-center md:px-12`}
+    >
+      <ThemeSectionDecoration config={premium} showOverlay={false} />
+      <FadeText className="relative z-30 mx-auto max-w-3xl">
+        <p className={`text-[0.6rem] uppercase tracking-[0.25em] ${design.accent}`}>
+          {id ? "Gift" : "Gift"}
+        </p>
+        <h2 className="mt-8 font-serif text-[clamp(3rem,8vw,7rem)] leading-[0.86] tracking-[-0.05em]">
+          {id ? "Tanda kasih." : "A token of love."}
+        </h2>
+        <p className={`mx-auto mt-7 max-w-xl text-sm leading-7 ${design.muted}`}>
+          {id
+            ? "Doa dan kehadiran Anda adalah hadiah utama. Jika ingin menitipkan tanda kasih, detail rekening tersedia di bawah ini."
+            : "Your prayers and presence are the greatest gift. If you would like to send a token of love, the account detail is available below."}
+        </p>
+      </FadeText>
+
+      <div className="relative z-10 mt-12 flex flex-col items-center">
+        <GiftIconButton
+          alt={opened ? "Gift opened" : "Gift"}
+          borderClass={design.border}
+          glowClass={design.glow}
+          onOpen={() => setOpened(true)}
+          opened={opened}
+          src={`/images/invitation-signature/gift/${folder}/${
+            opened ? "after-tap" : "before-tap"
+          }.webp`}
+        />
 
         <AnimatePresence>
           {opened ? (
@@ -442,16 +876,142 @@ function EventStory({
   packageCode,
   design,
   premium,
+  rsvpSlot,
 }: {
   invitation: InvitationEnvelope;
   packageCode: PackageCode;
   design: ThemeVisual;
   premium: PremiumVisualConfig;
+  rsvpSlot?: React.ReactNode;
 }) {
   const { event, story, quote, gallery } = invitation.content;
   const id = invitation.locale === "id";
   const capability = packageCapabilities[packageCode];
   const revealDistance = capability.motion === "refined" ? 46 : 28;
+
+  if (packageCode === "signature") {
+    return (
+      <>
+        <motion.section
+          className={`${design.surface} relative overflow-hidden px-6 py-24 md:px-12 md:py-36`}
+          initial={{ opacity: 0, y: revealDistance }}
+          transition={{ duration: 0.85 }}
+          viewport={{ once: true, amount: 0.18 }}
+          whileInView={{ opacity: 1, y: 0 }}
+        >
+          <ThemeSectionDecoration config={premium} showOverlay={false} />
+          <div className="relative z-30 mx-auto max-w-6xl">
+            <FadeText className="text-center">
+              <p className="text-[0.6rem] uppercase tracking-[0.25em] opacity-55">
+                {id ? "Waktu & Tempat" : "Time & Place"}
+              </p>
+              <h2 className="mx-auto mt-7 max-w-4xl font-serif text-[clamp(3rem,8vw,7rem)] leading-[0.86] tracking-[-0.05em]">
+                {event.dateLabel}
+              </h2>
+            </FadeText>
+            <div className="mt-16 grid gap-px bg-current/15 md:grid-cols-3">
+              {[
+                {
+                  label: event.ceremonyLabel,
+                  value: event.ceremonyTime,
+                  Icon: CalendarDays,
+                },
+                {
+                  label: event.receptionLabel,
+                  value: event.receptionTime,
+                  Icon: CalendarDays,
+                },
+                { label: event.venue, value: event.address, Icon: MapPin },
+              ].map(({ label, value, Icon }, index) => (
+                <FadeText
+                  className={`${design.surface} p-7`}
+                  delay={index * 0.08}
+                  key={label}
+                >
+                  <Icon size={19} />
+                  <p className="mt-9 text-[0.6rem] uppercase tracking-[0.18em] opacity-55">
+                    {label}
+                  </p>
+                  <p className="mt-3 font-serif text-2xl leading-8">{value}</p>
+                </FadeText>
+              ))}
+            </div>
+            <FadeText delay={0.18}>
+              <a
+                className={`mx-auto mt-9 flex w-fit items-center gap-2 border-b pb-1 text-[0.62rem] uppercase tracking-[0.18em] ${design.border}`}
+                href={event.mapUrl}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                <MapPin size={14} />
+                {id ? "Buka peta" : "Open map"}
+              </a>
+            </FadeText>
+          </div>
+        </motion.section>
+
+        <SignatureGallerySection
+          design={design}
+          gallery={gallery}
+          premium={premium}
+        />
+        <SignatureStoryTimelineSection
+          design={design}
+          includeIntro
+          includeQuote={false}
+          invitation={invitation}
+          mode="opening"
+          premium={premium}
+        />
+        <SignaturePhotoSection
+          design={design}
+          photos={signatureSectionPhotos[4]}
+          premium={premium}
+          variant="three"
+        />
+        <SignatureStoryTimelineSection
+          design={design}
+          includeIntro={false}
+          includeQuote={false}
+          invitation={invitation}
+          mode="middle"
+          premium={premium}
+        />
+        <SignaturePhotoSection
+          design={design}
+          photos={signatureSectionPhotos[6]}
+          premium={premium}
+          variant="three"
+        />
+        <SignatureStoryTimelineSection
+          design={design}
+          includeIntro={false}
+          includeQuote
+          invitation={invitation}
+          mode="final"
+          premium={premium}
+        />
+        <SignaturePhotoSection
+          design={design}
+          photos={signatureSectionPhotos[8]}
+          premium={premium}
+          variant="three"
+        />
+        <SignatureRsvpPreviewSection
+          design={design}
+          invitation={invitation}
+          premium={premium}
+          rsvpSlot={rsvpSlot}
+        />
+        <SignaturePhotoSection
+          design={design}
+          photos={signatureSectionPhotos[10]}
+          premium={premium}
+          variant="two"
+        />
+      </>
+    );
+  }
 
   if (packageCode === "essential") {
     return (
@@ -708,6 +1268,7 @@ export function RendererV2({
   invitation,
   packageCode = "essential",
   audio,
+  rsvpSlot,
   weather,
 }: RendererV2Props) {
   const design = themeVisualConfig[invitation.rendererKey];
@@ -718,6 +1279,7 @@ export function RendererV2({
   const audioRef = useRef<HTMLAudioElement>(null);
   const { closing, couple } = invitation.content;
   const essential = packageCode === "essential";
+  const signature = packageCode === "signature";
 
   useEffect(() => {
     const element = audioRef.current;
@@ -822,6 +1384,7 @@ export function RendererV2({
               invitation={invitation}
               packageCode={packageCode}
               premium={premium}
+              rsvpSlot={rsvpSlot}
             />
             {!essential ? (
               <div className="relative overflow-hidden">
@@ -838,6 +1401,13 @@ export function RendererV2({
                   />
                 </div>
               </div>
+            ) : null}
+            {signature ? (
+              <SignatureGiftSection
+                design={design}
+                invitation={invitation}
+                premium={premium}
+              />
             ) : null}
             <motion.section
               className={`${design.surface} relative grid min-h-[78svh] place-items-center overflow-hidden px-6 py-24 text-center`}

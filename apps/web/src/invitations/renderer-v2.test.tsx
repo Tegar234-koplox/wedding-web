@@ -110,7 +110,7 @@ describe("renderer v2 invitation experience", () => {
     const sectionDecorations = container.querySelectorAll(
       '[data-decoration-layer="section"]',
     );
-    expect(sectionDecorations.length).toBe(5);
+    expect(sectionDecorations.length).toBe(13);
     sectionDecorations.forEach((decoration) => {
       expect(decoration.getAttribute("aria-hidden")).toBe("true");
       expect(decoration.className).toContain("pointer-events-none");
@@ -122,7 +122,7 @@ describe("renderer v2 invitation experience", () => {
     expect(
       container.querySelectorAll('[data-decoration-layer="section-corners"]')
         .length,
-    ).toBe(5);
+    ).toBe(13);
   });
 
   it("animates the premium cover overlay for Signature", () => {
