@@ -43,7 +43,40 @@ export type RendererV2Props = {
   weather?: InvitationWeather | null;
 };
 
+type BankAccount = {
+  account_number?: string;
+  bank?: string;
+  name?: string;
+  number?: string;
+};
+
 const textFadeTransition = { duration: 0.85, ease: [0.22, 1, 0.36, 1] } as const;
+
+const essentialSectionFourPhotos = [
+  {
+    alt: "Essential wedding portrait top composition",
+    src: "/images/invitation-essential/section-4/top.png",
+  },
+  {
+    alt: "Essential wedding portrait middle composition",
+    src: "/images/invitation-essential/section-4/middle.png",
+  },
+  {
+    alt: "Essential wedding portrait bottom composition",
+    src: "/images/invitation-essential/section-4/bottom.png",
+  },
+] as const;
+
+const essentialSectionSixPhotos = [
+  {
+    alt: "Essential wedding portrait top closing composition",
+    src: "/images/invitation-essential/section-6/top.png",
+  },
+  {
+    alt: "Essential wedding portrait bottom closing composition",
+    src: "/images/invitation-essential/section-6/bottom.png",
+  },
+] as const;
 
 function FadeText({
   children,
@@ -228,6 +261,182 @@ function FloatingAudio({
   );
 }
 
+function getGiftAccount(invitation: InvitationEnvelope, id: boolean) {
+  const content = invitation.content as InvitationEnvelope["content"] & {
+    bank_accounts?: BankAccount[];
+  };
+  const account = content.bank_accounts?.find(
+    (item) => item.bank || item.number || item.account_number,
+  );
+
+  if (!account) {
+    return {
+      label: id ? "BCA 615xxxxx" : "BCA 615xxxxx",
+      name: id ? "Nama pengantin" : "Couple account",
+    };
+  }
+
+  const number = account.number ?? account.account_number ?? "";
+  return {
+    label: [account.bank, number].filter(Boolean).join(" "),
+    name: account.name ?? "",
+  };
+}
+
+function EssentialPhotoSection({
+  design,
+  photos,
+  title,
+  variant,
+}: {
+  design: ThemeVisual;
+  photos: readonly { alt: string; src: string }[];
+  title: string;
+  variant: "three" | "two";
+}) {
+  return (
+    <section className="relative overflow-hidden px-2 py-2">
+      <div className="sr-only">{title}</div>
+      <div
+        className={`grid gap-2 ${
+          variant === "three" ? "md:grid-cols-3" : "md:grid-cols-2"
+        }`}
+      >
+        {photos.map((image, index) => (
+          <motion.div
+            className={`relative min-h-[56svh] overflow-hidden ${design.surface} ${
+              variant === "three" && index === 1 ? "md:min-h-[68svh]" : ""
+            }`}
+            initial={{ opacity: 0, scale: 1.015 }}
+            key={image.src}
+            viewport={{ once: true, amount: 0.18 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+          >
+            <Image
+              alt={image.alt}
+              className="object-cover"
+              fill
+              sizes={
+                variant === "three"
+                  ? "(max-width: 767px) 100vw, 33vw"
+                  : "(max-width: 767px) 100vw, 50vw"
+              }
+              src={image.src}
+            />
+          </motion.div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function EssentialGallerySection({
+  design,
+  gallery,
+}: {
+  design: ThemeVisual;
+  gallery: InvitationEnvelope["content"]["gallery"];
+}) {
+  return (
+    <section className="relative overflow-hidden px-2 py-2">
+      <div className="grid gap-2 md:grid-cols-3">
+        {gallery.slice(0, 3).map((image, index) => (
+          <motion.div
+            className={`relative min-h-[58svh] overflow-hidden ${design.surface} ${
+              index === 1 ? "md:min-h-[70svh]" : ""
+            }`}
+            initial={{ opacity: 0, scale: 1.015 }}
+            key={`${image.src}-${index}`}
+            viewport={{ once: true, amount: 0.18 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+          >
+            <Image
+              alt={image.alt}
+              className="object-cover"
+              fill
+              sizes="(max-width: 767px) 100vw, 33vw"
+              src={image.src}
+            />
+          </motion.div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function EssentialGiftSection({
+  design,
+  invitation,
+}: {
+  design: ThemeVisual;
+  invitation: InvitationEnvelope;
+}) {
+  const [opened, setOpened] = useState(false);
+  const id = invitation.locale === "id";
+  const account = getGiftAccount(invitation, id);
+
+  return (
+    <section
+      className={`${design.surface} relative grid min-h-[78svh] place-items-center overflow-hidden px-6 py-24 text-center md:px-12`}
+    >
+      <FadeText className="mx-auto max-w-3xl">
+        <p className={`text-[0.6rem] uppercase tracking-[0.25em] ${design.accent}`}>
+          {id ? "Gift" : "Gift"}
+        </p>
+        <h2 className="mt-8 font-serif text-[clamp(3rem,8vw,7rem)] leading-[0.86] tracking-[-0.05em]">
+          {id ? "Tanda kasih." : "A token of love."}
+        </h2>
+        <p className={`mx-auto mt-7 max-w-xl text-sm leading-7 ${design.muted}`}>
+          {id
+            ? "Doa dan kehadiran Anda adalah hadiah utama. Jika ingin menitipkan tanda kasih, detail rekening tersedia di bawah ini."
+            : "Your prayers and presence are the greatest gift. If you would like to send a token of love, the account detail is available below."}
+        </p>
+      </FadeText>
+
+      <div className="relative z-10 mt-12 flex flex-col items-center">
+        <button
+          aria-expanded={opened}
+          className={`group relative grid size-32 place-items-center rounded-full border ${design.border} ${design.glow} transition hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-current/35`}
+          onClick={() => setOpened(true)}
+          type="button"
+        >
+          <Image
+            alt={opened ? "Gift opened" : "Gift"}
+            className="object-contain p-3 transition duration-500 group-hover:scale-105"
+            fill
+            sizes="8rem"
+            src={
+              opened
+                ? "/images/invitation-essential/gift/gift-icon-opened.webp"
+                : "/images/invitation-essential/gift/gift-icon.webp"
+            }
+          />
+        </button>
+
+        <AnimatePresence>
+          {opened ? (
+            <motion.div
+              animate={{ opacity: 1, y: 0 }}
+              className={`mt-8 min-w-64 border px-7 py-5 ${design.border}`}
+              exit={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 14 }}
+              transition={textFadeTransition}
+            >
+              <p className={`text-[0.58rem] uppercase tracking-[0.22em] ${design.accent}`}>
+                {id ? "Rekening pengantin" : "Couple account"}
+              </p>
+              <p className="mt-3 font-serif text-2xl">{account.label}</p>
+              {account.name ? (
+                <p className={`mt-2 text-sm ${design.muted}`}>{account.name}</p>
+              ) : null}
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+      </div>
+    </section>
+  );
+}
+
 function EventStory({
   invitation,
   packageCode,
@@ -243,6 +452,120 @@ function EventStory({
   const id = invitation.locale === "id";
   const capability = packageCapabilities[packageCode];
   const revealDistance = capability.motion === "refined" ? 46 : 28;
+
+  if (packageCode === "essential") {
+    return (
+      <>
+        <motion.section
+          className={`${design.surface} relative overflow-hidden px-6 py-24 md:px-12 md:py-36`}
+          initial={{ opacity: 0, y: revealDistance }}
+          transition={{ duration: 0.85 }}
+          viewport={{ once: true, amount: 0.18 }}
+          whileInView={{ opacity: 1, y: 0 }}
+        >
+          <div className="relative z-30 mx-auto max-w-6xl">
+            <FadeText className="text-center">
+              <p className="text-[0.6rem] uppercase tracking-[0.25em] opacity-55">
+                {id ? "Waktu & Tempat" : "Time & Place"}
+              </p>
+              <h2 className="mx-auto mt-7 max-w-4xl font-serif text-[clamp(3rem,8vw,7rem)] leading-[0.86] tracking-[-0.05em]">
+                {event.dateLabel}
+              </h2>
+            </FadeText>
+            <div className="mt-16 grid gap-px bg-current/15 md:grid-cols-3">
+              {[
+                {
+                  label: event.ceremonyLabel,
+                  value: event.ceremonyTime,
+                  Icon: CalendarDays,
+                },
+                {
+                  label: event.receptionLabel,
+                  value: event.receptionTime,
+                  Icon: CalendarDays,
+                },
+                { label: event.venue, value: event.address, Icon: MapPin },
+              ].map(({ label, value, Icon }, index) => (
+                <FadeText
+                  className={`${design.surface} p-7`}
+                  delay={index * 0.08}
+                  key={label}
+                >
+                  <Icon size={19} />
+                  <p className="mt-9 text-[0.6rem] uppercase tracking-[0.18em] opacity-55">
+                    {label}
+                  </p>
+                  <p className="mt-3 font-serif text-2xl leading-8">{value}</p>
+                </FadeText>
+              ))}
+            </div>
+            <FadeText delay={0.18}>
+              <a
+                className={`mx-auto mt-9 flex w-fit items-center gap-2 border-b pb-1 text-[0.62rem] uppercase tracking-[0.18em] ${design.border}`}
+                href={event.mapUrl}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                <MapPin size={14} />
+                {id ? "Buka peta" : "Open map"}
+              </a>
+            </FadeText>
+          </div>
+        </motion.section>
+
+        <EssentialGallerySection design={design} gallery={gallery} />
+
+        <section className="relative overflow-hidden px-6 py-24 md:px-12 md:py-36">
+          <div className="relative z-30 mx-auto grid max-w-6xl gap-14 lg:grid-cols-[0.85fr_1.15fr]">
+            <motion.div
+              initial={{ opacity: 0, x: -revealDistance }}
+              transition={textFadeTransition}
+              viewport={{ once: true, amount: 0.3 }}
+              whileInView={{ opacity: 1, x: 0 }}
+            >
+              <p className={`text-5xl ${design.accent}`} aria-hidden>
+                {invitation.content.couple.monogram}
+              </p>
+              <h2 className="mt-8 font-serif text-[clamp(3rem,7vw,6rem)] leading-[0.88] tracking-[-0.045em]">
+                {story.heading}
+              </h2>
+            </motion.div>
+            <motion.div
+              className="lg:pt-20"
+              initial={{ opacity: 0, y: revealDistance }}
+              transition={{ ...textFadeTransition, delay: 0.12 }}
+              viewport={{ once: true, amount: 0.3 }}
+              whileInView={{ opacity: 1, y: 0 }}
+            >
+              <p className={`text-lg leading-9 ${design.muted}`}>{story.body}</p>
+              <blockquote className={`mt-14 border-l pl-7 ${design.border}`}>
+                <p className="font-serif text-2xl italic leading-9">
+                  &quot;{quote.text}&quot;
+                </p>
+                <footer className="mt-5 text-[0.6rem] uppercase tracking-[0.2em] opacity-55">
+                  {quote.attribution}
+                </footer>
+              </blockquote>
+            </motion.div>
+          </div>
+        </section>
+
+        <EssentialPhotoSection
+          design={design}
+          photos={essentialSectionFourPhotos}
+          title={id ? "Galeri lanjutan" : "Additional gallery"}
+          variant="three"
+        />
+        <EssentialGiftSection design={design} invitation={invitation} />
+        <EssentialPhotoSection
+          design={design}
+          photos={essentialSectionSixPhotos}
+          title={id ? "Galeri penutup" : "Closing gallery"}
+          variant="two"
+        />
+      </>
+    );
+  }
 
   return (
     <>
@@ -336,7 +659,7 @@ function EventStory({
             <p className={`text-lg leading-9 ${design.muted}`}>{story.body}</p>
             <blockquote className={`mt-14 border-l pl-7 ${design.border}`}>
               <p className="font-serif text-2xl italic leading-9">
-                “{quote.text}”
+                &quot;{quote.text}&quot;
               </p>
               <footer className="mt-5 text-[0.6rem] uppercase tracking-[0.2em] opacity-55">
                 {quote.attribution}
@@ -394,6 +717,7 @@ export function RendererV2({
   const [playing, setPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const { closing, couple } = invitation.content;
+  const essential = packageCode === "essential";
 
   useEffect(() => {
     const element = audioRef.current;
@@ -499,20 +823,22 @@ export function RendererV2({
               packageCode={packageCode}
               premium={premium}
             />
-            <div className="relative overflow-hidden">
-              <ThemeSectionDecoration
-                config={premium}
-                showOverlay={packageCode === "couture"}
-              />
-              <div className="relative z-30">
-                <ThemedWeather
-                  design={design}
-                  invitation={invitation}
-                  packageCode={packageCode}
-                  weather={weather}
+            {!essential ? (
+              <div className="relative overflow-hidden">
+                <ThemeSectionDecoration
+                  config={premium}
+                  showOverlay={packageCode === "couture"}
                 />
+                <div className="relative z-30">
+                  <ThemedWeather
+                    design={design}
+                    invitation={invitation}
+                    packageCode={packageCode}
+                    weather={weather}
+                  />
+                </div>
               </div>
-            </div>
+            ) : null}
             <motion.section
               className={`${design.surface} relative grid min-h-[78svh] place-items-center overflow-hidden px-6 py-24 text-center`}
               initial={reducedMotion ? false : { opacity: 0 }}

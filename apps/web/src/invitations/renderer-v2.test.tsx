@@ -185,6 +185,25 @@ describe("renderer v2 invitation experience", () => {
     ).toBeNull();
   });
 
+  it("renders the Essential gift section after opening and reveals account details on tap", () => {
+    render(
+      <RendererV2
+        invitation={getSampleInvitation("islamic-soft", "id")}
+        packageCode="essential"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Buka Undangan" }));
+
+    expect(screen.getByText("Tanda kasih.")).toBeTruthy();
+    expect(screen.queryByText("Prakiraan Cuaca Lokasi Acara")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Gift" }));
+
+    expect(screen.getByText("Rekening pengantin")).toBeTruthy();
+    expect(screen.getByText("BCA 615xxxxx")).toBeTruthy();
+  });
+
   it("adds the subtle contrast layer only when configured", () => {
     const readable = render(
       <RendererV2
