@@ -266,10 +266,9 @@ export const premiumVisualConfig: Record<
     essential: essentialVisual,
     signature: premiumVisual({
       overlay: {
-        src: "/images/invitation-decorations/islamic-soft/golden-brown-moon-stars-overlay.svg",
+        src: "/images/invitation-decorations/islamic-soft/golden-brown-moon-stars-overlay.webp",
         mode: "frame",
         objectFit: "cover",
-        mobileBlend: "side-pair",
         desktopInstances: 1,
         mobileInstances: 1,
         perimeterMask: true,
@@ -292,10 +291,9 @@ export const premiumVisualConfig: Record<
     }),
     couture: premiumVisual({
       overlay: {
-        src: "/images/invitation-decorations/islamic-soft/golden-brown-moon-stars-overlay.svg",
+        src: "/images/invitation-decorations/islamic-soft/golden-brown-moon-stars-overlay.webp",
         mode: "frame",
         objectFit: "cover",
-        mobileBlend: "side-pair",
         desktopInstances: 1,
         mobileInstances: 1,
         perimeterMask: true,
@@ -376,7 +374,7 @@ export const premiumVisualConfig: Record<
     essential: essentialVisual,
     signature: premiumVisual({
       overlay: {
-        src: "/images/invitation-decorations/minimalist-white/minimalist-white-real-cloud-overlay.svg",
+        src: "/images/invitation-decorations/minimalist-white/minimalist-white-real-cloud-overlay.webp",
         mode: "frame",
         objectFit: "cover",
         desktopInstances: 1,
@@ -402,7 +400,7 @@ export const premiumVisualConfig: Record<
     }),
     couture: premiumVisual({
       overlay: {
-        src: "/images/invitation-decorations/minimalist-white/minimalist-white-real-cloud-overlay.svg",
+        src: "/images/invitation-decorations/minimalist-white/minimalist-white-real-cloud-overlay.webp",
         mode: "frame",
         objectFit: "cover",
         desktopInstances: 1,
@@ -432,7 +430,7 @@ export const premiumVisualConfig: Record<
     essential: essentialVisual,
     signature: premiumVisual({
       overlay: {
-        src: "/images/invitation-decorations/dark-cinematic/dark-cinematic-red-rose-petals-overlay.svg",
+        src: "/images/invitation-decorations/dark-cinematic/dark-cinematic-red-rose-petals-overlay.webp",
         mode: "frame",
         objectFit: "cover",
         desktopInstances: 1,
@@ -458,7 +456,7 @@ export const premiumVisualConfig: Record<
     }),
     couture: premiumVisual({
       overlay: {
-        src: "/images/invitation-decorations/dark-cinematic/dark-cinematic-red-rose-petals-overlay.svg",
+        src: "/images/invitation-decorations/dark-cinematic/dark-cinematic-red-rose-petals-overlay.webp",
         mode: "frame",
         objectFit: "cover",
         desktopInstances: 1,
@@ -488,7 +486,7 @@ export const premiumVisualConfig: Record<
     essential: essentialVisual,
     signature: premiumVisual({
       overlay: {
-        src: "/images/invitation-decorations/floral-romantic/floral-romantic-light-blue-petals-overlay.svg",
+        src: "/images/invitation-decorations/floral-romantic/floral-romantic-light-blue-petals-overlay.webp",
         mode: "frame",
         objectFit: "cover",
         desktopInstances: 1,
@@ -514,7 +512,7 @@ export const premiumVisualConfig: Record<
     }),
     couture: premiumVisual({
       overlay: {
-        src: "/images/invitation-decorations/floral-romantic/floral-romantic-light-blue-petals-overlay.svg",
+        src: "/images/invitation-decorations/floral-romantic/floral-romantic-light-blue-petals-overlay.webp",
         mode: "frame",
         objectFit: "cover",
         desktopInstances: 1,

@@ -169,13 +169,13 @@ describe("premium presentation configuration", () => {
   it("uses supplied full-frame overlays for the four updated themes", () => {
     const expectedOverlays = {
       "dark-cinematic":
-        "/images/invitation-decorations/dark-cinematic/dark-cinematic-red-rose-petals-overlay.svg",
+        "/images/invitation-decorations/dark-cinematic/dark-cinematic-red-rose-petals-overlay.webp",
       "floral-romantic":
-        "/images/invitation-decorations/floral-romantic/floral-romantic-light-blue-petals-overlay.svg",
+        "/images/invitation-decorations/floral-romantic/floral-romantic-light-blue-petals-overlay.webp",
       "islamic-soft":
-        "/images/invitation-decorations/islamic-soft/golden-brown-moon-stars-overlay.svg",
+        "/images/invitation-decorations/islamic-soft/golden-brown-moon-stars-overlay.webp",
       "minimalist-white":
-        "/images/invitation-decorations/minimalist-white/minimalist-white-real-cloud-overlay.svg",
+        "/images/invitation-decorations/minimalist-white/minimalist-white-real-cloud-overlay.webp",
     } as const;
 
     Object.entries(expectedOverlays).forEach(([theme, expectedSrc]) => {
@@ -194,10 +194,10 @@ describe("premium presentation configuration", () => {
       });
     });
   });
-  it("boosts Islamic Soft overlay visibility on mobile without changing other updated themes", () => {
+  it("keeps updated WebP overlays to a single mobile layer", () => {
     const islamicOverlay = getPremiumVisualConfig("islamic-soft", "signature").overlay;
 
-    expect(islamicOverlay?.mobileBlend).toBe("side-pair");
+    expect(islamicOverlay?.mobileBlend).toBeUndefined();
     ["minimalist-white", "dark-cinematic", "floral-romantic"].forEach((theme) => {
       const overlay = getPremiumVisualConfig(
         theme as "minimalist-white" | "dark-cinematic" | "floral-romantic",
