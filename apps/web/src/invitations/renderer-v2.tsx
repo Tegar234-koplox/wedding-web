@@ -382,7 +382,7 @@ function GiftIconButton({
             rotate: 0,
             scale: 1,
           }}
-          className="relative block size-24"
+          className="absolute inset-0 block"
           exit={{
             filter: "blur(8px)",
             opacity: 0,
@@ -400,9 +400,9 @@ function GiftIconButton({
         >
           <Image
             alt={alt}
-            className="object-contain transition duration-500 group-hover:scale-105"
+            className="object-contain p-3 transition duration-500 group-hover:scale-105"
             fill
-            sizes="6rem"
+            sizes="8rem"
             src={src}
           />
         </motion.span>
