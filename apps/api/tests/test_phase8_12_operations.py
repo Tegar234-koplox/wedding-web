@@ -10,6 +10,7 @@ from rest_framework.exceptions import ValidationError
 from analytics.models import AnalyticsEvent
 from common.models import AuditEvent
 from invitations.models import Guest, Invitation, InvitationMedia, WeddingEvent
+from invitations.preview import preview_token_for
 from leads.models import WhatsAppIntent
 from media_library.models import MediaAsset
 from orders.lifecycle import ensure_order_transition
@@ -466,6 +467,45 @@ def test_staff_create_order_auto_increments_duplicate_auto_reference(client):
     assert response.status_code == 201
     assert response.json()["reference"] == "N002"
     assert Order.objects.filter(reference="N002", client_name="Fahri").exists()
+
+
+@pytest.mark.django_db
+def test_manual_order_preview_returns_complete_invitation_content(client):
+    staff = create_user(
+        username="staff-preview",
+        email="staff-preview@example.com",
+        role="staff",
+        is_staff=True,
+    )
+    theme = create_theme()
+    order = Order.objects.create(reference="N010", client_name="Fahri", theme=theme)
+    client.force_login(staff)
+
+    response = client.patch(
+        reverse("admin-order-detail", kwargs={"reference": order.reference}),
+        {
+            "ceremony": {
+                "starts_at": timezone.now().isoformat(),
+                "venue_name": "Venue",
+                "address": "Jakarta",
+            }
+        },
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200
+    order.refresh_from_db()
+    preview = client.get(
+        reverse("invitation-preview-detail", kwargs={"public_slug": order.invitation.public_slug}),
+        {"token": preview_token_for(order.invitation)},
+    )
+
+    assert preview.status_code == 200
+    content = preview.json()["content"]
+    assert content["couple"]["partnerOne"] == "Fahri"
+    assert content["opening"]["title"]
+    assert content["event"]["mapUrl"].startswith("http")
+    assert content["closing"]["heading"]
 
 
 @pytest.mark.django_db
