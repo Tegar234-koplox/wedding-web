@@ -170,6 +170,31 @@ def _guest_delivery_queryset(invitation: Invitation):
     ).order_by("created_at")
 
 
+def _rsvp_invitation_for_request(request, public_slug: str) -> Invitation | None:
+    invitation = public_invitations().filter(public_slug=public_slug).first()
+    if invitation is not None:
+        return invitation
+
+    preview_token = (
+        request.data.get("preview")
+        or request.data.get("preview_token")
+        or request.query_params.get("preview")
+        or ""
+    )
+    if not preview_token:
+        return None
+
+    invitation = (
+        Invitation.objects.filter(public_slug=public_slug, archived_at__isnull=True)
+        .select_related("theme", "package")
+        .prefetch_related("events__location", "guests")
+        .first()
+    )
+    if invitation is None or not preview_token_is_valid(invitation, preview_token):
+        return None
+    return invitation
+
+
 def _generate_guest_delivery_token() -> str:
     while True:
         token = get_random_string(40)
@@ -366,7 +391,7 @@ class InvitationRSVPView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request, public_slug: str) -> Response:
-        invitation = public_invitations().filter(public_slug=public_slug).first()
+        invitation = _rsvp_invitation_for_request(request, public_slug)
         if invitation is None:
             raise Http404
         serializer = PublicRSVPSerializer(data=request.data)
@@ -384,7 +409,13 @@ class InvitationRSVPView(APIView):
         if attendance_count > guest.party_size:
             from rest_framework.exceptions import ValidationError
 
-            raise ValidationError({"attendance_count": "Attendance exceeds party size."})
+            raise ValidationError(
+                {
+                    "attendance_count": (
+                        f"Jumlah hadir melebihi kuota link tamu ({guest.party_size})."
+                    )
+                }
+            )
 
         guest.rsvp_status = serializer.validated_data["rsvp_status"]
         guest.attendance_count = attendance_count
