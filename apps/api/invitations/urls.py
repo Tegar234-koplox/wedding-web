@@ -8,6 +8,8 @@ from invitations.views import (
     PublicGuestRSVPCreateView,
     StaffGuestAnonymizeView,
     StaffGuestArchiveView,
+    StaffInvitationGuestLinkExportView,
+    StaffInvitationGuestLinkListCreateView,
     StaffInvitationGuestListCreateView,
     StaffInvitationMusicView,
     StaffInvitationOperationListView,
@@ -54,6 +56,16 @@ urlpatterns = [
         "admin/invitations/<slug:public_slug>/guests",
         StaffInvitationGuestListCreateView.as_view(),
         name="admin-invitation-guest-list",
+    ),
+    path(
+        "admin/invitations/<slug:public_slug>/guest-links",
+        StaffInvitationGuestLinkListCreateView.as_view(),
+        name="admin-invitation-guest-link-list",
+    ),
+    path(
+        "admin/invitations/<slug:public_slug>/guest-links/export",
+        StaffInvitationGuestLinkExportView.as_view(),
+        name="admin-invitation-guest-link-export",
     ),
     path(
         "admin/invitations/<slug:public_slug>/music",

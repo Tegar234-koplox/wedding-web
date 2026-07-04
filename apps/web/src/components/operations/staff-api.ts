@@ -92,6 +92,20 @@ export type DetailRevision = {
   created_by_email: string | null;
 };
 
+export type GuestDeliveryLink = {
+  id: string;
+  display_name: string;
+  email: string;
+  phone: string;
+  party_size: number;
+  rsvp_status: "pending" | "accepted" | "declined" | string;
+  attendance_count: number;
+  responded_at: string | null;
+  delivery_url: string | null;
+  token_available: boolean;
+  created_at: string;
+};
+
 export type StaffOrderDetail = {
   order: Order;
   invitation: null | {
@@ -244,6 +258,19 @@ export async function staffFetch<T>(path: string, init?: RequestInit): Promise<T
     return undefined as T;
   }
   return response.json() as Promise<T>;
+}
+
+export async function staffDownload(path: string): Promise<Blob> {
+  const response = await fetch(`${env.NEXT_PUBLIC_API_URL}${path}`, {
+    credentials: "include",
+    headers: { Accept: "text/csv" },
+  });
+
+  if (!response.ok) {
+    throw new StaffFetchError(`Download staff API ditolak (${response.status})`, response.status);
+  }
+
+  return response.blob();
 }
 
 export function workflowFor(order: Pick<Order, "status" | "workflow_label">): string {
