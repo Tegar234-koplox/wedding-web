@@ -1,7 +1,7 @@
 import csv
 import hashlib
 from datetime import timedelta
-from urllib.parse import urlparse
+from urllib.parse import urlencode, urlparse
 
 from django.contrib.auth.hashers import check_password, make_password
 from django.core.exceptions import ObjectDoesNotExist
@@ -20,7 +20,7 @@ from analytics.models import AnalyticsEvent
 from common.models import AuditEvent
 from common.notifications import enqueue_client_notification
 from invitations.models import Guest, Invitation, InvitationMedia
-from invitations.preview import preview_token_is_valid
+from invitations.preview import preview_token_for, preview_token_is_valid
 from invitations.selectors import public_invitations
 from invitations.serializers import (
     BacksoundAssetSerializer,
@@ -136,7 +136,10 @@ def _guest_aggregate_rows(invitation: Invitation | None = None) -> list[dict[str
 
 
 def _guest_delivery_url(invitation: Invitation, token: str, request) -> str:
-    path = f"/{invitation.default_locale}/i/{invitation.public_slug}?guest={token}"
+    query = {"guest": token}
+    if invitation.status != Invitation.Status.PUBLISHED:
+        query["preview"] = preview_token_for(invitation)
+    path = f"/{invitation.default_locale}/i/{invitation.public_slug}?{urlencode(query)}"
     origin = request.headers.get("Origin", "").rstrip("/")
     if origin:
         return f"{origin}{path}"
