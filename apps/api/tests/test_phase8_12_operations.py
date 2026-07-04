@@ -800,6 +800,80 @@ def test_public_guest_rsvp_create_is_write_only(client):
 
 
 @pytest.mark.django_db
+def test_staff_creates_guest_delivery_link_and_guest_uses_it_for_rsvp(client):
+    staff = create_user(username="staff", email="staff@example.com", role="staff", is_staff=True)
+    theme = create_theme()
+    invitation = create_invitation(theme=theme, public_slug="delivery-link")
+    client.force_login(staff)
+
+    response = client.post(
+        reverse("admin-invitation-guest-link-list", kwargs={"public_slug": invitation.public_slug}),
+        {
+            "display_name": "Syarif",
+            "email": "syarif@example.com",
+            "phone": "+62812",
+            "party_size": 2,
+        },
+        content_type="application/json",
+        HTTP_ORIGIN="https://wedding.example",
+    )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["display_name"] == "Syarif"
+    assert payload["token_available"] is True
+    assert payload["delivery_url"].startswith("https://wedding.example/id/i/delivery-link?guest=")
+    token = payload["delivery_url"].split("guest=", 1)[1]
+
+    client.logout()
+    rsvp_response = client.post(
+        reverse("invitation-rsvp", kwargs={"public_slug": invitation.public_slug}),
+        {
+            "token": token,
+            "rsvp_status": Guest.RSVPStatus.ACCEPTED,
+            "attendance_count": 2,
+            "wishes": "Selamat!",
+        },
+        content_type="application/json",
+    )
+
+    assert rsvp_response.status_code == 200
+    guest = invitation.guests.get(display_name="Syarif")
+    assert guest.rsvp_status == Guest.RSVPStatus.ACCEPTED
+    assert AuditEvent.objects.filter(action="guest.delivery_link_created").exists()
+
+
+@pytest.mark.django_db
+def test_staff_exports_guest_delivery_links_as_csv(client):
+    staff = create_user(username="staff", email="staff@example.com", role="staff", is_staff=True)
+    theme = create_theme()
+    invitation = create_invitation(theme=theme, public_slug="delivery-export")
+    Guest.objects.create(
+        invitation=invitation,
+        access_token_hash="delivery-token-1",
+        display_name="Syarif",
+        phone="+62812",
+        party_size=1,
+        metadata={"delivery_token": "delivery-token-1"},
+    )
+    client.force_login(staff)
+
+    response = client.get(
+        reverse(
+            "admin-invitation-guest-link-export",
+            kwargs={"public_slug": invitation.public_slug},
+        ),
+        HTTP_ORIGIN="https://wedding.example",
+    )
+
+    assert response.status_code == 200
+    assert response["Content-Type"] == "text/csv"
+    content = response.content.decode()
+    assert "Syarif" in content
+    assert "https://wedding.example/id/i/delivery-export?guest=delivery-token-1" in content
+
+
+@pytest.mark.django_db
 def test_staff_sets_existing_backsound_asset(client):
     staff = create_user(username="staff", email="staff@example.com", role="staff", is_staff=True)
     theme = create_theme()

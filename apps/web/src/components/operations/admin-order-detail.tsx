@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Copy, ExternalLink, Plus, Save } from "lucide-react";
+import { ArrowLeft, Copy, Download, ExternalLink, Plus, Save } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
@@ -11,8 +11,10 @@ import {
   formatCurrency,
   normalizeCurrencyInput,
   paymentLabels,
+  staffDownload,
   staffFetch,
   type DetailRevision,
+  type GuestDeliveryLink,
   type PackageOption,
   type PaymentStatus,
   type StaffOrderDetail,
@@ -51,6 +53,13 @@ type OrderDetailForm = {
   total_amount: string;
 };
 
+type GuestLinkForm = {
+  display_name: string;
+  email: string;
+  phone: string;
+  party_size: string;
+};
+
 const emptyForm: OrderDetailForm = {
   bank_account_bank: "",
   bank_account_name: "",
@@ -77,6 +86,13 @@ const emptyForm: OrderDetailForm = {
   status_label: "Baru",
   theme_slug: "",
   total_amount: "0",
+};
+
+const emptyGuestLinkForm: GuestLinkForm = {
+  display_name: "",
+  email: "",
+  party_size: "1",
+  phone: "",
 };
 
 const controlClassName =
@@ -136,9 +152,21 @@ function fromDetail(detail: StaffOrderDetail): OrderDetailForm {
   };
 }
 
+function guestRsvpLabel(status: string): string {
+  if (status === "accepted") {
+    return "Hadir";
+  }
+  if (status === "declined") {
+    return "Tidak hadir";
+  }
+  return "Menunggu";
+}
+
 export function AdminOrderDetail({ reference }: { reference: string }) {
   const [detail, setDetail] = useState<StaffOrderDetail | null>(null);
   const [form, setForm] = useState<OrderDetailForm>(emptyForm);
+  const [guestLinks, setGuestLinks] = useState<GuestDeliveryLink[]>([]);
+  const [guestLinkForm, setGuestLinkForm] = useState<GuestLinkForm>(emptyGuestLinkForm);
   const [themes, setThemes] = useState<ThemeOption[]>([]);
   const [packages, setPackages] = useState<PackageOption[]>([]);
   const [revisionNote, setRevisionNote] = useState("");
@@ -146,6 +174,7 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
   const [revisionEdits, setRevisionEdits] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingGuestLink, setSavingGuestLink] = useState(false);
   const [savingRevision, setSavingRevision] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -166,6 +195,14 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
       setRevisionEdits(
         Object.fromEntries(nextDetail.revisions.map((revision) => [revision.id, revision.note])),
       );
+      if (nextDetail.invitation?.public_slug) {
+        const links = await staffFetch<GuestDeliveryLink[]>(
+          `/admin/invitations/${nextDetail.invitation.public_slug}/guest-links`,
+        );
+        setGuestLinks(links);
+      } else {
+        setGuestLinks([]);
+      }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Detail order gagal dimuat.");
     } finally {
@@ -182,6 +219,10 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
 
   function updateForm(field: keyof OrderDetailForm, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function updateGuestLinkForm(field: keyof GuestLinkForm, value: string) {
+    setGuestLinkForm((current) => ({ ...current, [field]: value }));
   }
 
   async function saveDetail() {
@@ -260,6 +301,94 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
       setNotice("Link preview disalin.");
     } catch {
       setError("Link preview gagal disalin. Buka link lalu copy dari address bar.");
+    }
+  }
+
+  async function copyGuestUrl(url: string | null) {
+    if (!url) {
+      setError("Link tamu belum tersedia untuk data ini.");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      setNotice("Link tamu disalin.");
+    } catch {
+      setError("Link tamu gagal disalin.");
+    }
+  }
+
+  async function copyAllGuestUrls() {
+    const text = guestLinks
+      .filter((guest) => guest.delivery_url)
+      .map((guest) => `${guest.display_name}: ${guest.delivery_url}`)
+      .join("\n");
+    if (!text) {
+      setError("Belum ada link tamu yang bisa disalin.");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      setNotice("Semua link tamu disalin.");
+    } catch {
+      setError("Daftar link tamu gagal disalin.");
+    }
+  }
+
+  async function createGuestLink() {
+    if (!detail?.invitation?.public_slug) {
+      setError("Simpan detail order dulu agar invitation tersedia.");
+      return;
+    }
+    if (!guestLinkForm.display_name.trim()) {
+      setError("Nama tamu wajib diisi.");
+      return;
+    }
+    setSavingGuestLink(true);
+    setError("");
+    setNotice("");
+    try {
+      const guest = await staffFetch<GuestDeliveryLink>(
+        `/admin/invitations/${detail.invitation.public_slug}/guest-links`,
+        {
+          body: JSON.stringify({
+            display_name: guestLinkForm.display_name.trim(),
+            email: guestLinkForm.email.trim(),
+            party_size: Number(guestLinkForm.party_size || 1),
+            phone: guestLinkForm.phone.trim(),
+          }),
+          method: "POST",
+        },
+      );
+      setGuestLinks((current) => [...current, guest]);
+      setGuestLinkForm(emptyGuestLinkForm);
+      setNotice("Link tamu dibuat.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Link tamu gagal dibuat.");
+    } finally {
+      setSavingGuestLink(false);
+    }
+  }
+
+  async function exportGuestLinks() {
+    if (!detail?.invitation?.public_slug) {
+      setError("Invitation belum tersedia untuk export link tamu.");
+      return;
+    }
+    try {
+      const blob = await staffDownload(
+        `/admin/invitations/${detail.invitation.public_slug}/guest-links/export`,
+      );
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${detail.invitation.public_slug}-guest-links.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setNotice("CSV link tamu didownload.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "CSV link tamu gagal didownload.");
     }
   }
 
@@ -544,6 +673,131 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
                   value={form.rsvp_declined}
                 />
               </Field>
+            </div>
+          </Panel>
+
+          <Panel eyebrow="Link Tamu & Delivery" title="Daftar link personal.">
+            <div className="grid gap-4 md:grid-cols-[1fr_1fr_0.6fr]">
+              <Field label="Nama tamu">
+                <input
+                  className={controlClassName}
+                  onChange={(event) => updateGuestLinkForm("display_name", event.target.value)}
+                  placeholder="Syarif"
+                  value={guestLinkForm.display_name}
+                />
+              </Field>
+              <Field label="Email">
+                <input
+                  className={controlClassName}
+                  onChange={(event) => updateGuestLinkForm("email", event.target.value)}
+                  placeholder="opsional"
+                  type="email"
+                  value={guestLinkForm.email}
+                />
+              </Field>
+              <Field label="Jumlah">
+                <input
+                  className={controlClassName}
+                  min={1}
+                  onChange={(event) => updateGuestLinkForm("party_size", event.target.value)}
+                  type="number"
+                  value={guestLinkForm.party_size}
+                />
+              </Field>
+              <Field label="Phone / WhatsApp">
+                <input
+                  className={controlClassName}
+                  onChange={(event) => updateGuestLinkForm("phone", event.target.value)}
+                  placeholder="+62812"
+                  value={guestLinkForm.phone}
+                />
+              </Field>
+              <div className="flex items-end md:col-span-2">
+                <button
+                  className="inline-flex min-h-11 w-full items-center justify-center gap-3 bg-[var(--color-gold)] px-4 text-xs font-semibold uppercase tracking-[0.14em] text-black transition hover:bg-[#f4ddb0] disabled:opacity-50"
+                  disabled={savingGuestLink || !detail?.invitation}
+                  onClick={() => void createGuestLink()}
+                  type="button"
+                >
+                  <Plus size={15} />
+                  {savingGuestLink ? "Membuat" : "Tambah Link Tamu"}
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-5 flex flex-wrap gap-3">
+              <button
+                className={outlineButtonClassName}
+                disabled={!guestLinks.some((guest) => guest.delivery_url)}
+                onClick={() => void copyAllGuestUrls()}
+                type="button"
+              >
+                <Copy size={15} />
+                Copy Semua
+              </button>
+              <button
+                className={outlineButtonClassName}
+                disabled={!guestLinks.length}
+                onClick={() => void exportGuestLinks()}
+                type="button"
+              >
+                <Download size={15} />
+                Export CSV
+              </button>
+            </div>
+
+            <div className="mt-5 overflow-x-auto border border-white/10">
+              <table className="w-full min-w-[760px] border-collapse text-left text-sm">
+                <thead className="bg-white/[0.03] text-xs uppercase tracking-[0.14em] text-white/45">
+                  <tr>
+                    <th className="px-4 py-3">Tamu</th>
+                    <th className="px-4 py-3">Kontak</th>
+                    <th className="px-4 py-3">RSVP</th>
+                    <th className="px-4 py-3">Link</th>
+                    <th className="px-4 py-3">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {guestLinks.length === 0 ? (
+                    <tr>
+                      <td className="px-4 py-6 text-white/45" colSpan={5}>
+                        Belum ada link tamu. Tambahkan nama tamu untuk membuat link personal.
+                      </td>
+                    </tr>
+                  ) : null}
+                  {guestLinks.map((guest) => (
+                    <tr className="border-t border-white/10" key={guest.id}>
+                      <td className="px-4 py-4">
+                        <p className="font-semibold text-white">{guest.display_name}</p>
+                        <p className="mt-1 text-xs text-white/45">{guest.party_size} orang</p>
+                      </td>
+                      <td className="px-4 py-4 text-white/60">
+                        {[guest.email, guest.phone].filter(Boolean).join(" / ") || "-"}
+                      </td>
+                      <td className="px-4 py-4 text-white/60">
+                        {guestRsvpLabel(guest.rsvp_status)}
+                        {guest.attendance_count ? ` / ${guest.attendance_count} hadir` : ""}
+                      </td>
+                      <td className="max-w-[18rem] px-4 py-4">
+                        <p className="truncate text-white/50">
+                          {guest.delivery_url ?? "Token lama tidak bisa ditampilkan ulang"}
+                        </p>
+                      </td>
+                      <td className="px-4 py-4">
+                        <button
+                          className={outlineButtonClassName}
+                          disabled={!guest.delivery_url}
+                          onClick={() => void copyGuestUrl(guest.delivery_url)}
+                          type="button"
+                        >
+                          <Copy size={14} />
+                          Copy
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </Panel>
         </div>

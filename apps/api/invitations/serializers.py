@@ -186,6 +186,27 @@ class GuestAggregateSerializer(serializers.Serializer):
     response_rate = serializers.FloatField()
 
 
+class StaffGuestLinkCreateSerializer(serializers.Serializer):
+    display_name = serializers.CharField(max_length=120)
+    email = serializers.EmailField(required=False, allow_blank=True)
+    phone = serializers.CharField(max_length=40, required=False, allow_blank=True)
+    party_size = serializers.IntegerField(min_value=1, max_value=20, default=1)
+
+
+class StaffGuestLinkSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    display_name = serializers.CharField()
+    email = serializers.EmailField(allow_blank=True)
+    phone = serializers.CharField(allow_blank=True)
+    party_size = serializers.IntegerField()
+    rsvp_status = serializers.CharField()
+    attendance_count = serializers.IntegerField()
+    responded_at = serializers.DateTimeField(allow_null=True)
+    delivery_url = serializers.CharField(allow_blank=True, allow_null=True)
+    token_available = serializers.BooleanField()
+    created_at = serializers.DateTimeField()
+
+
 class BacksoundAssetSerializer(serializers.ModelSerializer[MediaAsset]):
     class Meta:
         model = MediaAsset

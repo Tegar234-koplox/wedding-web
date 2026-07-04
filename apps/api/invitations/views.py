@@ -1,3 +1,4 @@
+import csv
 import hashlib
 from datetime import timedelta
 from urllib.parse import urlparse
@@ -5,7 +6,7 @@ from urllib.parse import urlparse
 from django.contrib.auth.hashers import check_password, make_password
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import connection
-from django.http import Http404
+from django.http import Http404, HttpResponse
 from django.utils import timezone
 from django.utils.crypto import constant_time_compare, get_random_string
 from drf_spectacular.utils import extend_schema, inline_serializer
@@ -28,6 +29,8 @@ from invitations.serializers import (
     PublicGuestRSVPCreateSerializer,
     PublicInvitationSerializer,
     PublicRSVPSerializer,
+    StaffGuestLinkCreateSerializer,
+    StaffGuestLinkSerializer,
     StaffInvitationOperationSerializer,
 )
 from media_library.models import MediaAsset
@@ -130,6 +133,45 @@ def _guest_aggregate_rows(invitation: Invitation | None = None) -> list[dict[str
             }
         )
     return aggregates
+
+
+def _guest_delivery_url(invitation: Invitation, token: str, request) -> str:
+    path = f"/{invitation.default_locale}/i/{invitation.public_slug}?guest={token}"
+    origin = request.headers.get("Origin", "").rstrip("/")
+    if origin:
+        return f"{origin}{path}"
+    return request.build_absolute_uri(path)
+
+
+def _guest_delivery_payload(invitation: Invitation, guest: Guest, request) -> dict[str, object]:
+    token = str(guest.metadata.get("delivery_token", "")).strip()
+    return {
+        "id": guest.id,
+        "display_name": guest.display_name,
+        "email": guest.email,
+        "phone": guest.phone,
+        "party_size": guest.party_size,
+        "rsvp_status": guest.rsvp_status,
+        "attendance_count": guest.attendance_count,
+        "responded_at": guest.responded_at,
+        "delivery_url": _guest_delivery_url(invitation, token, request) if token else None,
+        "token_available": bool(token),
+        "created_at": guest.created_at,
+    }
+
+
+def _guest_delivery_queryset(invitation: Invitation):
+    return invitation.guests.filter(
+        archived_at__isnull=True,
+        anonymized_at__isnull=True,
+    ).order_by("created_at")
+
+
+def _generate_guest_delivery_token() -> str:
+    while True:
+        token = get_random_string(40)
+        if not Guest.objects.filter(access_token_hash=token).exists():
+            return token
 
 
 def _invitation_client_recipient(invitation: Invitation):
@@ -496,6 +538,86 @@ class StaffInvitationGuestListCreateView(APIView):
         from rest_framework.exceptions import PermissionDenied
 
         raise PermissionDenied("Staff can only access guest aggregates.")
+
+
+class StaffInvitationGuestLinkListCreateView(APIView):
+    permission_classes = [IsStaffRole]
+
+    def get(self, request, public_slug: str) -> Response:
+        invitation = Invitation.objects.filter(public_slug=public_slug).first()
+        if invitation is None:
+            raise Http404
+        guests = _guest_delivery_queryset(invitation)
+        payload = [_guest_delivery_payload(invitation, guest, request) for guest in guests]
+        return Response(StaffGuestLinkSerializer(payload, many=True).data)
+
+    def post(self, request, public_slug: str) -> Response:
+        invitation = Invitation.objects.filter(public_slug=public_slug).first()
+        if invitation is None:
+            raise Http404
+        serializer = StaffGuestLinkCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        token = _generate_guest_delivery_token()
+        guest = Guest.objects.create(
+            invitation=invitation,
+            access_token_hash=token,
+            display_name=serializer.validated_data["display_name"],
+            email=serializer.validated_data.get("email", ""),
+            phone=serializer.validated_data.get("phone", ""),
+            party_size=serializer.validated_data["party_size"],
+            metadata={"delivery_token": token, "source": "staff_dashboard"},
+        )
+        AuditEvent.objects.create(
+            actor=request.user,
+            action="guest.delivery_link_created",
+            resource_type="invitation",
+            resource_reference=invitation.public_slug,
+            metadata={
+                "guest_id": str(guest.id),
+                "source": "staff_dashboard",
+            },
+        )
+        payload = _guest_delivery_payload(invitation, guest, request)
+        return Response(StaffGuestLinkSerializer(payload).data, status=201)
+
+
+class StaffInvitationGuestLinkExportView(APIView):
+    permission_classes = [IsStaffRole]
+
+    def get(self, request, public_slug: str) -> HttpResponse:
+        invitation = Invitation.objects.filter(public_slug=public_slug).first()
+        if invitation is None:
+            raise Http404
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = (
+            f'attachment; filename="{invitation.public_slug}-guest-links.csv"'
+        )
+        writer = csv.writer(response)
+        writer.writerow(
+            [
+                "name",
+                "email",
+                "phone",
+                "party_size",
+                "rsvp_status",
+                "attendance_count",
+                "delivery_url",
+            ]
+        )
+        for guest in _guest_delivery_queryset(invitation):
+            payload = _guest_delivery_payload(invitation, guest, request)
+            writer.writerow(
+                [
+                    payload["display_name"],
+                    payload["email"],
+                    payload["phone"],
+                    payload["party_size"],
+                    payload["rsvp_status"],
+                    payload["attendance_count"],
+                    payload["delivery_url"] or "",
+                ]
+            )
+        return response
 
 
 class StaffInvitationMusicView(APIView):
