@@ -442,6 +442,33 @@ def test_staff_creates_manual_order_from_lead_and_writes_audit(client):
 
 
 @pytest.mark.django_db
+def test_staff_create_order_auto_increments_duplicate_auto_reference(client):
+    staff = create_user(
+        username="staff-auto-ref",
+        email="staff-auto-ref@example.com",
+        role="staff",
+        is_staff=True,
+    )
+    Order.objects.create(reference="N001", client_name="Archived", archived_at=timezone.now())
+    client.force_login(staff)
+
+    response = client.post(
+        reverse("admin-order-list"),
+        {
+            "reference": "N001",
+            "client_name": "Fahri",
+            "status": Order.Status.LEAD,
+            "total_amount": "99000.00",
+        },
+        content_type="application/json",
+    )
+
+    assert response.status_code == 201
+    assert response.json()["reference"] == "N002"
+    assert Order.objects.filter(reference="N002", client_name="Fahri").exists()
+
+
+@pytest.mark.django_db
 def test_client_cannot_access_staff_verification_queue(client):
     client_user = create_user(username="client-queue", email="client-queue@example.com")
     client.force_login(client_user)

@@ -1,4 +1,5 @@
 import hashlib
+import re
 from datetime import timedelta
 
 from django.conf import settings
@@ -81,6 +82,19 @@ def _unique_invitation_slug(reference: str) -> str:
         slug = f"{base_slug}-{index}"
         index += 1
     return slug
+
+
+def _next_order_reference() -> str:
+    max_number = 0
+    for reference in Order.objects.values_list("reference", flat=True):
+        match = re.fullmatch(r"n(\d+)", reference, flags=re.IGNORECASE)
+        if match:
+            max_number = max(max_number, int(match.group(1)))
+    return f"N{max_number + 1:03d}"
+
+
+def _auto_order_reference(reference: str) -> bool:
+    return bool(re.fullmatch(r"n\d+", reference.strip(), flags=re.IGNORECASE))
 
 
 def _ensure_invitation(order: Order) -> Invitation:
@@ -240,6 +254,19 @@ class StaffOrderListCreateView(ListCreateAPIView):
         return Order.objects.filter(archived_at__isnull=True).select_related(
             "theme", "package", "invitation", "whatsapp_intent"
         )
+
+    def post(self, request, *args, **kwargs) -> Response:
+        data = request.data.copy()
+        reference = str(data.get("reference", "")).strip()
+        if not reference or (
+            _auto_order_reference(reference)
+            and Order.objects.filter(reference__iexact=reference).exists()
+        ):
+            data["reference"] = _next_order_reference()
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        return Response(serializer.data, status=201)
 
 
 class StaffOrderDetailView(RetrieveUpdateAPIView):
