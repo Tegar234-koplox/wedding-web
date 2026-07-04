@@ -352,20 +352,29 @@ function getGiftAccount(invitation: InvitationEnvelope, id: boolean) {
 }
 
 function GiftIconButton({
-  alt,
+  afterAlt,
+  afterSrc,
+  beforeAlt,
+  beforeSrc,
   borderClass,
   glowClass,
   opened,
   onOpen,
-  src,
 }: {
-  alt: string;
+  afterAlt: string;
+  afterSrc: string;
+  beforeAlt: string;
+  beforeSrc: string;
   borderClass: string;
   glowClass: string;
   opened: boolean;
   onOpen: () => void;
-  src: string;
 }) {
+  const icons = [
+    { active: !opened, alt: beforeAlt, key: "before", src: beforeSrc },
+    { active: opened, alt: afterAlt, key: "after", src: afterSrc },
+  ];
+
   return (
     <button
       aria-expanded={opened}
@@ -373,40 +382,30 @@ function GiftIconButton({
       onClick={onOpen}
       type="button"
     >
-      <AnimatePresence initial={false} mode="popLayout">
+      {icons.map((icon) => (
         <motion.span
+          aria-hidden={!icon.active}
           animate={{
             borderRadius: "50%",
-            filter: "blur(0px)",
-            opacity: 1,
-            rotate: 0,
-            scale: 1,
+            filter: icon.active ? "blur(0px)" : "blur(8px)",
+            opacity: icon.active ? 1 : 0,
+            rotate: icon.active ? 0 : icon.key === "before" ? -10 : 10,
+            scale: icon.active ? 1 : icon.key === "before" ? 1.08 : 0.82,
           }}
           className="absolute inset-0 block"
-          exit={{
-            filter: "blur(8px)",
-            opacity: 0,
-            rotate: opened ? 10 : -10,
-            scale: 1.08,
-          }}
-          initial={{
-            filter: "blur(8px)",
-            opacity: 0,
-            rotate: opened ? -10 : 10,
-            scale: 0.82,
-          }}
-          key={src}
+          initial={false}
+          key={icon.key}
           transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
         >
           <Image
-            alt={alt}
+            alt={icon.alt}
             className="object-contain p-3 transition duration-500 group-hover:scale-105"
             fill
             sizes="8rem"
-            src={src}
+            src={icon.src}
           />
         </motion.span>
-      </AnimatePresence>
+      ))}
     </button>
   );
 }
@@ -523,16 +522,14 @@ function EssentialGiftSection({
 
       <div className="relative z-10 mt-12 flex flex-col items-center">
         <GiftIconButton
-          alt={opened ? "Gift opened" : "Gift"}
+          afterAlt="Gift opened"
+          afterSrc="/images/invitation-essential/gift/gift-icon-opened.webp"
+          beforeAlt="Gift"
+          beforeSrc="/images/invitation-essential/gift/gift-icon.webp"
           borderClass={design.border}
           glowClass={design.glow}
           onOpen={() => setOpened(true)}
           opened={opened}
-          src={
-            opened
-              ? "/images/invitation-essential/gift/gift-icon-opened.webp"
-              : "/images/invitation-essential/gift/gift-icon.webp"
-          }
         />
 
         <AnimatePresence>
@@ -837,14 +834,14 @@ function SignatureGiftSection({
 
       <div className="relative z-10 mt-12 flex flex-col items-center">
         <GiftIconButton
-          alt={opened ? "Gift opened" : "Gift"}
+          afterAlt="Gift opened"
+          afterSrc={`/images/invitation-signature/gift/${folder}/after-tap.webp`}
+          beforeAlt="Gift"
+          beforeSrc={`/images/invitation-signature/gift/${folder}/before-tap.webp`}
           borderClass={design.border}
           glowClass={design.glow}
           onOpen={() => setOpened(true)}
           opened={opened}
-          src={`/images/invitation-signature/gift/${folder}/${
-            opened ? "after-tap" : "before-tap"
-          }.webp`}
         />
 
         <AnimatePresence>
