@@ -117,25 +117,15 @@ class PublicInvitationSerializer(serializers.ModelSerializer[Invitation]):
         local_event_time = timezone.localtime(primary_event.starts_at) if primary_event else None
         date_label = local_event_time.strftime("%d %B %Y") if local_event_time else "Tanggal acara"
         ceremony_time = (
-            timezone.localtime(ceremony.starts_at).strftime("%H.%M")
-            if ceremony
-            else "Waktu akad"
+            timezone.localtime(ceremony.starts_at).strftime("%H.%M") if ceremony else "Waktu akad"
         )
         reception_time = (
             timezone.localtime(reception.starts_at).strftime("%H.%M")
             if reception
             else "Waktu resepsi"
         )
-        venue = (
-            event.get("venue")
-            or getattr(primary_event, "venue_name", "")
-            or "Nama Venue"
-        )
-        address = (
-            event.get("address")
-            or getattr(primary_event, "address", "")
-            or "Alamat venue"
-        )
+        venue = event.get("venue") or getattr(primary_event, "venue_name", "") or "Nama Venue"
+        address = event.get("address") or getattr(primary_event, "address", "") or "Alamat venue"
         gallery = content.get("gallery")
         if not isinstance(gallery, list) or not 3 <= len(gallery) <= 12:
             gallery = [
@@ -164,7 +154,9 @@ class PublicInvitationSerializer(serializers.ModelSerializer[Invitation]):
                 "receptionTime": event.get("receptionTime") or reception_time,
                 "venue": venue,
                 "address": address,
-                "mapUrl": event.get("mapUrl") or getattr(primary_event, "map_url", "") or "https://maps.google.com",
+                "mapUrl": event.get("mapUrl")
+                or getattr(primary_event, "map_url", "")
+                or "https://maps.google.com",
             },
             "story": {
                 "heading": story.get("heading") or "Cerita kami",
