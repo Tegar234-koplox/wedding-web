@@ -640,18 +640,97 @@ function SignatureGallerySection({
   );
 }
 
-function getTimelineEntries(invitation: InvitationEnvelope) {
+function getTimelineEntries(
+  invitation: InvitationEnvelope,
+  mode: "opening" | "middle" | "final",
+) {
   const id = invitation.locale === "id";
+  if (mode === "middle") {
+    return id
+      ? [
+          [
+            "04",
+            "Tragedi Lembut",
+            "Konflik yang turut mewarnai perjalanan dengan kontrol hati yang terarah.",
+          ],
+          [
+            "05",
+            "Sadar",
+            "Ego tidak bisa melawan ego, masing-masing kami adalah rumah.",
+          ],
+          [
+            "06",
+            "Sabar",
+            "Besar kecilnya masalah akan tetap kalah dengan tekad dan keteguhan hati yang selalu ingin bersama.",
+          ],
+        ]
+      : [
+          [
+            "04",
+            "A Gentle Tragedy",
+            "Conflict colored the journey, yet our hearts learned to move with intention.",
+          ],
+          [
+            "05",
+            "Awake",
+            "Ego cannot defeat ego; each of us learned that the other is home.",
+          ],
+          [
+            "06",
+            "Patient",
+            "Every problem, big or small, bows to the resolve and steadfastness that keep choosing togetherness.",
+          ],
+        ];
+  }
+
+  if (mode === "final") {
+    return id
+      ? [
+          [
+            "07",
+            "Mendengar",
+            "Sebuah validasi yang berarti sebagai langkah awal untuk menumbuhkan rasa setiap hari.",
+          ],
+          [
+            "08",
+            "Maaf",
+            "Bukan siapa yang paling salah, tapi siapa yang paling cinta, dan kami melakukannya.",
+          ],
+          [
+            "09",
+            "Hari Ini",
+            "Kini perjalanan itu menuju hari yang kami rayakan bersama orang-orang terdekat.",
+          ],
+        ]
+      : [
+          [
+            "07",
+            "Listening",
+            "A meaningful validation became the first step in growing love each day.",
+          ],
+          [
+            "08",
+            "Forgiveness",
+            "It was never about who was most wrong, but who loved most, and we chose to do it.",
+          ],
+          [
+            "09",
+            "Today",
+            "That journey now becomes a celebration shared with the people we love.",
+          ],
+        ];
+  }
+
   return id
     ? [
         ["01", "Bertemu", "Sebuah awal yang sederhana membuka ruang untuk saling mengenal."],
         ["02", "Bertumbuh", "Cerita itu tumbuh melalui waktu, jarak, dan pilihan untuk tetap bersama."],
-        ["03", "Hari ini", "Kini perjalanan itu menuju hari yang kami rayakan bersama orang-orang terdekat."],
+        ["03", "Suka Cita", "Rasa bahagia dan damai selalu tumbuh setiap hari membawa kesuburan."],
       ]
     : [
         ["01", "Meeting", "A simple beginning opened the way for two lives to know one another."],
         ["02", "Growing", "The story grew through time, distance, and the choice to keep returning."],
-        ["03", "Today", "That journey now becomes a celebration shared with the people we love."],
+        ["03", "Joy", "Happiness and peace keep growing each day, bringing life into bloom."],
       ];
 }
 
@@ -672,7 +751,7 @@ function SignatureStoryTimelineSection({
 }) {
   const { couple, quote, story } = invitation.content;
   const id = invitation.locale === "id";
-  const timeline = getTimelineEntries(invitation);
+  const timeline = getTimelineEntries(invitation, mode);
   const copy =
     mode === "middle"
       ? id
