@@ -110,17 +110,46 @@ def _ensure_invitation(order: Order) -> Invitation:
         renderer_version=order.theme.renderer_version,
         content_schema_version=order.theme.content_schema_version,
         content={
-            "couple": {"partnerOne": order.client_name, "partnerTwo": ""},
-            "opening": {},
-            "event": {},
-            "story": {},
-            "quote": {},
+            "couple": {
+                "partnerOne": order.client_name or "Nama Pasangan",
+                "partnerTwo": "Nama Pasangan",
+                "monogram": (order.client_name[:1] or "N"),
+            },
+            "opening": {
+                "eyebrow": "Dengan penuh sukacita",
+                "title": "Kami mengundang Anda",
+                "message": "Untuk hadir di hari pernikahan kami.",
+            },
+            "event": {
+                "dateLabel": "Tanggal acara",
+                "ceremonyLabel": "Akad",
+                "ceremonyTime": "Waktu akad",
+                "receptionLabel": "Resepsi",
+                "receptionTime": "Waktu resepsi",
+                "venue": "Nama Venue",
+                "address": "Alamat venue",
+                "mapUrl": "https://maps.google.com",
+            },
+            "story": {
+                "heading": "Cerita kami",
+                "body": "Kami bertemu dan bertumbuh bersama.",
+            },
+            "quote": {
+                "text": (
+                    "Dan di antara tanda-tanda kebesaran-Nya ialah Dia menciptakan "
+                    "pasangan-pasangan untukmu."
+                ),
+                "attribution": "Ar-Rum - 21",
+            },
             "gallery": [
                 {"src": "/images/one.webp", "alt": "Gallery 1"},
                 {"src": "/images/two.webp", "alt": "Gallery 2"},
                 {"src": "/images/three.webp", "alt": "Gallery 3"},
             ],
-            "closing": {},
+            "closing": {
+                "heading": "Sampai bertemu",
+                "message": "Terima kasih atas doa dan restunya.",
+            },
         },
     )
     order.invitation = invitation

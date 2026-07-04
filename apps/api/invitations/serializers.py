@@ -1,3 +1,4 @@
+from django.utils import timezone
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
@@ -65,6 +66,7 @@ class PublicInvitationSerializer(serializers.ModelSerializer[Invitation]):
         read_only=True,
     )
     audio = serializers.SerializerMethodField()
+    content = serializers.SerializerMethodField()
 
     @extend_schema_field(PublicInvitationAudioSerializer(allow_null=True))
     def get_audio(self, obj: Invitation) -> dict[str, object] | None:
@@ -89,6 +91,99 @@ class PublicInvitationSerializer(serializers.ModelSerializer[Invitation]):
             None,
         )
         return public_audio_payload(theme_audio)
+
+    def get_content(self, obj: Invitation) -> dict[str, object]:
+        content = obj.content if isinstance(obj.content, dict) else {}
+        order = getattr(obj, "order", None)
+        couple = content.get("couple") if isinstance(content.get("couple"), dict) else {}
+        event = content.get("event") if isinstance(content.get("event"), dict) else {}
+        story = content.get("story") if isinstance(content.get("story"), dict) else {}
+        quote = content.get("quote") if isinstance(content.get("quote"), dict) else {}
+        opening = content.get("opening") if isinstance(content.get("opening"), dict) else {}
+        closing = content.get("closing") if isinstance(content.get("closing"), dict) else {}
+        partner_one = str(
+            couple.get("partnerOne")
+            or couple.get("partner_one")
+            or getattr(order, "client_name", "")
+        ).strip()
+        partner_two = str(couple.get("partnerTwo") or couple.get("partner_two") or "").strip()
+        monogram = str(couple.get("monogram") or "").strip()
+        if not monogram:
+            initials = [name[:1] for name in [partner_one, partner_two] if name]
+            monogram = "&".join(initials) or "N"
+        ceremony = obj.events.filter(event_type=WeddingEvent.EventType.CEREMONY).first()
+        reception = obj.events.filter(event_type=WeddingEvent.EventType.RECEPTION).first()
+        primary_event = ceremony or reception
+        local_event_time = timezone.localtime(primary_event.starts_at) if primary_event else None
+        date_label = local_event_time.strftime("%d %B %Y") if local_event_time else "Tanggal acara"
+        ceremony_time = (
+            timezone.localtime(ceremony.starts_at).strftime("%H.%M")
+            if ceremony
+            else "Waktu akad"
+        )
+        reception_time = (
+            timezone.localtime(reception.starts_at).strftime("%H.%M")
+            if reception
+            else "Waktu resepsi"
+        )
+        venue = (
+            event.get("venue")
+            or getattr(primary_event, "venue_name", "")
+            or "Nama Venue"
+        )
+        address = (
+            event.get("address")
+            or getattr(primary_event, "address", "")
+            or "Alamat venue"
+        )
+        gallery = content.get("gallery")
+        if not isinstance(gallery, list) or not 3 <= len(gallery) <= 12:
+            gallery = [
+                {"src": "/images/hero-editorial.webp", "alt": "Portrait of the couple"},
+                {"src": "/images/themes/elegant-classic.webp", "alt": "Invitation detail"},
+                {"src": "/images/themes/dark-cinematic.webp", "alt": "Editorial detail"},
+            ]
+
+        return {
+            **content,
+            "couple": {
+                "partnerOne": partner_one or "Nama Pasangan",
+                "partnerTwo": partner_two or "Nama Pasangan",
+                "monogram": monogram[:8],
+            },
+            "opening": {
+                "eyebrow": opening.get("eyebrow") or "Dengan penuh sukacita",
+                "title": opening.get("title") or "Kami mengundang Anda",
+                "message": opening.get("message") or "Untuk hadir di hari pernikahan kami.",
+            },
+            "event": {
+                "dateLabel": event.get("dateLabel") or date_label,
+                "ceremonyLabel": event.get("ceremonyLabel") or "Akad",
+                "ceremonyTime": event.get("ceremonyTime") or ceremony_time,
+                "receptionLabel": event.get("receptionLabel") or "Resepsi",
+                "receptionTime": event.get("receptionTime") or reception_time,
+                "venue": venue,
+                "address": address,
+                "mapUrl": event.get("mapUrl") or getattr(primary_event, "map_url", "") or "https://maps.google.com",
+            },
+            "story": {
+                "heading": story.get("heading") or "Cerita kami",
+                "body": story.get("body") or "Kami bertemu dan bertumbuh bersama.",
+            },
+            "quote": {
+                "text": quote.get("text")
+                or (
+                    "Dan di antara tanda-tanda kebesaran-Nya ialah Dia menciptakan "
+                    "pasangan-pasangan untukmu."
+                ),
+                "attribution": quote.get("attribution") or "Ar-Rum - 21",
+            },
+            "gallery": gallery,
+            "closing": {
+                "heading": closing.get("heading") or "Sampai bertemu",
+                "message": closing.get("message") or "Terima kasih atas doa dan restunya.",
+            },
+        }
 
     class Meta:
         model = Invitation
