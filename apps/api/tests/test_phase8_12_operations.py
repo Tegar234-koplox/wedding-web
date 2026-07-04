@@ -9,7 +9,7 @@ from rest_framework.exceptions import ValidationError
 
 from analytics.models import AnalyticsEvent
 from common.models import AuditEvent
-from invitations.models import Guest, InvitationMedia, WeddingEvent
+from invitations.models import Guest, Invitation, InvitationMedia, WeddingEvent
 from leads.models import WhatsAppIntent
 from media_library.models import MediaAsset
 from orders.lifecycle import ensure_order_transition
@@ -868,6 +868,35 @@ def test_staff_creates_guest_delivery_link_and_guest_uses_it_for_rsvp(client):
     guest = invitation.guests.get(display_name="Syarif")
     assert guest.rsvp_status == Guest.RSVPStatus.ACCEPTED
     assert AuditEvent.objects.filter(action="guest.delivery_link_created").exists()
+
+
+@pytest.mark.django_db
+def test_staff_guest_delivery_link_for_draft_includes_preview_token(client):
+    staff = create_user(
+        username="staff-draft",
+        email="staff-draft@example.com",
+        role="staff",
+        is_staff=True,
+    )
+    theme = create_theme()
+    invitation = create_invitation(
+        theme=theme,
+        public_slug="draft-delivery-link",
+        status=Invitation.Status.DRAFT,
+    )
+    client.force_login(staff)
+
+    response = client.post(
+        reverse("admin-invitation-guest-link-list", kwargs={"public_slug": invitation.public_slug}),
+        {"display_name": "Syarif", "party_size": 1},
+        content_type="application/json",
+        HTTP_ORIGIN="https://wedding.example",
+    )
+
+    assert response.status_code == 201
+    delivery_url = response.json()["delivery_url"]
+    assert "guest=" in delivery_url
+    assert "preview=" in delivery_url
 
 
 @pytest.mark.django_db
