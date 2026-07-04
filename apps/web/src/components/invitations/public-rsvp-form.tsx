@@ -7,10 +7,15 @@ import { env } from "@/lib/env";
 
 type PublicRSVPFormProps = {
   initialToken?: string;
+  previewToken?: string;
   publicSlug: string;
 };
 
-export function PublicRSVPForm({ initialToken = "", publicSlug }: PublicRSVPFormProps) {
+export function PublicRSVPForm({
+  initialToken = "",
+  previewToken = "",
+  publicSlug,
+}: PublicRSVPFormProps) {
   const [token, setToken] = useState(initialToken);
   const [status, setStatus] = useState("accepted");
   const [attendanceCount, setAttendanceCount] = useState("1");
@@ -27,6 +32,7 @@ export function PublicRSVPForm({ initialToken = "", publicSlug }: PublicRSVPForm
         {
           body: JSON.stringify({
             attendance_count: Number(attendanceCount),
+            preview: previewToken,
             rsvp_status: status,
             token: token.trim(),
             wishes,
@@ -39,7 +45,17 @@ export function PublicRSVPForm({ initialToken = "", publicSlug }: PublicRSVPForm
         },
       );
       if (!response.ok) {
-        setMessage("RSVP gagal dikirim. Pastikan link tamu valid dan jumlah hadir sesuai.");
+        const payload = await response.json().catch(() => null) as
+          | { detail?: string; attendance_count?: string[] | string }
+          | null;
+        const attendanceError = Array.isArray(payload?.attendance_count)
+          ? payload.attendance_count.join(" ")
+          : payload?.attendance_count;
+        setMessage(
+          attendanceError ??
+            payload?.detail ??
+            "RSVP gagal dikirim. Pastikan link tamu valid dan jumlah hadir sesuai.",
+        );
         return;
       }
       setMessage("RSVP tersimpan. Terima kasih atas konfirmasinya.");

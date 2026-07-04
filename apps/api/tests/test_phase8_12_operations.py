@@ -1,5 +1,6 @@
 import importlib
 from datetime import timedelta
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 from django.contrib.auth import get_user_model
@@ -937,6 +938,54 @@ def test_staff_guest_delivery_link_for_draft_includes_preview_token(client):
     delivery_url = response.json()["delivery_url"]
     assert "guest=" in delivery_url
     assert "preview=" in delivery_url
+
+
+@pytest.mark.django_db
+def test_draft_guest_delivery_link_accepts_rsvp_with_preview_token(client):
+    staff = create_user(
+        username="staff-draft-rsvp",
+        email="staff-draft-rsvp@example.com",
+        role="staff",
+        is_staff=True,
+    )
+    theme = create_theme()
+    invitation = create_invitation(
+        theme=theme,
+        public_slug="draft-delivery-rsvp",
+        status=Invitation.Status.DRAFT,
+    )
+    client.force_login(staff)
+
+    response = client.post(
+        reverse("admin-invitation-guest-link-list", kwargs={"public_slug": invitation.public_slug}),
+        {"display_name": "Syarif", "party_size": 1},
+        content_type="application/json",
+        HTTP_ORIGIN="https://wedding.example",
+    )
+
+    assert response.status_code == 201
+    query = parse_qs(urlparse(response.json()["delivery_url"]).query)
+    guest_token = query["guest"][0]
+    preview_token = query["preview"][0]
+
+    client.logout()
+    rsvp_response = client.post(
+        reverse("invitation-rsvp", kwargs={"public_slug": invitation.public_slug}),
+        {
+            "token": guest_token,
+            "preview": preview_token,
+            "rsvp_status": Guest.RSVPStatus.ACCEPTED,
+            "attendance_count": 1,
+            "wishes": "Selamat memulai lembaran baru",
+        },
+        content_type="application/json",
+    )
+
+    assert rsvp_response.status_code == 200
+    guest = invitation.guests.get(display_name="Syarif")
+    assert guest.rsvp_status == Guest.RSVPStatus.ACCEPTED
+    assert guest.attendance_count == 1
+    assert guest.wishes == "Selamat memulai lembaran baru"
 
 
 @pytest.mark.django_db
