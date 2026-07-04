@@ -152,15 +152,15 @@ describe("renderer v2 invitation experience", () => {
 
     expect(
       container.querySelectorAll('[data-decoration-layer="section"]').length,
-    ).toBe(5);
+    ).toBe(16);
     expect(
       container.querySelectorAll('[data-decoration-layer="section-overlay"]')
         .length,
-    ).toBe(5);
+    ).toBe(16);
     expect(
       container.querySelectorAll('[data-decoration-layer="section-corners"]')
         .length,
-    ).toBe(5);
+    ).toBe(16);
   });
 
   it("does not add premium decoration to Essential", () => {

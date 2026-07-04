@@ -53,6 +53,9 @@ type BankAccount = {
   number?: string;
 };
 
+type TimelineEntry = readonly [string, string, string];
+type TimelineEntries = readonly TimelineEntry[];
+
 const textFadeTransition = { duration: 0.85, ease: [0.22, 1, 0.36, 1] } as const;
 
 const essentialSectionFourPhotos = [
@@ -136,6 +139,79 @@ const signatureSectionPhotos = {
   ],
 } as const;
 
+const coutureSectionPhotos = {
+  4: [
+    {
+      alt: "Couture wedding story photo top",
+      src: "/images/invitation-couture/photos/section-4/top.jpg",
+    },
+    {
+      alt: "Couture wedding story photo middle",
+      src: "/images/invitation-couture/photos/section-4/middle.jpg",
+    },
+    {
+      alt: "Couture wedding story photo bottom",
+      src: "/images/invitation-couture/photos/section-4/bottom.jpg",
+    },
+  ],
+  6: [
+    {
+      alt: "Couture timeline photo top",
+      src: "/images/invitation-couture/photos/section-6/top.jpg",
+    },
+    {
+      alt: "Couture timeline photo middle",
+      src: "/images/invitation-couture/photos/section-6/middle.jpg",
+    },
+    {
+      alt: "Couture timeline photo bottom",
+      src: "/images/invitation-couture/photos/section-6/bottom.jpg",
+    },
+  ],
+  8: [
+    {
+      alt: "Couture intimacy photo top",
+      src: "/images/invitation-couture/photos/section-8/top.png",
+    },
+    {
+      alt: "Couture intimacy photo middle",
+      src: "/images/invitation-couture/photos/section-8/middle.png",
+    },
+    {
+      alt: "Couture intimacy photo bottom",
+      src: "/images/invitation-couture/photos/section-8/bottom.png",
+    },
+  ],
+  10: [
+    {
+      alt: "Couture trust photo top",
+      src: "/images/invitation-couture/photos/section-10/top.png",
+    },
+    {
+      alt: "Couture trust photo middle",
+      src: "/images/invitation-couture/photos/section-10/middle.png",
+    },
+    {
+      alt: "Couture trust photo bottom",
+      src: "/images/invitation-couture/photos/section-10/bottom.png",
+    },
+  ],
+  12: [
+    {
+      alt: "Couture final story photo top",
+      src: "/images/invitation-couture/photos/section-12/top.png",
+    },
+    {
+      alt: "Couture final story photo middle",
+      src: "/images/invitation-couture/photos/section-12/middle.png",
+    },
+    {
+      alt: "Couture final story photo bottom",
+      src: "/images/invitation-couture/photos/section-12/bottom.png",
+    },
+  ],
+} as const;
+
 const signatureGiftFolders: Record<RendererKey, string> = {
   "dark-cinematic": "dark-cinematic",
   "elegant-classic": "elegant-classic",
@@ -144,6 +220,23 @@ const signatureGiftFolders: Record<RendererKey, string> = {
   "javanese-traditional": "javanese-traditional",
   "luxury-gold": "luxury-gold",
   "minimalist-white": "minimalist-white",
+};
+
+const coutureGiftSoundEffects: Record<RendererKey, string> = {
+  "dark-cinematic":
+    "https://res.cloudinary.com/djhewrs1n/video/upload/v1783150346/chest_treasure_tntcss.mp3",
+  "elegant-classic":
+    "https://res.cloudinary.com/djhewrs1n/video/upload/v1783150404/book_open_wthcdp.mp3",
+  "floral-romantic":
+    "https://res.cloudinary.com/djhewrs1n/video/upload/v1783150533/bloom_flower_sgun0y.mp3",
+  "islamic-soft":
+    "https://res.cloudinary.com/djhewrs1n/video/upload/v1783150566/shine_v0l8dd.mp3",
+  "javanese-traditional":
+    "https://res.cloudinary.com/djhewrs1n/video/upload/v1783150592/magical_sword_grzuis.mp3",
+  "luxury-gold":
+    "https://res.cloudinary.com/djhewrs1n/video/upload/v1783150619/sparkle_utsi71.mp3",
+  "minimalist-white":
+    "https://res.cloudinary.com/djhewrs1n/video/upload/v1783150677/grow_tree_qm57u4.mp3",
 };
 
 function FadeText({
@@ -560,16 +653,18 @@ function SignaturePhotoSection({
   design,
   photos,
   premium,
+  showOverlay = false,
   variant,
 }: {
   design: ThemeVisual;
   photos: readonly { alt: string; src: string }[];
   premium: PremiumVisualConfig;
+  showOverlay?: boolean;
   variant: "three" | "two";
 }) {
   return (
     <section className={`${design.page} relative overflow-hidden px-2 py-2`}>
-      <ThemeSectionDecoration config={premium} showOverlay={false} />
+      <ThemeSectionDecoration config={premium} showOverlay={showOverlay} />
       <div
         className={`relative z-10 grid gap-2 ${
           variant === "three" ? "md:grid-cols-3" : "md:grid-cols-2"
@@ -607,14 +702,16 @@ function SignatureGallerySection({
   design,
   gallery,
   premium,
+  showOverlay = false,
 }: {
   design: ThemeVisual;
   gallery: InvitationEnvelope["content"]["gallery"];
   premium: PremiumVisualConfig;
+  showOverlay?: boolean;
 }) {
   return (
     <section className={`${design.page} relative overflow-hidden px-2 py-2`}>
-      <ThemeSectionDecoration config={premium} showOverlay={false} />
+      <ThemeSectionDecoration config={premium} showOverlay={showOverlay} />
       <div className="relative z-10 grid gap-2 md:grid-cols-3">
         {gallery.slice(0, 3).map((image, index) => (
           <motion.div
@@ -734,6 +831,75 @@ function getTimelineEntries(
       ];
 }
 
+function getCoutureTimelineEntries(
+  invitation: InvitationEnvelope,
+  mode: "opening" | "conflict" | "intimacy" | "trust" | "final",
+): TimelineEntries {
+  const id = invitation.locale === "id";
+  const entries = {
+    opening: id
+      ? [
+          ["01", "Bertemu", "Sebuah awal yang sederhana yang membuka ruang untuk saling mengenal."],
+          ["02", "Bertumbuh", "Cerita itu tumbuh melalui waktu, jarak, dan pilihan untuk tetap bersama."],
+          ["03", "Suka Cita", "Rasa bahagia dan damai selalu tumbuh setiap hari membawa kesuburan."],
+        ]
+      : [
+          ["01", "Meeting", "A simple beginning opened space for us to know one another."],
+          ["02", "Growing", "The story grew through time, distance, and the choice to stay together."],
+          ["03", "Joy", "Happiness and peace keep growing each day, bringing life into bloom."],
+        ],
+    conflict: id
+      ? [
+          ["04", "Tragedi Lembut", "Konflik yang turut mewarnai perjalanan dengan kontrol hati yang terarah."],
+          ["05", "Sadar", "Ego tidak bisa melawan ego, masing-masing kami adalah rumah."],
+          ["06", "Sabar", "Besar kecilnya masalah akan tetap kalah dengan tekad dan keteguhan hati yang selalu ingin bersama."],
+        ]
+      : [
+          ["04", "A Gentle Tragedy", "Conflict colored the journey, guided by hearts learning direction."],
+          ["05", "Awake", "Ego cannot defeat ego; each of us learned that the other is home."],
+          ["06", "Patient", "Every problem, big or small, bows to the resolve and steadfastness that keep choosing togetherness."],
+        ],
+    intimacy: id
+      ? [
+          ["07", "Teliti", "Memperhatikan dan mengapresiasi hal-hal kecil untuk menjaga keintiman tetap hangat."],
+          ["08", "Konsisten", "Naik turunnya rasa adalah hal rumit bagi kami, namun kemauan kami jauh lebih besar."],
+          ["09", "Merajut", "Tetap saling melengkapi disaat hal-hal yang belum diketahui mulai terlihat sedikit demi sedikit."],
+        ]
+      : [
+          ["07", "Attentive", "Noticing and appreciating small things keeps intimacy warm."],
+          ["08", "Consistent", "The rise and fall of feelings can be complicated, yet our willingness is far greater."],
+          ["09", "Weaving", "We keep completing one another as the unknown slowly begins to reveal itself."],
+        ],
+    trust: id
+      ? [
+          ["10", "Percaya", "Sedikit kecurigaan, lebih besar kepercayaan yang pada akhirnya saling mengikat."],
+          ["11", "Memberi", "Bukan tentang materi, tapi sesuatu yang lebih berarti, tatapan yang jujur misalnya."],
+          ["12", "Menguatkan", "Saling mendorong untuk meningkatkan nilai yang luhur dan mencapai hal-hal kecil untuk menunjang hal yang lebih besar. Salah satunya adalah kisah ini."],
+        ]
+      : [
+          ["10", "Trust", "A little suspicion, but far greater trust, ultimately binding us together."],
+          ["11", "Giving", "Not about material things, but something more meaningful, an honest gaze for example."],
+          ["12", "Strengthening", "Encouraging one another to grow in noble value and accomplish small things that support something greater. One of them is this story."],
+        ],
+    final: id
+      ? [
+          ["11", "Mendengar", "Sebuah validasi yang berarti sebagai langkah awal untuk menumbuhkan rasa setiap hari."],
+          ["12", "Maaf", "Bukan siapa yang paling salah, tapi siapa yang paling cinta, dan kami melakukannya."],
+          ["13", "Hari Ini", "Kini perjalanan itu menuju hari yang kami rayakan bersama orang-orang terdekat."],
+        ]
+      : [
+          ["11", "Listening", "A meaningful validation became the first step in growing love each day."],
+          ["12", "Forgiveness", "It was never about who was most wrong, but who loved most, and we chose to do it."],
+          ["13", "Today", "That journey now becomes a celebration shared with the people closest to us."],
+        ],
+  } satisfies Record<
+    "opening" | "conflict" | "intimacy" | "trust" | "final",
+    TimelineEntries
+  >;
+
+  return entries[mode];
+}
+
 function SignatureStoryTimelineSection({
   design,
   includeIntro,
@@ -741,6 +907,8 @@ function SignatureStoryTimelineSection({
   invitation,
   mode,
   premium,
+  showOverlay = false,
+  timeline,
 }: {
   design: ThemeVisual;
   includeIntro: boolean;
@@ -748,10 +916,12 @@ function SignatureStoryTimelineSection({
   invitation: InvitationEnvelope;
   mode: "opening" | "middle" | "final";
   premium: PremiumVisualConfig;
+  showOverlay?: boolean;
+  timeline?: TimelineEntries;
 }) {
   const { couple, quote, story } = invitation.content;
   const id = invitation.locale === "id";
-  const timeline = getTimelineEntries(invitation, mode);
+  const timelineEntries = timeline ?? getTimelineEntries(invitation, mode);
   const copy =
     mode === "middle"
       ? id
@@ -765,7 +935,7 @@ function SignatureStoryTimelineSection({
 
   return (
     <section className="relative overflow-hidden px-6 py-24 md:px-12 md:py-36">
-      <ThemeSectionDecoration config={premium} showOverlay={false} />
+      <ThemeSectionDecoration config={premium} showOverlay={showOverlay} />
       <div
         className={`relative z-30 mx-auto grid max-w-6xl gap-14 ${
           includeIntro ? "lg:grid-cols-[0.85fr_1.15fr]" : ""
@@ -796,7 +966,7 @@ function SignatureStoryTimelineSection({
         >
           <p className={`text-lg leading-9 ${design.muted}`}>{copy}</p>
           <div className="mt-12 grid gap-px bg-current/15 md:grid-cols-3">
-            {timeline.map(([number, title, description]) => (
+            {timelineEntries.map(([number, title, description]) => (
               <div className={`${design.surface} p-6`} key={number}>
                 <p className={`text-[0.58rem] uppercase tracking-[0.2em] ${design.accent}`}>
                   {number}
@@ -830,18 +1000,20 @@ function SignatureRsvpPreviewSection({
   invitation,
   premium,
   rsvpSlot,
+  showOverlay = false,
 }: {
   design: ThemeVisual;
   invitation: InvitationEnvelope;
   premium: PremiumVisualConfig;
   rsvpSlot?: React.ReactNode;
+  showOverlay?: boolean;
 }) {
   const id = invitation.locale === "id";
 
   if (rsvpSlot) {
     return (
       <section className={`${design.page} relative overflow-hidden`}>
-        <ThemeSectionDecoration config={premium} showOverlay={false} />
+        <ThemeSectionDecoration config={premium} showOverlay={showOverlay} />
         <div className="relative z-30">{rsvpSlot}</div>
       </section>
     );
@@ -849,7 +1021,7 @@ function SignatureRsvpPreviewSection({
 
   return (
     <section className={`${design.surface} relative overflow-hidden px-6 py-24 md:px-12 md:py-36`}>
-      <ThemeSectionDecoration config={premium} showOverlay={false} />
+      <ThemeSectionDecoration config={premium} showOverlay={showOverlay} />
       <div className="relative z-30 mx-auto grid max-w-4xl gap-7 border border-current/20 p-6 md:p-10">
         <div>
           <p className={`text-[0.6rem] uppercase tracking-[0.25em] ${design.accent}`}>
@@ -920,6 +1092,83 @@ function SignatureGiftSection({
           borderClass={design.border}
           glowClass={design.glow}
           onOpen={() => setOpened(true)}
+          opened={opened}
+        />
+
+        <AnimatePresence>
+          {opened ? (
+            <motion.div
+              animate={{ opacity: 1, y: 0 }}
+              className={`mt-8 min-w-64 border px-7 py-5 ${design.border}`}
+              exit={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 14 }}
+              transition={textFadeTransition}
+            >
+              <p className={`text-[0.58rem] uppercase tracking-[0.22em] ${design.accent}`}>
+                {id ? "Rekening pengantin" : "Couple account"}
+              </p>
+              <p className="mt-3 font-serif text-2xl">{account.label}</p>
+              {account.name ? (
+                <p className={`mt-2 text-sm ${design.muted}`}>{account.name}</p>
+              ) : null}
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+      </div>
+    </section>
+  );
+}
+
+function CoutureGiftSection({
+  design,
+  invitation,
+  onGiftEffect,
+  premium,
+}: {
+  design: ThemeVisual;
+  invitation: InvitationEnvelope;
+  onGiftEffect: (effectUrl: string) => void;
+  premium: PremiumVisualConfig;
+}) {
+  const [opened, setOpened] = useState(false);
+  const id = invitation.locale === "id";
+  const account = getGiftAccount(invitation, id);
+  const folder = signatureGiftFolders[invitation.rendererKey];
+  const effectUrl = coutureGiftSoundEffects[invitation.rendererKey];
+
+  function openGift() {
+    setOpened(true);
+    onGiftEffect(effectUrl);
+  }
+
+  return (
+    <section
+      className={`${design.surface} relative grid min-h-[78svh] place-items-center overflow-hidden px-6 py-24 text-center md:px-12`}
+    >
+      <ThemeSectionDecoration config={premium} showOverlay />
+      <FadeText className="relative z-30 mx-auto max-w-3xl">
+        <p className={`text-[0.6rem] uppercase tracking-[0.25em] ${design.accent}`}>
+          {id ? "Gift" : "Gift"}
+        </p>
+        <h2 className="mt-8 font-serif text-[clamp(3rem,8vw,7rem)] leading-[0.86] tracking-[-0.05em]">
+          {id ? "Tanda kasih." : "A token of love."}
+        </h2>
+        <p className={`mx-auto mt-7 max-w-xl text-sm leading-7 ${design.muted}`}>
+          {id
+            ? "Doa dan kehadiran Anda adalah hadiah utama. Jika ingin menitipkan tanda kasih, detail rekening tersedia di bawah ini."
+            : "Your prayers and presence are the greatest gift. If you would like to send a token of love, the account detail is available below."}
+        </p>
+      </FadeText>
+
+      <div className="relative z-30 mt-12 flex flex-col items-center">
+        <GiftIconButton
+          afterAlt="Gift opened"
+          afterSrc={`/images/invitation-couture/gift/${folder}/after-tap.webp`}
+          beforeAlt="Gift"
+          beforeSrc={`/images/invitation-couture/gift/${folder}/before-tap.webp`}
+          borderClass={design.border}
+          glowClass={design.glow}
+          onOpen={openGift}
           opened={opened}
         />
 
@@ -1084,6 +1333,162 @@ function EventStory({
           photos={signatureSectionPhotos[10]}
           premium={premium}
           variant="two"
+        />
+      </>
+    );
+  }
+
+  if (packageCode === "couture") {
+    return (
+      <>
+        <motion.section
+          className={`${design.surface} relative overflow-hidden px-6 py-24 md:px-12 md:py-36`}
+          initial={{ opacity: 0, y: revealDistance }}
+          transition={{ duration: 0.85 }}
+          viewport={{ once: true, amount: 0.18 }}
+          whileInView={{ opacity: 1, y: 0 }}
+        >
+          <ThemeSectionDecoration config={premium} showOverlay />
+          <div className="relative z-30 mx-auto max-w-6xl">
+            <FadeText className="text-center">
+              <p className="text-[0.6rem] uppercase tracking-[0.25em] opacity-55">
+                {id ? "Waktu & Tempat" : "Time & Place"}
+              </p>
+              <h2 className="mx-auto mt-7 max-w-4xl font-serif text-[clamp(3rem,8vw,7rem)] leading-[0.86] tracking-[-0.05em]">
+                {event.dateLabel}
+              </h2>
+            </FadeText>
+            <div className="mt-16 grid gap-px bg-current/15 md:grid-cols-3">
+              {[
+                {
+                  label: event.ceremonyLabel,
+                  value: event.ceremonyTime,
+                  Icon: CalendarDays,
+                },
+                {
+                  label: event.receptionLabel,
+                  value: event.receptionTime,
+                  Icon: CalendarDays,
+                },
+                { label: event.venue, value: event.address, Icon: MapPin },
+              ].map(({ label, value, Icon }, index) => (
+                <FadeText
+                  className={`${design.surface} p-7`}
+                  delay={index * 0.08}
+                  key={label}
+                >
+                  <Icon size={19} />
+                  <p className="mt-9 text-[0.6rem] uppercase tracking-[0.18em] opacity-55">
+                    {label}
+                  </p>
+                  <p className="mt-3 font-serif text-2xl leading-8">{value}</p>
+                </FadeText>
+              ))}
+            </div>
+            <FadeText delay={0.18}>
+              <a
+                className={`mx-auto mt-9 flex w-fit items-center gap-2 border-b pb-1 text-[0.62rem] uppercase tracking-[0.18em] ${design.border}`}
+                href={event.mapUrl}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                <MapPin size={14} />
+                {id ? "Buka peta" : "Open map"}
+              </a>
+            </FadeText>
+          </div>
+        </motion.section>
+
+        <SignatureGallerySection
+          design={design}
+          gallery={gallery}
+          premium={premium}
+          showOverlay
+        />
+        <SignatureStoryTimelineSection
+          design={design}
+          includeIntro
+          includeQuote={false}
+          invitation={invitation}
+          mode="opening"
+          premium={premium}
+          showOverlay
+          timeline={getCoutureTimelineEntries(invitation, "opening")}
+        />
+        <SignaturePhotoSection
+          design={design}
+          photos={coutureSectionPhotos[4]}
+          premium={premium}
+          showOverlay
+          variant="three"
+        />
+        <SignatureStoryTimelineSection
+          design={design}
+          includeIntro={false}
+          includeQuote={false}
+          invitation={invitation}
+          mode="middle"
+          premium={premium}
+          showOverlay
+          timeline={getCoutureTimelineEntries(invitation, "conflict")}
+        />
+        <SignaturePhotoSection
+          design={design}
+          photos={coutureSectionPhotos[6]}
+          premium={premium}
+          showOverlay
+          variant="three"
+        />
+        <SignatureStoryTimelineSection
+          design={design}
+          includeIntro={false}
+          includeQuote={false}
+          invitation={invitation}
+          mode="middle"
+          premium={premium}
+          showOverlay
+          timeline={getCoutureTimelineEntries(invitation, "intimacy")}
+        />
+        <SignaturePhotoSection
+          design={design}
+          photos={coutureSectionPhotos[8]}
+          premium={premium}
+          showOverlay
+          variant="three"
+        />
+        <SignatureStoryTimelineSection
+          design={design}
+          includeIntro={false}
+          includeQuote={false}
+          invitation={invitation}
+          mode="middle"
+          premium={premium}
+          showOverlay
+          timeline={getCoutureTimelineEntries(invitation, "trust")}
+        />
+        <SignaturePhotoSection
+          design={design}
+          photos={coutureSectionPhotos[10]}
+          premium={premium}
+          showOverlay
+          variant="three"
+        />
+        <SignatureStoryTimelineSection
+          design={design}
+          includeIntro={false}
+          includeQuote
+          invitation={invitation}
+          mode="final"
+          premium={premium}
+          showOverlay
+          timeline={getCoutureTimelineEntries(invitation, "final")}
+        />
+        <SignaturePhotoSection
+          design={design}
+          photos={coutureSectionPhotos[12]}
+          premium={premium}
+          showOverlay
+          variant="three"
         />
       </>
     );
@@ -1356,6 +1761,7 @@ export function RendererV2({
   const { closing, couple } = invitation.content;
   const essential = packageCode === "essential";
   const signature = packageCode === "signature";
+  const couture = packageCode === "couture";
 
   useEffect(() => {
     const element = audioRef.current;
@@ -1425,6 +1831,35 @@ export function RendererV2({
     }
   }
 
+  async function playGiftEffect(effectUrl: string) {
+    const backgroundAudio = audioRef.current;
+    const previousVolume = backgroundAudio?.volume ?? audio?.default_volume ?? 0.55;
+
+    if (backgroundAudio) {
+      backgroundAudio.volume = Math.max(0.08, previousVolume * 0.28);
+    }
+
+    const effect = new Audio(effectUrl);
+    effect.volume = 0.9;
+
+    const restoreVolume = () => {
+      if (backgroundAudio) {
+        backgroundAudio.volume = previousVolume;
+      }
+      effect.removeEventListener("ended", restoreVolume);
+      effect.removeEventListener("error", restoreVolume);
+    };
+
+    effect.addEventListener("ended", restoreVolume);
+    effect.addEventListener("error", restoreVolume);
+
+    try {
+      await effect.play();
+    } catch {
+      restoreVolume();
+    }
+  }
+
   return (
     <MotionConfig reducedMotion="user">
       <article
@@ -1484,6 +1919,25 @@ export function RendererV2({
                 invitation={invitation}
                 premium={premium}
               />
+            ) : null}
+            {couture ? (
+              <>
+                <SignatureRsvpPreviewSection
+                  design={design}
+                  invitation={invitation}
+                  premium={premium}
+                  rsvpSlot={rsvpSlot}
+                  showOverlay
+                />
+                <CoutureGiftSection
+                  design={design}
+                  invitation={invitation}
+                  onGiftEffect={(effectUrl) => {
+                    void playGiftEffect(effectUrl);
+                  }}
+                  premium={premium}
+                />
+              </>
             ) : null}
             <motion.section
               className={`${design.surface} relative grid min-h-[78svh] place-items-center overflow-hidden px-6 py-24 text-center`}

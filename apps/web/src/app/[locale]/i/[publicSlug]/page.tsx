@@ -64,6 +64,8 @@ export default async function PublicInvitationPage({
   const rsvpForm = (
     <PublicRSVPForm initialToken={query?.guest} publicSlug={publicSlug} />
   );
+  const renderRsvpInsideInvitation =
+    packageCode === "signature" || packageCode === "couture";
 
   return (
     <>
@@ -71,10 +73,10 @@ export default async function PublicInvitationPage({
         audio={invitation.audio}
         invitation={localizedInvitation}
         packageCode={packageCode}
-        rsvpSlot={packageCode === "signature" ? rsvpForm : undefined}
+        rsvpSlot={renderRsvpInsideInvitation ? rsvpForm : undefined}
         weather={weather}
       />
-      {packageCode === "signature" ? null : rsvpForm}
+      {renderRsvpInsideInvitation ? null : rsvpForm}
     </>
   );
 }
