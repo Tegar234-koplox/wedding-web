@@ -1131,6 +1131,7 @@ function CoutureGiftSection({
   premium: PremiumVisualConfig;
 }) {
   const [opened, setOpened] = useState(false);
+  const effectPlayedRef = useRef(false);
   const id = invitation.locale === "id";
   const account = getGiftAccount(invitation, id);
   const folder = signatureGiftFolders[invitation.rendererKey];
@@ -1138,6 +1139,10 @@ function CoutureGiftSection({
 
   function openGift() {
     setOpened(true);
+    if (effectPlayedRef.current) {
+      return;
+    }
+    effectPlayedRef.current = true;
     onGiftEffect(effectUrl);
   }
 
