@@ -1008,6 +1008,7 @@ def test_staff_exports_guest_delivery_links_as_csv(client):
             "admin-invitation-guest-link-export",
             kwargs={"public_slug": invitation.public_slug},
         ),
+        HTTP_ACCEPT="text/csv",
         HTTP_ORIGIN="https://wedding.example",
     )
 

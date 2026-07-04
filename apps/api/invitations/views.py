@@ -13,6 +13,7 @@ from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import serializers
 from rest_framework.generics import ListAPIView, RetrieveAPIView
 from rest_framework.permissions import AllowAny
+from rest_framework.renderers import BaseRenderer, JSONRenderer
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -38,6 +39,15 @@ from media_library.services import ALLOWED_AUDIO_FORMATS, public_audio_payload
 from orders.models import Order
 from orders.permissions import IsStaffRole
 from weather.services import weather_for_invitation
+
+
+class CSVRenderer(BaseRenderer):
+    media_type = "text/csv"
+    format = "csv"
+    charset = "utf-8"
+
+    def render(self, data, accepted_media_type=None, renderer_context=None):
+        return data
 
 
 class InvitationDetailView(RetrieveAPIView):
@@ -617,6 +627,7 @@ class StaffInvitationGuestLinkListCreateView(APIView):
 
 class StaffInvitationGuestLinkExportView(APIView):
     permission_classes = [IsStaffRole]
+    renderer_classes = [CSVRenderer, JSONRenderer]
 
     def get(self, request, public_slug: str) -> HttpResponse:
         invitation = Invitation.objects.filter(public_slug=public_slug).first()
