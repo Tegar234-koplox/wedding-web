@@ -44,6 +44,11 @@ const emptyOrderForm: OrderForm = {
 
 const controlClassName =
   "min-h-10 w-full border border-white/12 bg-black/20 px-3 text-sm text-white outline-none transition focus:border-[var(--color-gold)]";
+const selectClassName = cn(
+  controlClassName,
+  "cursor-pointer bg-[#0b0b09] text-white [color-scheme:dark]",
+);
+const optionClassName = "bg-[#0b0b09] text-white";
 const ghostButtonClassName =
   "inline-flex min-h-11 items-center gap-3 border border-white/15 px-4 text-xs font-semibold uppercase tracking-[0.14em] text-white/70 transition hover:border-[var(--color-gold)] hover:text-[var(--color-gold)] disabled:opacity-45";
 
@@ -254,37 +259,43 @@ export function AdminOperations() {
           </button>
           <div className="flex flex-wrap items-center gap-3">
             <select
-              className={cn(controlClassName, "w-44")}
+              className={cn(selectClassName, "w-44")}
               onChange={(event) => setPackageFilter(event.target.value)}
               value={packageFilter}
             >
-              <option value="">Semua paket</option>
+              <option className={optionClassName} value="">
+                Semua paket
+              </option>
               {packages.map((item) => (
-                <option key={item.code} value={item.code}>
+                <option className={optionClassName} key={item.code} value={item.code}>
                   {item.name}
                 </option>
               ))}
             </select>
             <select
-              className={cn(controlClassName, "w-48")}
+              className={cn(selectClassName, "w-48")}
               onChange={(event) => setWorkflowFilter(event.target.value)}
               value={workflowFilter}
             >
-              <option value="">Semua status</option>
+              <option className={optionClassName} value="">
+                Semua status
+              </option>
               {workflowLabels.map((label) => (
-                <option key={label} value={label}>
+                <option className={optionClassName} key={label} value={label}>
                   {label}
                 </option>
               ))}
             </select>
             <select
-              className={cn(controlClassName, "w-44")}
+              className={cn(selectClassName, "w-44")}
               onChange={(event) => setPaymentFilter(event.target.value)}
               value={paymentFilter}
             >
-              <option value="">Semua bayar</option>
+              <option className={optionClassName} value="">
+                Semua bayar
+              </option>
               {Object.entries(paymentLabels).map(([value, label]) => (
-                <option key={value} value={value}>
+                <option className={optionClassName} key={value} value={value}>
                   {label}
                 </option>
               ))}
@@ -432,15 +443,17 @@ export function AdminOperations() {
               </Field>
               <Field label="Paket">
                 <select
-                  className={controlClassName}
+                  className={selectClassName}
                   onChange={(event) =>
                     setOrderForm((current) => ({ ...current, package_code: event.target.value }))
                   }
                   value={orderForm.package_code}
                 >
-                  <option value="">Belum memilih paket</option>
+                  <option className={optionClassName} value="">
+                    Belum memilih paket
+                  </option>
                   {packages.map((item) => (
-                    <option key={item.code} value={item.code}>
+                    <option className={optionClassName} key={item.code} value={item.code}>
                       {item.name}
                     </option>
                   ))}
@@ -458,7 +471,7 @@ export function AdminOperations() {
               </Field>
               <Field label="Status Pembayaran">
                 <select
-                  className={controlClassName}
+                  className={selectClassName}
                   onChange={(event) =>
                     setOrderForm((current) => ({
                       ...current,
@@ -468,7 +481,7 @@ export function AdminOperations() {
                   value={orderForm.payment_status}
                 >
                   {Object.entries(paymentLabels).map(([value, label]) => (
-                    <option key={value} value={value}>
+                    <option className={optionClassName} key={value} value={value}>
                       {label}
                     </option>
                   ))}

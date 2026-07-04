@@ -81,6 +81,11 @@ const emptyForm: OrderDetailForm = {
 
 const controlClassName =
   "min-h-11 w-full border border-white/12 bg-black/20 px-3 text-sm text-white outline-none transition focus:border-[var(--color-gold)]";
+const selectClassName = cn(
+  controlClassName,
+  "cursor-pointer bg-[#0b0b09] text-white [color-scheme:dark]",
+);
+const optionClassName = "bg-[#0b0b09] text-white";
 const outlineButtonClassName =
   "inline-flex min-h-11 items-center justify-center gap-3 border border-white/15 px-4 text-xs font-semibold uppercase tracking-[0.14em] text-white/70 transition hover:border-[var(--color-gold)] hover:text-[var(--color-gold)] disabled:opacity-45";
 
@@ -348,12 +353,12 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
             <div className="grid gap-4 md:grid-cols-3">
               <Field label="Status">
                 <select
-                  className={controlClassName}
+                  className={selectClassName}
                   onChange={(event) => updateForm("status_label", event.target.value)}
                   value={form.status_label}
                 >
                   {workflowLabels.map((label) => (
-                    <option key={label} value={label}>
+                    <option className={optionClassName} key={label} value={label}>
                       {label}
                     </option>
                   ))}
@@ -361,14 +366,14 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
               </Field>
               <Field label="Status Pembayaran">
                 <select
-                  className={controlClassName}
+                  className={selectClassName}
                   onChange={(event) =>
                     updateForm("payment_status", event.target.value as PaymentStatus)
                   }
                   value={form.payment_status}
                 >
                   {Object.entries(paymentLabels).map(([value, label]) => (
-                    <option key={value} value={value}>
+                    <option className={optionClassName} key={value} value={value}>
                       {label}
                     </option>
                   ))}
@@ -434,13 +439,15 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
             <div className="grid gap-4 md:grid-cols-2">
               <Field label="Tema">
                 <select
-                  className={controlClassName}
+                  className={selectClassName}
                   onChange={(event) => updateForm("theme_slug", event.target.value)}
                   value={form.theme_slug}
                 >
-                  <option value="">Belum memilih tema</option>
+                  <option className={optionClassName} value="">
+                    Belum memilih tema
+                  </option>
                   {themes.map((theme) => (
-                    <option key={theme.slug} value={theme.slug}>
+                    <option className={optionClassName} key={theme.slug} value={theme.slug}>
                       {theme.name}
                     </option>
                   ))}
@@ -448,13 +455,15 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
               </Field>
               <Field label="Paket">
                 <select
-                  className={controlClassName}
+                  className={selectClassName}
                   onChange={(event) => updateForm("package_code", event.target.value)}
                   value={form.package_code}
                 >
-                  <option value="">Belum memilih paket</option>
+                  <option className={optionClassName} value="">
+                    Belum memilih paket
+                  </option>
                   {packages.map((pack) => (
-                    <option key={pack.code} value={pack.code}>
+                    <option className={optionClassName} key={pack.code} value={pack.code}>
                       {pack.name}
                     </option>
                   ))}
