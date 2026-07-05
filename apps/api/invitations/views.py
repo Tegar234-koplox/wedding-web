@@ -72,7 +72,7 @@ class InvitationPreviewDetailView(APIView):
         token = request.query_params.get("token", "")
         if invitation is None or not preview_token_is_valid(invitation, token):
             raise Http404
-        return Response(PublicInvitationSerializer(invitation).data)
+        return Response(PublicInvitationSerializer(invitation, context={"request": request}).data)
 
 
 class InvitationWeatherView(APIView):

@@ -31,11 +31,20 @@ async function apiFetch(path: string): Promise<unknown> {
 export async function fetchPublicInvitation(
   publicSlug: string,
   previewToken?: string,
+  guestToken?: string,
 ): Promise<PublicInvitation | null> {
   try {
+    const query = new URLSearchParams();
+    if (previewToken) {
+      query.set("token", previewToken);
+    }
+    if (guestToken) {
+      query.set("guest", guestToken);
+    }
+    const suffix = query.size ? `?${query.toString()}` : "";
     const path = previewToken
-      ? `/invitations/${publicSlug}/preview?token=${encodeURIComponent(previewToken)}`
-      : `/invitations/${publicSlug}`;
+      ? `/invitations/${publicSlug}/preview${suffix}`
+      : `/invitations/${publicSlug}${suffix}`;
     return publicInvitationSchema.parse(
       await apiFetch(path),
     );

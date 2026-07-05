@@ -51,6 +51,20 @@ describe("renderer v2 invitation experience", () => {
     expect(screen.getByText("Waktu & Tempat")).toBeTruthy();
   });
 
+  it("shows the invited guest name on the cover when a guest link is used", () => {
+    render(
+      <RendererV2
+        invitation={{
+          ...getSampleInvitation("elegant-classic", "id"),
+          guest: { displayName: "Syarif" },
+        }}
+        packageCode="signature"
+      />,
+    );
+
+    expect(screen.getByText("Untuk Syarif")).toBeTruthy();
+  });
+
   it("does not render a music control when no licensed audio exists", () => {
     render(
       <RendererV2

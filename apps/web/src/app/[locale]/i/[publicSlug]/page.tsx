@@ -22,7 +22,7 @@ export async function generateMetadata({
 }: PublicInvitationPageProps): Promise<Metadata> {
   const { publicSlug } = await params;
   const query = await searchParams;
-  const invitation = await fetchPublicInvitation(publicSlug, query?.preview);
+  const invitation = await fetchPublicInvitation(publicSlug, query?.preview, query?.guest);
   if (!invitation) {
     return {};
   }
@@ -46,7 +46,7 @@ export default async function PublicInvitationPage({
   }
 
   const [invitation, weather] = await Promise.all([
-    fetchPublicInvitation(publicSlug, query?.preview),
+    fetchPublicInvitation(publicSlug, query?.preview, query?.guest),
     fetchInvitationWeather(publicSlug),
   ]);
   if (!invitation) {
@@ -59,6 +59,7 @@ export default async function PublicInvitationPage({
     contentSchemaVersion: invitation.contentSchemaVersion,
     locale,
     content: invitation.content,
+    guest: invitation.guest,
   };
   const packageCode = resolvePackageCode(invitation.package_code);
   const renderRsvpInsideInvitation =

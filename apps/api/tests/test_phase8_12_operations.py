@@ -923,6 +923,14 @@ def test_staff_creates_guest_delivery_link_and_guest_uses_it_for_rsvp(client):
     token = payload["delivery_url"].split("guest=", 1)[1]
 
     client.logout()
+    invitation_response = client.get(
+        reverse("invitation-detail", kwargs={"public_slug": invitation.public_slug}),
+        {"guest": token},
+    )
+    assert invitation_response.status_code == 200
+    assert invitation_response.json()["guest"] == {"displayName": "Syarif"}
+    assert "syarif@example.com" not in invitation_response.content.decode()
+
     rsvp_response = client.post(
         reverse("invitation-rsvp", kwargs={"public_slug": invitation.public_slug}),
         {
@@ -998,6 +1006,13 @@ def test_draft_guest_delivery_link_accepts_rsvp_with_preview_token(client):
     preview_token = query["preview"][0]
 
     client.logout()
+    preview_response = client.get(
+        reverse("invitation-preview-detail", kwargs={"public_slug": invitation.public_slug}),
+        {"guest": guest_token, "token": preview_token},
+    )
+    assert preview_response.status_code == 200
+    assert preview_response.json()["guest"] == {"displayName": "Syarif"}
+
     rsvp_response = client.post(
         reverse("invitation-rsvp", kwargs={"public_slug": invitation.public_slug}),
         {

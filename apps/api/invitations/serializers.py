@@ -1,4 +1,6 @@
+from django.contrib.auth.hashers import check_password
 from django.utils import timezone
+from django.utils.crypto import constant_time_compare
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
@@ -67,6 +69,32 @@ class PublicInvitationSerializer(serializers.ModelSerializer[Invitation]):
     )
     audio = serializers.SerializerMethodField()
     content = serializers.SerializerMethodField()
+    guest = serializers.SerializerMethodField()
+
+    def _guest_matches_token(self, guest, token: str) -> bool:
+        stored = guest.access_token_hash
+        if stored.startswith(("pbkdf2_", "argon2", "bcrypt", "md5$")):
+            return check_password(token, stored)
+        return constant_time_compare(stored, token)
+
+    def get_guest(self, obj: Invitation) -> dict[str, object] | None:
+        request = self.context.get("request")
+        token = request.query_params.get("guest", "").strip() if request else ""
+        if not token:
+            return None
+        guest = next(
+            (
+                item
+                for item in obj.guests.all()
+                if item.archived_at is None
+                and item.anonymized_at is None
+                and self._guest_matches_token(item, token)
+            ),
+            None,
+        )
+        if guest is None:
+            return None
+        return {"displayName": guest.display_name}
 
     @extend_schema_field(PublicInvitationAudioSerializer(allow_null=True))
     def get_audio(self, obj: Invitation) -> dict[str, object] | None:
@@ -188,6 +216,7 @@ class PublicInvitationSerializer(serializers.ModelSerializer[Invitation]):
             "contentSchemaVersion",
             "locale",
             "content",
+            "guest",
             "audio",
             "events",
             "published_at",

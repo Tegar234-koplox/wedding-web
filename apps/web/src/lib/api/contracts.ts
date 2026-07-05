@@ -56,6 +56,11 @@ export const publicInvitationSchema = invitationEnvelopeSchema.extend({
   public_slug: z.string(),
   theme_slug: rendererKeySchema,
   package_code: packageCodeSchema.nullable(),
+  guest: z
+    .object({
+      displayName: z.string(),
+    })
+    .nullable(),
   audio: z
     .object({
       secure_url: z.url(),
