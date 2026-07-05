@@ -16,7 +16,7 @@ from leads.models import WhatsAppIntent
 from media_library.models import MediaAsset
 from orders.lifecycle import ensure_order_transition
 from orders.models import Order
-from payments.models import PaymentInvoice, PaymentWebhookEvent
+from payments.models import PaymentInvoice, PaymentRecord, PaymentWebhookEvent
 from tests.factories import create_invitation, create_package, create_theme
 from tickets.models import Ticket
 
@@ -139,6 +139,96 @@ def test_staff_can_update_order_payment_status_from_detail_endpoint(client):
     order.refresh_from_db()
     assert order.payment_status == Order.PaymentStatus.DP
     assert response.json()["order"]["payment_status_label"] == "DP"
+
+
+@pytest.mark.django_db
+def test_staff_can_record_manual_dp_payment_and_detail_summary(client):
+    staff, order = create_staff_order_fixture("staff-payment-record-001")
+    client.force_login(staff)
+
+    response = client.post(
+        reverse("admin-order-payment-list", kwargs={"reference": order.reference}),
+        {
+            "payment_type": PaymentRecord.Type.DP,
+            "method": PaymentRecord.Method.BANK_TRANSFER,
+            "review_status": PaymentRecord.ReviewStatus.VALID,
+            "amount": "100000",
+            "proof_url": "https://res.cloudinary.com/demo/image/upload/proof.jpg",
+            "paid_at": "2026-09-12T09:00:00+07:00",
+            "note": "DP via BCA.",
+        },
+        content_type="application/json",
+    )
+    detail_response = client.get(
+        reverse("admin-order-detail", kwargs={"reference": order.reference})
+    )
+
+    assert response.status_code == 201
+    order.refresh_from_db()
+    assert order.payment_status == Order.PaymentStatus.DP
+    assert order.manual_payments.count() == 1
+    detail_payload = detail_response.json()
+    assert detail_payload["payment_summary"]["valid_total"] == "100000"
+    assert detail_payload["payment_summary"]["payment_status"] == Order.PaymentStatus.DP
+    assert detail_payload["payments"][0]["review_status"] == PaymentRecord.ReviewStatus.VALID
+    assert AuditEvent.objects.filter(
+        action="payment.manual_record_created",
+        resource_reference=order.reference,
+    ).exists()
+
+
+@pytest.mark.django_db
+def test_staff_can_review_manual_payment_until_order_is_paid(client):
+    staff, order = create_staff_order_fixture("staff-payment-review-001")
+    client.force_login(staff)
+    create_response = client.post(
+        reverse("admin-order-payment-list", kwargs={"reference": order.reference}),
+        {
+            "payment_type": PaymentRecord.Type.SETTLEMENT,
+            "method": PaymentRecord.Method.BANK_TRANSFER,
+            "review_status": PaymentRecord.ReviewStatus.PENDING,
+            "amount": str(order.total_amount),
+            "proof_url": "https://res.cloudinary.com/demo/image/upload/lunas.jpg",
+        },
+        content_type="application/json",
+    )
+    payment_id = create_response.json()["id"]
+
+    response = client.patch(
+        reverse(
+            "admin-order-payment-update",
+            kwargs={"reference": order.reference, "payment_id": payment_id},
+        ),
+        {"review_status": PaymentRecord.ReviewStatus.VALID},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200
+    order.refresh_from_db()
+    assert order.payment_status == Order.PaymentStatus.PAID
+    assert response.json()["review_status"] == PaymentRecord.ReviewStatus.VALID
+    assert response.json()["reviewed_by_email"] == staff.email
+
+
+@pytest.mark.django_db
+def test_staff_rejected_manual_payment_requires_reason(client):
+    staff, order = create_staff_order_fixture("staff-payment-reject-001")
+    client.force_login(staff)
+
+    response = client.post(
+        reverse("admin-order-payment-list", kwargs={"reference": order.reference}),
+        {
+            "payment_type": PaymentRecord.Type.DP,
+            "method": PaymentRecord.Method.BANK_TRANSFER,
+            "review_status": PaymentRecord.ReviewStatus.REJECTED,
+            "amount": "100000",
+            "proof_url": "https://res.cloudinary.com/demo/image/upload/proof.jpg",
+        },
+        content_type="application/json",
+    )
+
+    assert response.status_code == 400
+    assert "rejection_reason" in response.json()["error"]["details"]
 
 
 @pytest.mark.django_db

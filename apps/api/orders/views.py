@@ -60,6 +60,7 @@ def _detail_queryset():
             "invitation__revisions",
             queryset=InvitationRevision.objects.select_related("created_by"),
         ),
+        "manual_payments",
     )
 
 
@@ -299,8 +300,10 @@ class StaffOrderListCreateView(ListCreateAPIView):
     serializer_class = OrderSerializer
 
     def get_queryset(self):
-        return Order.objects.filter(archived_at__isnull=True).select_related(
-            "theme", "package", "invitation", "whatsapp_intent"
+        return (
+            Order.objects.filter(archived_at__isnull=True)
+            .select_related("theme", "package", "invitation", "whatsapp_intent")
+            .prefetch_related("manual_payments")
         )
 
     def post(self, request, *args, **kwargs) -> Response:
