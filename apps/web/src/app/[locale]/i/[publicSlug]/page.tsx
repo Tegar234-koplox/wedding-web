@@ -61,15 +61,16 @@ export default async function PublicInvitationPage({
     content: invitation.content,
   };
   const packageCode = resolvePackageCode(invitation.package_code);
+  const renderRsvpInsideInvitation =
+    packageCode === "signature" || packageCode === "couture";
   const rsvpForm = (
     <PublicRSVPForm
+      embedded={renderRsvpInsideInvitation}
       initialToken={query?.guest}
       previewToken={query?.preview}
       publicSlug={publicSlug}
     />
   );
-  const renderRsvpInsideInvitation =
-    packageCode === "signature" || packageCode === "couture";
 
   return (
     <>

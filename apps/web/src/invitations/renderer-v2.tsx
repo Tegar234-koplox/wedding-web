@@ -1012,7 +1012,7 @@ function SignatureRsvpPreviewSection({
 
   if (rsvpSlot) {
     return (
-      <section className={`${design.page} relative overflow-hidden`}>
+      <section className={`${design.surface} relative overflow-hidden px-5 py-20 md:px-12 md:py-32`}>
         <ThemeSectionDecoration config={premium} showOverlay={showOverlay} />
         <div className="relative z-30">{rsvpSlot}</div>
       </section>
