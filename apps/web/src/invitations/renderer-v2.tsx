@@ -279,6 +279,7 @@ function Cover({
   premium: PremiumVisualConfig;
 }) {
   const { couple, event, opening } = invitation.content;
+  const guestName = invitation.guest?.displayName?.trim();
   const resolvedPackage = packageCode ?? "essential";
   const capability = packageCapabilities[resolvedPackage];
   const couture = resolvedPackage === "couture";
@@ -343,6 +344,19 @@ function Cover({
             >
               {resolvedPackage}
             </p>
+            {guestName ? (
+              <p
+                className={`mt-5 text-[0.62rem] font-semibold uppercase tracking-[0.24em] ${
+                  essential ? supportTextClass : design.muted
+                } ${
+                  !essential && premium.textContrast
+                    ? "font-semibold !text-current drop-shadow-[0_1px_5px_rgba(255,255,255,.75)]"
+                    : ""
+                }`}
+              >
+                {id ? `Untuk ${guestName}` : `For ${guestName}`}
+              </p>
+            ) : null}
             <h1 className="mt-5 font-serif text-[clamp(3.5rem,min(13vw,17vh),10.5rem)] leading-[0.76] tracking-[-0.065em] sm:mt-7">
               <span className="block">{couple.partnerOne}</span>
               <span className={`block italic ${design.accent}`}>&amp;</span>

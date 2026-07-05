@@ -120,6 +120,12 @@ export const invitationEnvelopeSchema = z.object({
   contentSchemaVersion: z.number().int().positive(),
   locale: localeSchema,
   content: invitationContentSchema,
+  guest: z
+    .object({
+      displayName: safeText.max(120),
+    })
+    .nullable()
+    .optional(),
 });
 
 export type InvitationEnvelope = z.infer<typeof invitationEnvelopeSchema>;
