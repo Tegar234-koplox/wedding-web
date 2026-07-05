@@ -98,6 +98,38 @@ def _auto_order_reference(reference: str) -> bool:
     return bool(re.fullmatch(r"n\d+", reference.strip(), flags=re.IGNORECASE))
 
 
+def _couple_from_client_name(client_name: str) -> dict[str, str]:
+    name = client_name.strip()
+    if not name:
+        return {
+            "partnerOne": "Nama Pasangan",
+            "partnerTwo": "Nama Pasangan",
+            "monogram": "N",
+        }
+    parts = [
+        part.strip()
+        for part in re.split(r"\s+(?:dan|and)\s+|\s*&\s*|\s*\+\s*", name, maxsplit=1, flags=re.I)
+        if part.strip()
+    ]
+    partner_one = parts[0] if parts else name
+    partner_two = parts[1] if len(parts) > 1 else "Nama Pasangan"
+    monogram = "&".join(
+        part[:1] for part in [partner_one, partner_two] if part and part != "Nama Pasangan"
+    )
+    return {
+        "partnerOne": partner_one,
+        "partnerTwo": partner_two,
+        "monogram": monogram or partner_one[:1] or "N",
+    }
+
+
+def _sync_invitation_couple(invitation: Invitation, client_name: str) -> None:
+    content = invitation.content if isinstance(invitation.content, dict) else {}
+    content["couple"] = _couple_from_client_name(client_name)
+    invitation.content = content
+    invitation.save(update_fields=["content", "updated_at"])
+
+
 def _ensure_invitation(order: Order) -> Invitation:
     if order.invitation_id:
         return order.invitation
@@ -111,11 +143,7 @@ def _ensure_invitation(order: Order) -> Invitation:
         renderer_version=order.theme.renderer_version,
         content_schema_version=order.theme.content_schema_version,
         content={
-            "couple": {
-                "partnerOne": order.client_name or "Nama Pasangan",
-                "partnerTwo": "Nama Pasangan",
-                "monogram": (order.client_name[:1] or "N"),
-            },
+            "couple": _couple_from_client_name(order.client_name),
             "opening": {
                 "eyebrow": "Dengan penuh sukacita",
                 "title": "Kami mengundang Anda",
@@ -343,6 +371,9 @@ class StaffOrderDetailView(RetrieveUpdateAPIView):
     def patch(self, request, *args, **kwargs) -> Response:
         order = self.get_object()
         nested_keys = {"ceremony", "reception", "bank_accounts", "rsvp_manual", "media_urls"}
+        should_sync_invitation = bool(
+            nested_keys.intersection(request.data) or "client_name" in request.data
+        )
         serializer = self.get_serializer(
             order,
             data=_manual_order_payload(request.data),
@@ -354,8 +385,10 @@ class StaffOrderDetailView(RetrieveUpdateAPIView):
             updated = serializer.save()
             if updated.status == Order.Status.PUBLISHED:
                 _publish_invitation_for_order(updated, request.user)
-            if nested_keys.intersection(request.data):
+            if should_sync_invitation:
                 invitation = _ensure_invitation(updated)
+                if "client_name" in request.data:
+                    _sync_invitation_couple(invitation, updated.client_name)
                 _update_event(
                     invitation,
                     WeddingEvent.EventType.CEREMONY,

@@ -285,7 +285,7 @@ def test_staff_can_update_manual_order_detail_payload(client):
     response = client.patch(
         reverse("admin-order-detail", kwargs={"reference": order.reference}),
         {
-            "client_name": "Fahri Updated",
+            "client_name": "Reno dan Erisa",
             "payment_status": Order.PaymentStatus.PAID,
             "status": Order.Status.REVISION,
             "ceremony": {
@@ -320,9 +320,11 @@ def test_staff_can_update_manual_order_detail_payload(client):
 
     assert response.status_code == 200
     order.refresh_from_db()
-    assert order.client_name == "Fahri Updated"
+    assert order.client_name == "Reno dan Erisa"
     assert order.payment_status == Order.PaymentStatus.PAID
     assert order.invitation is not None
+    assert order.invitation.content["couple"]["partnerOne"] == "Reno"
+    assert order.invitation.content["couple"]["partnerTwo"] == "Erisa"
     assert order.invitation.events.count() == 2
     assert order.invitation.media.filter(role=InvitationMedia.Role.PHOTO).count() == 1
     assert order.invitation.media.filter(role=InvitationMedia.Role.GALLERY).count() == 2
@@ -331,6 +333,24 @@ def test_staff_can_update_manual_order_detail_payload(client):
     assert order.invitation.content["rsvp_manual"]["total_invited"] == 100
     assert response.json()["preview_url"].startswith("http://testserver/id/i/")
     assert "preview=" in response.json()["preview_url"]
+
+    rename_response = client.patch(
+        reverse("admin-order-detail", kwargs={"reference": order.reference}),
+        {"client_name": "Tirta & Kayla"},
+        content_type="application/json",
+    )
+    order.refresh_from_db()
+    order.invitation.refresh_from_db()
+    preview_response = client.get(
+        reverse("invitation-preview-detail", kwargs={"public_slug": order.invitation.public_slug}),
+        {"token": preview_token_for(order.invitation)},
+    )
+
+    assert rename_response.status_code == 200
+    assert order.invitation.content["couple"]["partnerOne"] == "Tirta"
+    assert order.invitation.content["couple"]["partnerTwo"] == "Kayla"
+    assert preview_response.json()["content"]["couple"]["partnerOne"] == "Tirta"
+    assert preview_response.json()["content"]["couple"]["partnerTwo"] == "Kayla"
 
 
 @pytest.mark.django_db

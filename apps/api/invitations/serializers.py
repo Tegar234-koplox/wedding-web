@@ -1,3 +1,5 @@
+import re
+
 from django.contrib.auth.hashers import check_password
 from django.utils import timezone
 from django.utils.crypto import constant_time_compare
@@ -13,6 +15,20 @@ from invitations.models import (
 )
 from media_library.models import MediaAsset
 from media_library.services import public_audio_payload
+
+
+def _couple_from_client_name(client_name: str) -> tuple[str, str]:
+    name = client_name.strip()
+    if not name:
+        return "", ""
+    parts = [
+        part.strip()
+        for part in re.split(r"\s+(?:dan|and)\s+|\s*&\s*|\s*\+\s*", name, maxsplit=1, flags=re.I)
+        if part.strip()
+    ]
+    if len(parts) >= 2:
+        return parts[0], parts[1]
+    return name, ""
 
 
 class EventLocationSerializer(serializers.ModelSerializer[EventLocation]):
@@ -129,12 +145,21 @@ class PublicInvitationSerializer(serializers.ModelSerializer[Invitation]):
         quote = content.get("quote") if isinstance(content.get("quote"), dict) else {}
         opening = content.get("opening") if isinstance(content.get("opening"), dict) else {}
         closing = content.get("closing") if isinstance(content.get("closing"), dict) else {}
+        order_client_name = str(getattr(order, "client_name", "") or "")
+        parsed_partner_one, parsed_partner_two = _couple_from_client_name(order_client_name)
         partner_one = str(
-            couple.get("partnerOne")
-            or couple.get("partner_one")
-            or getattr(order, "client_name", "")
+            couple.get("partnerOne") or couple.get("partner_one") or parsed_partner_one
         ).strip()
         partner_two = str(couple.get("partnerTwo") or couple.get("partner_two") or "").strip()
+        if (
+            partner_one == order_client_name
+            and partner_two in {"", "Nama Pasangan"}
+            and parsed_partner_two
+        ):
+            partner_one = parsed_partner_one
+            partner_two = parsed_partner_two
+        elif partner_two in {"", "Nama Pasangan"} and parsed_partner_two:
+            partner_two = parsed_partner_two
         monogram = str(couple.get("monogram") or "").strip()
         if not monogram:
             initials = [name[:1] for name in [partner_one, partner_two] if name]
