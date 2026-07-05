@@ -6,12 +6,14 @@ import { useState } from "react";
 import { env } from "@/lib/env";
 
 type PublicRSVPFormProps = {
+  embedded?: boolean;
   initialToken?: string;
   previewToken?: string;
   publicSlug: string;
 };
 
 export function PublicRSVPForm({
+  embedded = false,
   initialToken = "",
   previewToken = "",
   publicSlug,
@@ -66,9 +68,21 @@ export function PublicRSVPForm({
     }
   }
 
-  return (
-    <section className="bg-[#11100e] px-5 py-12 text-white">
-      <div className="mx-auto grid max-w-3xl gap-5 border border-white/12 bg-[#181815] p-5">
+  const shellClassName = embedded
+    ? "mx-auto grid max-w-3xl gap-5 border border-current/20 bg-black/10 p-5 text-current backdrop-blur-[1px] md:p-8"
+    : "mx-auto grid max-w-3xl gap-5 border border-white/12 bg-[#181815] p-5";
+  const mutedLabelClassName = embedded
+    ? "text-[0.6rem] uppercase tracking-[0.16em] opacity-55"
+    : "text-[0.6rem] uppercase tracking-[0.16em] text-white/45";
+  const controlClassName = embedded
+    ? "min-h-11 border border-current/20 bg-black/10 px-3 text-sm text-current outline-none transition focus:border-[var(--color-gold)]"
+    : "min-h-11 border border-white/15 bg-black/30 px-3 text-sm outline-none transition focus:border-[var(--color-gold)]";
+  const textareaClassName = embedded
+    ? "min-h-28 resize-y border border-current/20 bg-black/10 px-3 py-3 text-sm text-current outline-none transition focus:border-[var(--color-gold)]"
+    : "min-h-28 resize-y border border-white/15 bg-black/30 px-3 py-3 text-sm outline-none transition focus:border-[var(--color-gold)]";
+
+  const form = (
+    <div className={shellClassName}>
         <div>
           <p className="text-[0.65rem] uppercase tracking-[0.2em] text-[var(--color-gold)]">
             RSVP
@@ -77,22 +91,22 @@ export function PublicRSVPForm({
         </div>
         <div className="grid gap-3 md:grid-cols-2">
           <label className="grid gap-2 md:col-span-2">
-            <span className="text-[0.6rem] uppercase tracking-[0.16em] text-white/45">
+            <span className={mutedLabelClassName}>
               Token tamu
             </span>
             <input
-              className="min-h-11 border border-white/15 bg-black/30 px-3 text-sm outline-none transition focus:border-[var(--color-gold)]"
+              className={controlClassName}
               onChange={(event) => setToken(event.target.value)}
               placeholder="Token dari link undangan personal"
               value={token}
             />
           </label>
           <label className="grid gap-2">
-            <span className="text-[0.6rem] uppercase tracking-[0.16em] text-white/45">
+            <span className={mutedLabelClassName}>
               Status
             </span>
             <select
-              className="min-h-11 border border-white/15 bg-black/30 px-3 text-sm outline-none transition focus:border-[var(--color-gold)]"
+              className={controlClassName}
               onChange={(event) => {
                 setStatus(event.target.value);
                 if (event.target.value === "declined") {
@@ -106,11 +120,11 @@ export function PublicRSVPForm({
             </select>
           </label>
           <label className="grid gap-2">
-            <span className="text-[0.6rem] uppercase tracking-[0.16em] text-white/45">
+            <span className={mutedLabelClassName}>
               Jumlah hadir
             </span>
             <input
-              className="min-h-11 border border-white/15 bg-black/30 px-3 text-sm outline-none transition focus:border-[var(--color-gold)]"
+              className={controlClassName}
               min={0}
               onChange={(event) => setAttendanceCount(event.target.value)}
               type="number"
@@ -118,11 +132,11 @@ export function PublicRSVPForm({
             />
           </label>
           <label className="grid gap-2 md:col-span-2">
-            <span className="text-[0.6rem] uppercase tracking-[0.16em] text-white/45">
+            <span className={mutedLabelClassName}>
               Ucapan
             </span>
             <textarea
-              className="min-h-28 resize-y border border-white/15 bg-black/30 px-3 py-3 text-sm outline-none transition focus:border-[var(--color-gold)]"
+              className={textareaClassName}
               onChange={(event) => setWishes(event.target.value)}
               value={wishes}
             />
@@ -143,6 +157,15 @@ export function PublicRSVPForm({
           {submitting ? "Mengirim" : "Kirim RSVP"}
         </button>
       </div>
+  );
+
+  if (embedded) {
+    return form;
+  }
+
+  return (
+    <section className="bg-[#11100e] px-5 py-12 text-white">
+      {form}
     </section>
   );
 }
