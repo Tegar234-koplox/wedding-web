@@ -246,8 +246,8 @@ export async function staffFetch<T>(path: string, init?: RequestInit): Promise<T
       response.status === 401 || response.status === 403
         ? "Session staff tidak valid"
         : response.status >= 500
-          ? "Backend staff API sedang error"
-          : "Request staff API ditolak";
+          ? "Server operasional sedang bermasalah"
+          : "Request dashboard ditolak";
     throw new StaffFetchError(
       `${label} (${response.status})${detail ? `: ${detail}` : ""}`,
       response.status,
@@ -267,7 +267,7 @@ export async function staffDownload(path: string): Promise<Blob> {
   });
 
   if (!response.ok) {
-    throw new StaffFetchError(`Download staff API ditolak (${response.status})`, response.status);
+    throw new StaffFetchError(`Download CSV gagal (${response.status})`, response.status);
   }
 
   return response.blob();

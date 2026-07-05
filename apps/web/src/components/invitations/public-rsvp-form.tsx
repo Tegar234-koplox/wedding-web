@@ -12,6 +12,19 @@ type PublicRSVPFormProps = {
   publicSlug: string;
 };
 
+function friendlyRsvpError(message?: string): string {
+  if (!message) {
+    return "RSVP gagal dikirim. Pastikan link tamu valid dan jumlah hadir sesuai.";
+  }
+  if (message.toLowerCase().includes("invalid rsvp token")) {
+    return "Token tamu tidak valid atau link tamu sudah tidak aktif.";
+  }
+  if (message.toLowerCase().includes("not found")) {
+    return "Undangan belum tersedia atau link preview sudah tidak valid.";
+  }
+  return message;
+}
+
 export function PublicRSVPForm({
   embedded = false,
   initialToken = "",
@@ -23,6 +36,7 @@ export function PublicRSVPForm({
   const [attendanceCount, setAttendanceCount] = useState("1");
   const [wishes, setWishes] = useState("");
   const [message, setMessage] = useState("");
+  const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   async function submitRSVP() {
@@ -54,13 +68,12 @@ export function PublicRSVPForm({
           ? payload.attendance_count.join(" ")
           : payload?.attendance_count;
         setMessage(
-          attendanceError ??
-            payload?.detail ??
-            "RSVP gagal dikirim. Pastikan link tamu valid dan jumlah hadir sesuai.",
+          friendlyRsvpError(attendanceError ?? payload?.detail),
         );
         return;
       }
-      setMessage("RSVP tersimpan. Terima kasih atas konfirmasinya.");
+      setSubmitted(true);
+      setMessage("RSVP terkirim. Terima kasih atas konfirmasinya.");
     } catch {
       setMessage("RSVP belum bisa dikirim. Coba beberapa saat lagi.");
     } finally {
@@ -149,12 +162,12 @@ export function PublicRSVPForm({
         ) : null}
         <button
           className="inline-flex min-h-11 items-center justify-center gap-3 bg-[var(--color-gold)] px-4 text-[0.65rem] font-bold uppercase tracking-[0.16em] text-[#17140d] transition hover:brightness-110 disabled:opacity-50"
-          disabled={submitting || !token.trim()}
+          disabled={submitting || submitted || !token.trim()}
           onClick={() => void submitRSVP()}
           type="button"
         >
           <Send size={15} />
-          {submitting ? "Mengirim" : "Kirim RSVP"}
+          {submitted ? "RSVP Terkirim" : submitting ? "Mengirim" : "Kirim RSVP"}
         </button>
       </div>
   );

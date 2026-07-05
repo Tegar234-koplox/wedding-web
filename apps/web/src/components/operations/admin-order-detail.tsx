@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Copy, Download, ExternalLink, Plus, Save } from "lucide-react";
+import { ArrowLeft, Copy, Download, ExternalLink, MessageCircle, Plus, Save } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
@@ -162,6 +162,46 @@ function guestRsvpLabel(status: string): string {
   return "Menunggu";
 }
 
+function linkLifecycleLabel(detail: StaffOrderDetail | null): string {
+  if (!detail?.invitation) {
+    return "Data belum lengkap";
+  }
+  if (detail.invitation.status === "published" || detail.order.status === "published") {
+    return "Published";
+  }
+  if (detail.invitation.approval_status === "approved_for_publish" || detail.order.status === "approved") {
+    return "Ready to Publish";
+  }
+  return "Draft Preview";
+}
+
+function linkLifecycleDescription(detail: StaffOrderDetail | null): string {
+  if (!detail?.invitation) {
+    return "Simpan tema dan paket untuk membuat invitation sebelum link dibagikan.";
+  }
+  if (detail.invitation.status === "published" || detail.order.status === "published") {
+    return "Link sudah menjadi link final dan tidak membutuhkan preview token.";
+  }
+  if (detail.invitation.approval_status === "approved_for_publish" || detail.order.status === "approved") {
+    return "Final check sudah siap. Ubah status ke Publikasi untuk membuka link final.";
+  }
+  return "Link sementara untuk customer dan tamu, masih memakai preview token.";
+}
+
+function guestWhatsAppMessage(detail: StaffOrderDetail | null, guest: GuestDeliveryLink): string {
+  const coupleName = detail?.order.client_name || "Niskala";
+  return [
+    `Halo ${guest.display_name},`,
+    "",
+    `Kami mengundang Anda untuk hadir dalam undangan pernikahan ${coupleName}.`,
+    guest.delivery_url ? `Silakan buka link personal berikut: ${guest.delivery_url}` : "",
+    "",
+    "Mohon konfirmasi kehadiran melalui form RSVP di dalam undangan.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 export function AdminOrderDetail({ reference }: { reference: string }) {
   const [detail, setDetail] = useState<StaffOrderDetail | null>(null);
   const [form, setForm] = useState<OrderDetailForm>(emptyForm);
@@ -298,9 +338,9 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
     }
     try {
       await navigator.clipboard.writeText(detail.preview_url);
-      setNotice("Link preview disalin.");
+      setNotice("Link undangan disalin.");
     } catch {
-      setError("Link preview gagal disalin. Buka link lalu copy dari address bar.");
+      setError("Link undangan gagal disalin. Buka link lalu copy dari address bar.");
     }
   }
 
@@ -314,6 +354,19 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
       setNotice("Link tamu disalin.");
     } catch {
       setError("Link tamu gagal disalin.");
+    }
+  }
+
+  async function copyGuestWhatsAppMessage(guest: GuestDeliveryLink) {
+    if (!guest.delivery_url) {
+      setError("Link tamu belum tersedia untuk pesan WhatsApp.");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(guestWhatsAppMessage(detail, guest));
+      setNotice("Pesan WhatsApp tamu disalin.");
+    } catch {
+      setError("Pesan WhatsApp gagal disalin.");
     }
   }
 
@@ -450,6 +503,8 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
   }
 
   const pricePreview = formatCurrency(form.total_amount || 0);
+  const lifecycleLabel = linkLifecycleLabel(detail);
+  const lifecycleDescription = linkLifecycleDescription(detail);
 
   return (
     <div className="space-y-6">
@@ -695,7 +750,7 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
                   value={guestLinkForm.email}
                 />
               </Field>
-              <Field label="Jumlah">
+              <Field label="Kuota Hadir">
                 <input
                   className={controlClassName}
                   min={1}
@@ -769,7 +824,9 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
                     <tr className="border-t border-white/10" key={guest.id}>
                       <td className="px-4 py-4">
                         <p className="font-semibold text-white">{guest.display_name}</p>
-                        <p className="mt-1 text-xs text-white/45">{guest.party_size} orang</p>
+                        <p className="mt-1 text-xs text-white/45">
+                          Kuota {guest.party_size} orang
+                        </p>
                       </td>
                       <td className="px-4 py-4 text-white/60">
                         {[guest.email, guest.phone].filter(Boolean).join(" / ") || "-"}
@@ -784,15 +841,26 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
                         </p>
                       </td>
                       <td className="px-4 py-4">
-                        <button
-                          className={outlineButtonClassName}
-                          disabled={!guest.delivery_url}
-                          onClick={() => void copyGuestUrl(guest.delivery_url)}
-                          type="button"
-                        >
-                          <Copy size={14} />
-                          Copy
-                        </button>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            className={outlineButtonClassName}
+                            disabled={!guest.delivery_url}
+                            onClick={() => void copyGuestUrl(guest.delivery_url)}
+                            type="button"
+                          >
+                            <Copy size={14} />
+                            Link
+                          </button>
+                          <button
+                            className={outlineButtonClassName}
+                            disabled={!guest.delivery_url}
+                            onClick={() => void copyGuestWhatsAppMessage(guest)}
+                            type="button"
+                          >
+                            <MessageCircle size={14} />
+                            WA
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -803,7 +871,8 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
         </div>
 
         <aside className="space-y-6">
-          <Panel eyebrow="Link Preview" title="Sementara customer.">
+          <Panel eyebrow="Link Undangan" title={lifecycleLabel}>
+            <p className="mb-4 text-sm leading-6 text-white/55">{lifecycleDescription}</p>
             <div className="border border-white/12 bg-black/20 p-4">
               <p className="break-all text-sm leading-6 text-white/70">
                 {detail?.preview_url || "Pilih tema lalu simpan untuk membuat link preview."}
