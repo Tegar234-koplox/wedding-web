@@ -212,6 +212,20 @@ const coutureSectionPhotos = {
   ],
 } as const;
 
+type GalleryPhoto = InvitationEnvelope["content"]["gallery"][number];
+
+function sectionPhotosFromGallery(
+  gallery: InvitationEnvelope["content"]["gallery"],
+  start: number,
+  count: number,
+  fallback: readonly GalleryPhoto[],
+): GalleryPhoto[] {
+  return Array.from({ length: count }, (_, index) => {
+    const photo = gallery[start + index];
+    return photo ?? fallback[index] ?? gallery[index] ?? fallback[0];
+  }).filter((photo): photo is GalleryPhoto => Boolean(photo));
+}
+
 const signatureGiftFolders: Record<RendererKey, string> = {
   "dark-cinematic": "dark-cinematic",
   "elegant-classic": "elegant-classic",
@@ -1309,7 +1323,7 @@ function EventStory({
         />
         <SignaturePhotoSection
           design={design}
-          photos={signatureSectionPhotos[4]}
+          photos={sectionPhotosFromGallery(gallery, 3, 3, signatureSectionPhotos[4])}
           premium={premium}
           variant="three"
         />
@@ -1323,7 +1337,7 @@ function EventStory({
         />
         <SignaturePhotoSection
           design={design}
-          photos={signatureSectionPhotos[6]}
+          photos={sectionPhotosFromGallery(gallery, 6, 3, signatureSectionPhotos[6])}
           premium={premium}
           variant="three"
         />
@@ -1337,7 +1351,7 @@ function EventStory({
         />
         <SignaturePhotoSection
           design={design}
-          photos={signatureSectionPhotos[8]}
+          photos={sectionPhotosFromGallery(gallery, 9, 3, signatureSectionPhotos[8])}
           premium={premium}
           variant="three"
         />
@@ -1349,7 +1363,7 @@ function EventStory({
         />
         <SignaturePhotoSection
           design={design}
-          photos={signatureSectionPhotos[10]}
+          photos={sectionPhotosFromGallery(gallery, 12, 2, signatureSectionPhotos[10])}
           premium={premium}
           variant="two"
         />
@@ -1436,7 +1450,7 @@ function EventStory({
         />
         <SignaturePhotoSection
           design={design}
-          photos={coutureSectionPhotos[4]}
+          photos={sectionPhotosFromGallery(gallery, 3, 3, coutureSectionPhotos[4])}
           premium={premium}
           showOverlay
           variant="three"
@@ -1453,7 +1467,7 @@ function EventStory({
         />
         <SignaturePhotoSection
           design={design}
-          photos={coutureSectionPhotos[6]}
+          photos={sectionPhotosFromGallery(gallery, 6, 3, coutureSectionPhotos[6])}
           premium={premium}
           showOverlay
           variant="three"
@@ -1470,7 +1484,7 @@ function EventStory({
         />
         <SignaturePhotoSection
           design={design}
-          photos={coutureSectionPhotos[8]}
+          photos={sectionPhotosFromGallery(gallery, 9, 3, coutureSectionPhotos[8])}
           premium={premium}
           showOverlay
           variant="three"
@@ -1487,7 +1501,7 @@ function EventStory({
         />
         <SignaturePhotoSection
           design={design}
-          photos={coutureSectionPhotos[10]}
+          photos={sectionPhotosFromGallery(gallery, 12, 3, coutureSectionPhotos[10])}
           premium={premium}
           showOverlay
           variant="three"
@@ -1504,7 +1518,7 @@ function EventStory({
         />
         <SignaturePhotoSection
           design={design}
-          photos={coutureSectionPhotos[12]}
+          photos={sectionPhotosFromGallery(gallery, 15, 3, coutureSectionPhotos[12])}
           premium={premium}
           showOverlay
           variant="three"
@@ -1612,14 +1626,14 @@ function EventStory({
 
         <EssentialPhotoSection
           design={design}
-          photos={essentialSectionFourPhotos}
+          photos={sectionPhotosFromGallery(gallery, 3, 3, essentialSectionFourPhotos)}
           title={id ? "Galeri lanjutan" : "Additional gallery"}
           variant="three"
         />
         <EssentialGiftSection design={design} invitation={invitation} />
         <EssentialPhotoSection
           design={design}
-          photos={essentialSectionSixPhotos}
+          photos={sectionPhotosFromGallery(gallery, 6, 2, essentialSectionSixPhotos)}
           title={id ? "Galeri penutup" : "Closing gallery"}
           variant="two"
         />

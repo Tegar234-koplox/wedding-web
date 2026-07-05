@@ -212,6 +212,13 @@ def _update_invitation_content(invitation: Invitation, data: dict) -> None:
     if "rsvp_manual" in data:
         content["rsvp_manual"] = data.get("rsvp_manual") or {}
         changed = True
+    if "gallery" in data:
+        content["gallery"] = [
+            {"src": url, "alt": f"Gallery {index + 1}"}
+            for index, url in enumerate(str(item).strip() for item in data.get("gallery") or [])
+            if url
+        ]
+        changed = True
     if changed:
         invitation.content = content
         invitation.save(update_fields=["content", "updated_at"])
@@ -369,11 +376,13 @@ class StaffOrderDetailView(RetrieveUpdateAPIView):
                             [str(media_urls.get("photo") or "")],
                         )
                     if "gallery" in media_urls:
+                        gallery_urls = [str(item) for item in media_urls.get("gallery") or []]
                         _replace_media(
                             invitation,
                             InvitationMedia.Role.GALLERY,
-                            [str(item) for item in media_urls.get("gallery") or []],
+                            gallery_urls,
                         )
+                        _update_invitation_content(invitation, {"gallery": gallery_urls})
                     if "backsound" in media_urls:
                         _replace_media(
                             invitation,

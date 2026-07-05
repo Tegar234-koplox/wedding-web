@@ -155,7 +155,7 @@ class PublicInvitationSerializer(serializers.ModelSerializer[Invitation]):
         venue = event.get("venue") or getattr(primary_event, "venue_name", "") or "Nama Venue"
         address = event.get("address") or getattr(primary_event, "address", "") or "Alamat venue"
         gallery = content.get("gallery")
-        if not isinstance(gallery, list) or not 3 <= len(gallery) <= 12:
+        if not isinstance(gallery, list) or not 3 <= len(gallery) <= 18:
             gallery = [
                 {"src": "/images/hero-editorial.webp", "alt": "Portrait of the couple"},
                 {"src": "/images/themes/elegant-classic.webp", "alt": "Invitation detail"},

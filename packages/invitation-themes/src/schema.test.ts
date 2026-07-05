@@ -64,4 +64,40 @@ describe("invitation envelope", () => {
 
     expect(result.success).toBe(false);
   });
+
+  it("accepts sectioned Cloudinary gallery media for Couture", () => {
+    const result = invitationEnvelopeSchema.safeParse({
+      rendererKey: "elegant-classic",
+      rendererVersion: 2,
+      contentSchemaVersion: 1,
+      locale: "id",
+      content: {
+        couple: { partnerOne: "Alya", partnerTwo: "Raka", monogram: "A&R" },
+        opening: {
+          eyebrow: "The wedding of",
+          title: "A celebration",
+          message: "Together with our families.",
+        },
+        event: {
+          dateLabel: "12 September 2026",
+          ceremonyLabel: "Akad",
+          ceremonyTime: "09.00 WIB",
+          receptionLabel: "Resepsi",
+          receptionTime: "11.00 WIB",
+          venue: "Venue",
+          address: "Jakarta",
+          mapUrl: "https://maps.google.com",
+        },
+        story: { heading: "Our story", body: "A long story." },
+        quote: { text: "A quote.", attribution: "Us" },
+        gallery: Array.from({ length: 18 }, (_, index) => ({
+          alt: `Gallery ${index + 1}`,
+          src: `https://res.cloudinary.com/demo/image/upload/gallery-${index + 1}.jpg`,
+        })),
+        closing: { heading: "Thank you", message: "See you." },
+      },
+    });
+
+    expect(result.success).toBe(true);
+  });
 });

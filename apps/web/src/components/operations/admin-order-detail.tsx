@@ -78,6 +78,13 @@ type PaymentRecordForm = {
   review_status: ManualPaymentReviewStatus;
 };
 
+type MediaSectionPlan = {
+  count: number;
+  description: string;
+  label: string;
+  section: number;
+};
+
 const emptyForm: OrderDetailForm = {
   bank_account_bank: "",
   bank_account_name: "",
@@ -133,6 +140,41 @@ const selectClassName = cn(
 const optionClassName = "bg-[#0b0b09] text-white";
 const outlineButtonClassName =
   "inline-flex min-h-11 items-center justify-center gap-3 border border-white/15 px-4 text-xs font-semibold uppercase tracking-[0.14em] text-white/70 transition hover:border-[var(--color-gold)] hover:text-[var(--color-gold)] disabled:opacity-45";
+
+const mediaSectionPlans: Record<string, MediaSectionPlan[]> = {
+  couture: [
+    { count: 3, description: "Foto pembuka setelah waktu dan tempat.", label: "3 foto", section: 2 },
+    { count: 3, description: "Foto setelah love story bagian 01-03.", label: "3 foto", section: 4 },
+    { count: 3, description: "Foto setelah love story bagian 04-06.", label: "3 foto", section: 6 },
+    { count: 3, description: "Foto setelah love story bagian 07-09.", label: "3 foto", section: 8 },
+    { count: 3, description: "Foto setelah love story bagian 10-12.", label: "3 foto", section: 10 },
+    { count: 3, description: "Foto sebelum prakiraan cuaca dan RSVP.", label: "3 foto", section: 12 },
+  ],
+  essential: [
+    { count: 3, description: "Foto setelah informasi acara dan lokasi.", label: "3 foto", section: 2 },
+    { count: 3, description: "Foto setelah short love story.", label: "3 foto", section: 4 },
+    { count: 2, description: "Foto setelah gift sebelum closing.", label: "2 foto", section: 6 },
+  ],
+  signature: [
+    { count: 3, description: "Foto pembuka setelah waktu dan tempat.", label: "3 foto", section: 2 },
+    { count: 3, description: "Foto setelah love story bagian 01-03.", label: "3 foto", section: 4 },
+    { count: 3, description: "Foto setelah love story bagian 04-06.", label: "3 foto", section: 6 },
+    { count: 3, description: "Foto sebelum RSVP dan ucapan.", label: "3 foto", section: 8 },
+    { count: 2, description: "Foto setelah RSVP sebelum prakiraan cuaca.", label: "2 foto", section: 10 },
+  ],
+};
+
+function mediaPlanFor(packageCode: string): MediaSectionPlan[] {
+  return mediaSectionPlans[packageCode] ?? mediaSectionPlans.essential!;
+}
+
+function gallerySlots(value: string): string[] {
+  return value ? value.split("\n") : [];
+}
+
+function mediaSectionStart(sections: MediaSectionPlan[], index: number): number {
+  return sections.slice(0, index).reduce((total, section) => total + section.count, 0);
+}
 
 function toDatetimeInput(value?: string | null): string {
   if (!value) {
@@ -303,6 +345,15 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
 
   function updateForm(field: keyof OrderDetailForm, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function updateGallerySlot(index: number, value: string) {
+    const urls = gallerySlots(form.gallery_urls);
+    while (urls.length <= index) {
+      urls.push("");
+    }
+    urls[index] = value;
+    updateForm("gallery_urls", urls.join("\n"));
   }
 
   function updateGuestLinkForm(field: keyof GuestLinkForm, value: string) {
@@ -635,6 +686,10 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
   const pricePreview = formatCurrency(form.total_amount || 0);
   const lifecycleLabel = linkLifecycleLabel(detail);
   const lifecycleDescription = linkLifecycleDescription(detail);
+  const mediaSections = mediaPlanFor(form.package_code);
+  const galleryUrlSlots = gallerySlots(form.gallery_urls);
+  const expectedGalleryCount = mediaSections.reduce((total, section) => total + section.count, 0);
+  const filledGalleryCount = galleryUrlSlots.filter((url) => url.trim()).length;
 
   return (
     <div className="space-y-6">
@@ -1014,13 +1069,65 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
                   value={form.photo_url}
                 />
               </Field>
-              <Field label="Galeri Cloudinary URL (satu URL per baris)">
-                <textarea
-                  className="min-h-32 w-full border border-white/12 bg-black/20 p-3 text-sm text-white outline-none transition focus:border-[var(--color-gold)]"
-                  onChange={(event) => updateForm("gallery_urls", event.target.value)}
-                  value={form.gallery_urls}
-                />
-              </Field>
+              <div className="border border-white/10 bg-black/20 p-4">
+                <div className="flex flex-wrap items-end justify-between gap-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.16em] text-white/45">
+                      Galeri per section
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-white/55">
+                      Paket {form.package_code || "Essential"} membutuhkan {expectedGalleryCount}{" "}
+                      foto. Isi berurutan sesuai section agar preview customer dan undangan final
+                      tidak tertukar.
+                    </p>
+                  </div>
+                  <p className="text-xs uppercase tracking-[0.14em] text-[var(--color-gold)]">
+                    {filledGalleryCount}/{expectedGalleryCount} terisi
+                  </p>
+                </div>
+                <div className="mt-5 grid gap-4">
+                  {mediaSections.map((section, sectionIndex) => {
+                    const start = mediaSectionStart(mediaSections, sectionIndex);
+                    return (
+                      <div className="border border-white/10 p-4" key={section.section}>
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold text-white">
+                              Section {section.section}
+                            </p>
+                            <p className="mt-1 text-sm leading-6 text-white/50">
+                              {section.description}
+                            </p>
+                          </div>
+                          <span className="text-xs uppercase tracking-[0.14em] text-[var(--color-gold)]">
+                            {section.label}
+                          </span>
+                        </div>
+                        <div className="mt-4 grid gap-3 md:grid-cols-3">
+                          {Array.from({ length: section.count }).map((_, index) => {
+                            const galleryIndex = start + index;
+                            return (
+                              <label className="block" key={galleryIndex}>
+                                <span className="text-[0.62rem] uppercase tracking-[0.14em] text-white/40">
+                                  Foto {index + 1}
+                                </span>
+                                <input
+                                  className={`${controlClassName} mt-2`}
+                                  onChange={(event) =>
+                                    updateGallerySlot(galleryIndex, event.target.value)
+                                  }
+                                  placeholder="https://res.cloudinary.com/..."
+                                  value={galleryUrlSlots[galleryIndex] ?? ""}
+                                />
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
               <Field label="Musik / backsound Cloudinary URL">
                 <input
                   className={controlClassName}
