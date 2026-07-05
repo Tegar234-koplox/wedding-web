@@ -157,6 +157,25 @@ def _ensure_invitation(order: Order) -> Invitation:
     return invitation
 
 
+def _publish_invitation_for_order(order: Order, actor) -> Invitation:
+    invitation = _ensure_invitation(order)
+    if invitation.status == Invitation.Status.PUBLISHED:
+        return invitation
+
+    invitation.status = Invitation.Status.PUBLISHED
+    invitation.approval_status = Invitation.ApprovalStatus.PUBLISHED
+    invitation.published_at = invitation.published_at or timezone.now()
+    invitation.save(update_fields=["status", "approval_status", "published_at", "updated_at"])
+    AuditEvent.objects.create(
+        actor=actor,
+        action="invitation.published",
+        resource_type="invitation",
+        resource_reference=invitation.public_slug,
+        metadata={"order": order.reference, "source": "staff_order_status"},
+    )
+    return invitation
+
+
 def _update_event(invitation: Invitation, event_type: str, data: dict) -> None:
     if not isinstance(data, dict):
         return
@@ -323,6 +342,8 @@ class StaffOrderDetailView(RetrieveUpdateAPIView):
         serializer.is_valid(raise_exception=True)
         with transaction.atomic():
             updated = serializer.save()
+            if updated.status == Order.Status.PUBLISHED:
+                _publish_invitation_for_order(updated, request.user)
             if nested_keys.intersection(request.data):
                 invitation = _ensure_invitation(updated)
                 _update_event(

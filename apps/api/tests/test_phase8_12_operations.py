@@ -510,6 +510,35 @@ def test_manual_order_preview_returns_complete_invitation_content(client):
 
 
 @pytest.mark.django_db
+def test_staff_publishing_order_turns_preview_link_into_public_link(client):
+    staff = create_user(
+        username="staff-final-link",
+        email="staff-final-link@example.com",
+        role="staff",
+        is_staff=True,
+    )
+    theme = create_theme()
+    order = Order.objects.create(reference="N011", client_name="Fahri", theme=theme)
+    client.force_login(staff)
+
+    response = client.patch(
+        reverse("admin-order-detail", kwargs={"reference": order.reference}),
+        {"status": Order.Status.PUBLISHED},
+        content_type="application/json",
+        HTTP_ORIGIN="https://wedding.example",
+    )
+
+    assert response.status_code == 200
+    order.refresh_from_db()
+    order.invitation.refresh_from_db()
+    assert order.status == Order.Status.PUBLISHED
+    assert order.invitation.status == Invitation.Status.PUBLISHED
+    assert order.invitation.approval_status == Invitation.ApprovalStatus.PUBLISHED
+    assert response.json()["preview_url"] == "https://wedding.example/id/i/n011"
+    assert "preview=" not in response.json()["preview_url"]
+
+
+@pytest.mark.django_db
 def test_client_cannot_access_staff_verification_queue(client):
     client_user = create_user(username="client-queue", email="client-queue@example.com")
     client.force_login(client_user)

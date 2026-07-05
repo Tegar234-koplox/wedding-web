@@ -328,7 +328,11 @@ class StaffOrderDetailSerializer(serializers.Serializer):
 
     def _preview_url(self, invitation: Invitation, request) -> str:
         path = f"/{invitation.default_locale}/i/{invitation.public_slug}"
-        preview_path = f"{path}?{urlencode({'preview': preview_token_for(invitation)})}"
+        preview_path = (
+            path
+            if invitation.status == Invitation.Status.PUBLISHED
+            else f"{path}?{urlencode({'preview': preview_token_for(invitation)})}"
+        )
         if request is None:
             return preview_path
         origin = request.headers.get("Origin", "").rstrip("/")
