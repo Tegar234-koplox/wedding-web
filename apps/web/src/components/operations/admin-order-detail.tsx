@@ -9,12 +9,19 @@ import { cn } from "@/lib/utils";
 
 import {
   formatCurrency,
+  manualPaymentMethodLabels,
+  manualPaymentReviewLabels,
+  manualPaymentTypeLabels,
   normalizeCurrencyInput,
   paymentLabels,
   staffDownload,
   staffFetch,
   type DetailRevision,
   type GuestDeliveryLink,
+  type ManualPaymentMethod,
+  type ManualPaymentRecord,
+  type ManualPaymentReviewStatus,
+  type ManualPaymentType,
   type PackageOption,
   type PaymentStatus,
   type StaffOrderDetail,
@@ -60,6 +67,17 @@ type GuestLinkForm = {
   party_size: string;
 };
 
+type PaymentRecordForm = {
+  amount: string;
+  method: ManualPaymentMethod;
+  note: string;
+  paid_at: string;
+  payment_type: ManualPaymentType;
+  proof_url: string;
+  rejection_reason: string;
+  review_status: ManualPaymentReviewStatus;
+};
+
 const emptyForm: OrderDetailForm = {
   bank_account_bank: "",
   bank_account_name: "",
@@ -93,6 +111,17 @@ const emptyGuestLinkForm: GuestLinkForm = {
   email: "",
   party_size: "1",
   phone: "",
+};
+
+const emptyPaymentRecordForm: PaymentRecordForm = {
+  amount: "",
+  method: "bank_transfer",
+  note: "",
+  paid_at: "",
+  payment_type: "dp",
+  proof_url: "",
+  rejection_reason: "",
+  review_status: "pending",
 };
 
 const controlClassName =
@@ -202,11 +231,25 @@ function guestWhatsAppMessage(detail: StaffOrderDetail | null, guest: GuestDeliv
     .join("\n");
 }
 
+function paymentReminderMessage(detail: StaffOrderDetail | null): string {
+  const clientName = detail?.order.client_name || "Customer";
+  const outstanding = detail?.payment_summary.outstanding ?? detail?.order.total_amount ?? "0";
+  return [
+    `Halo ${clientName},`,
+    "",
+    `Kami informasikan sisa tagihan undangan Niskala saat ini adalah ${formatCurrency(outstanding)}.`,
+    "Silakan konfirmasi setelah melakukan transfer agar kami bisa lanjut memproses order.",
+  ].join("\n");
+}
+
 export function AdminOrderDetail({ reference }: { reference: string }) {
   const [detail, setDetail] = useState<StaffOrderDetail | null>(null);
   const [form, setForm] = useState<OrderDetailForm>(emptyForm);
   const [guestLinks, setGuestLinks] = useState<GuestDeliveryLink[]>([]);
   const [guestLinkForm, setGuestLinkForm] = useState<GuestLinkForm>(emptyGuestLinkForm);
+  const [paymentRecordForm, setPaymentRecordForm] = useState<PaymentRecordForm>(
+    emptyPaymentRecordForm,
+  );
   const [themes, setThemes] = useState<ThemeOption[]>([]);
   const [packages, setPackages] = useState<PackageOption[]>([]);
   const [revisionNote, setRevisionNote] = useState("");
@@ -215,6 +258,7 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savingGuestLink, setSavingGuestLink] = useState(false);
+  const [savingPayment, setSavingPayment] = useState(false);
   const [savingRevision, setSavingRevision] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -263,6 +307,10 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
 
   function updateGuestLinkForm(field: keyof GuestLinkForm, value: string) {
     setGuestLinkForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function updatePaymentRecordForm(field: keyof PaymentRecordForm, value: string) {
+    setPaymentRecordForm((current) => ({ ...current, [field]: value }));
   }
 
   async function saveDetail() {
@@ -367,6 +415,88 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
       setNotice("Pesan WhatsApp tamu disalin.");
     } catch {
       setError("Pesan WhatsApp gagal disalin.");
+    }
+  }
+
+  async function copyPaymentReminder() {
+    try {
+      await navigator.clipboard.writeText(paymentReminderMessage(detail));
+      setNotice("Template reminder pembayaran disalin.");
+    } catch {
+      setError("Template reminder pembayaran gagal disalin.");
+    }
+  }
+
+  async function createPaymentRecord() {
+    if (!paymentRecordForm.amount.trim()) {
+      setError("Nominal pembayaran wajib diisi.");
+      return;
+    }
+    setSavingPayment(true);
+    setError("");
+    setNotice("");
+    try {
+      const created = await staffFetch<ManualPaymentRecord>(
+        `/admin/orders/${reference}/payments`,
+        {
+          body: JSON.stringify({
+            amount: normalizeCurrencyInput(paymentRecordForm.amount),
+            method: paymentRecordForm.method,
+            note: paymentRecordForm.note.trim(),
+            paid_at: paymentRecordForm.paid_at || null,
+            payment_type: paymentRecordForm.payment_type,
+            proof_url: paymentRecordForm.proof_url.trim(),
+            rejection_reason: paymentRecordForm.rejection_reason.trim(),
+            review_status: paymentRecordForm.review_status,
+          }),
+          method: "POST",
+        },
+      );
+      setDetail((current) =>
+        current
+          ? {
+              ...current,
+              payments: [created, ...current.payments],
+            }
+          : current,
+      );
+      await loadDetail();
+      setPaymentRecordForm(emptyPaymentRecordForm);
+      setNotice("Pembayaran dicatat.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Pembayaran gagal dicatat.");
+    } finally {
+      setSavingPayment(false);
+    }
+  }
+
+  async function updatePaymentReview(
+    payment: ManualPaymentRecord,
+    reviewStatus: ManualPaymentReviewStatus,
+  ) {
+    setSavingPayment(true);
+    setError("");
+    setNotice("");
+    try {
+      await staffFetch<ManualPaymentRecord>(
+        `/admin/orders/${reference}/payments/${payment.id}`,
+        {
+          body: JSON.stringify({
+            review_status: reviewStatus,
+            rejection_reason:
+              reviewStatus === "rejected"
+                ? payment.rejection_reason || "Bukti transfer perlu dicek ulang."
+                : payment.rejection_reason,
+          }),
+          method: "PATCH",
+        },
+      );
+      await loadDetail();
+      setNotice("Status bukti pembayaran diperbarui.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Status pembayaran gagal diperbarui.");
+    } finally {
+      setSavingPayment(false);
     }
   }
 
@@ -570,6 +700,224 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
                   value={form.total_amount}
                 />
               </Field>
+            </div>
+          </Panel>
+
+          <Panel eyebrow="Finance" title="Pembayaran manual.">
+            <div className="grid gap-3 md:grid-cols-4">
+              <MiniMetric label="Tagihan" value={formatCurrency(form.total_amount || 0)} />
+              <MiniMetric
+                label="Valid"
+                value={formatCurrency(detail?.payment_summary.valid_total ?? 0)}
+              />
+              <MiniMetric
+                label="Menunggu"
+                value={formatCurrency(detail?.payment_summary.pending_total ?? 0)}
+              />
+              <MiniMetric
+                label="Sisa"
+                value={formatCurrency(detail?.payment_summary.outstanding ?? form.total_amount)}
+              />
+            </div>
+
+            <div className="mt-5 grid gap-4 md:grid-cols-3">
+              <Field label="Jenis">
+                <select
+                  className={selectClassName}
+                  onChange={(event) =>
+                    updatePaymentRecordForm(
+                      "payment_type",
+                      event.target.value as ManualPaymentType,
+                    )
+                  }
+                  value={paymentRecordForm.payment_type}
+                >
+                  {Object.entries(manualPaymentTypeLabels).map(([value, label]) => (
+                    <option className={optionClassName} key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Metode">
+                <select
+                  className={selectClassName}
+                  onChange={(event) =>
+                    updatePaymentRecordForm("method", event.target.value as ManualPaymentMethod)
+                  }
+                  value={paymentRecordForm.method}
+                >
+                  {Object.entries(manualPaymentMethodLabels).map(([value, label]) => (
+                    <option className={optionClassName} key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Status Bukti">
+                <select
+                  className={selectClassName}
+                  onChange={(event) =>
+                    updatePaymentRecordForm(
+                      "review_status",
+                      event.target.value as ManualPaymentReviewStatus,
+                    )
+                  }
+                  value={paymentRecordForm.review_status}
+                >
+                  {Object.entries(manualPaymentReviewLabels).map(([value, label]) => (
+                    <option className={optionClassName} key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Nominal">
+                <input
+                  className={controlClassName}
+                  onChange={(event) => updatePaymentRecordForm("amount", event.target.value)}
+                  placeholder="99000 atau 99.000"
+                  value={paymentRecordForm.amount}
+                />
+              </Field>
+              <Field label="Tanggal Bayar">
+                <input
+                  className={controlClassName}
+                  onChange={(event) => updatePaymentRecordForm("paid_at", event.target.value)}
+                  type="datetime-local"
+                  value={paymentRecordForm.paid_at}
+                />
+              </Field>
+              <Field label="Bukti Transfer Cloudinary URL">
+                <input
+                  className={controlClassName}
+                  onChange={(event) => updatePaymentRecordForm("proof_url", event.target.value)}
+                  placeholder="https://res.cloudinary.com/..."
+                  value={paymentRecordForm.proof_url}
+                />
+              </Field>
+              <Field label="Catatan">
+                <input
+                  className={controlClassName}
+                  onChange={(event) => updatePaymentRecordForm("note", event.target.value)}
+                  placeholder="DP dari rekening BCA..."
+                  value={paymentRecordForm.note}
+                />
+              </Field>
+              <Field label="Alasan ditolak">
+                <input
+                  className={controlClassName}
+                  onChange={(event) =>
+                    updatePaymentRecordForm("rejection_reason", event.target.value)
+                  }
+                  placeholder="Nominal tidak sesuai"
+                  value={paymentRecordForm.rejection_reason}
+                />
+              </Field>
+              <div className="flex items-end">
+                <button
+                  className="inline-flex min-h-11 w-full items-center justify-center gap-3 bg-[var(--color-gold)] px-4 text-xs font-semibold uppercase tracking-[0.14em] text-black transition hover:bg-[#f4ddb0] disabled:opacity-50"
+                  disabled={savingPayment}
+                  onClick={() => void createPaymentRecord()}
+                  type="button"
+                >
+                  <Plus size={15} />
+                  {savingPayment ? "Mencatat" : "Catat Payment"}
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-5 flex flex-wrap gap-3">
+              <button
+                className={outlineButtonClassName}
+                onClick={() => void copyPaymentReminder()}
+                type="button"
+              >
+                <MessageCircle size={15} />
+                Copy Reminder WA
+              </button>
+            </div>
+
+            <div className="mt-5 overflow-x-auto border border-white/10">
+              <table className="w-full min-w-[860px] border-collapse text-left text-sm">
+                <thead className="bg-white/[0.03] text-xs uppercase tracking-[0.14em] text-white/45">
+                  <tr>
+                    <th className="px-4 py-3">Jenis</th>
+                    <th className="px-4 py-3">Nominal</th>
+                    <th className="px-4 py-3">Metode</th>
+                    <th className="px-4 py-3">Tanggal</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {detail?.payments.length ? null : (
+                    <tr>
+                      <td className="px-4 py-6 text-white/45" colSpan={6}>
+                        Belum ada pembayaran yang dicatat.
+                      </td>
+                    </tr>
+                  )}
+                  {detail?.payments.map((payment) => (
+                    <tr className="border-t border-white/10" key={payment.id}>
+                      <td className="px-4 py-4">
+                        <p className="font-semibold text-white">
+                          {manualPaymentTypeLabels[payment.payment_type]}
+                        </p>
+                        {payment.proof_url ? (
+                          <a
+                            className="mt-1 block text-xs text-[var(--color-gold)]"
+                            href={payment.proof_url}
+                            rel="noreferrer"
+                            target="_blank"
+                          >
+                            Buka bukti
+                          </a>
+                        ) : null}
+                      </td>
+                      <td className="px-4 py-4 text-white/70">
+                        {formatCurrency(payment.amount)}
+                      </td>
+                      <td className="px-4 py-4 text-white/60">
+                        {manualPaymentMethodLabels[payment.method]}
+                      </td>
+                      <td className="px-4 py-4 text-white/60">
+                        {payment.paid_at
+                          ? new Date(payment.paid_at).toLocaleDateString("id-ID")
+                          : "-"}
+                      </td>
+                      <td className="px-4 py-4 text-white/60">
+                        {manualPaymentReviewLabels[payment.review_status]}
+                        {payment.review_status === "rejected" && payment.rejection_reason ? (
+                          <p className="mt-1 text-xs text-red-200">
+                            {payment.rejection_reason}
+                          </p>
+                        ) : null}
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            className={outlineButtonClassName}
+                            disabled={savingPayment}
+                            onClick={() => void updatePaymentReview(payment, "valid")}
+                            type="button"
+                          >
+                            Valid
+                          </button>
+                          <button
+                            className={outlineButtonClassName}
+                            disabled={savingPayment}
+                            onClick={() => void updatePaymentReview(payment, "rejected")}
+                            type="button"
+                          >
+                            Tolak
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </Panel>
 
@@ -1055,6 +1403,15 @@ function Field({ children, label }: { children: ReactNode; label: string }) {
       <span className="text-xs uppercase tracking-[0.14em] text-white/45">{label}</span>
       <div className="mt-2">{children}</div>
     </label>
+  );
+}
+
+function MiniMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="border border-white/10 bg-black/20 p-4">
+      <p className="text-[0.58rem] uppercase tracking-[0.16em] text-white/40">{label}</p>
+      <p className="mt-2 font-serif text-xl text-white">{value}</p>
+    </div>
   );
 }
 

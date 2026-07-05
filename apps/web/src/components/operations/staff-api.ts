@@ -14,6 +14,9 @@ export type StaffSession = {
 };
 
 export type PaymentStatus = "unpaid" | "dp" | "paid";
+export type ManualPaymentType = "dp" | "settlement" | "other";
+export type ManualPaymentMethod = "bank_transfer" | "qris" | "cash" | "other";
+export type ManualPaymentReviewStatus = "pending" | "valid" | "rejected";
 
 export type Order = {
   id: string;
@@ -35,6 +38,9 @@ export type Order = {
   currency: string;
   payment_method?: string;
   proof_url?: string;
+  payment_valid_total?: string;
+  payment_pending_total?: string;
+  payment_outstanding?: string;
   notes: string;
   created_at: string;
   updated_at: string;
@@ -106,6 +112,35 @@ export type GuestDeliveryLink = {
   created_at: string;
 };
 
+export type ManualPaymentRecord = {
+  id: string;
+  payment_type: ManualPaymentType;
+  payment_type_label: string;
+  method: ManualPaymentMethod;
+  method_label: string;
+  review_status: ManualPaymentReviewStatus;
+  review_status_label: string;
+  amount: string;
+  currency: string;
+  proof_url: string;
+  paid_at: string | null;
+  note: string;
+  rejection_reason: string;
+  recorded_by_email: string | null;
+  reviewed_by_email: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ManualPaymentSummary = {
+  valid_total: string;
+  pending_total: string;
+  rejected_total: string;
+  outstanding: string;
+  payment_status: PaymentStatus;
+};
+
 export type StaffOrderDetail = {
   order: Order;
   invitation: null | {
@@ -128,6 +163,8 @@ export type StaffOrderDetail = {
     total_declined: number;
     response_rate: number;
   };
+  payments: ManualPaymentRecord[];
+  payment_summary: ManualPaymentSummary;
   preview_url: string;
   revisions: DetailRevision[];
 };
@@ -138,6 +175,25 @@ export const paymentLabels: Record<PaymentStatus, string> = {
   unpaid: "Belum Bayar",
   dp: "DP",
   paid: "Lunas",
+};
+
+export const manualPaymentTypeLabels: Record<ManualPaymentType, string> = {
+  dp: "DP",
+  settlement: "Pelunasan",
+  other: "Lainnya",
+};
+
+export const manualPaymentMethodLabels: Record<ManualPaymentMethod, string> = {
+  bank_transfer: "Transfer Bank",
+  qris: "QRIS",
+  cash: "Cash",
+  other: "Lainnya",
+};
+
+export const manualPaymentReviewLabels: Record<ManualPaymentReviewStatus, string> = {
+  pending: "Belum dicek",
+  valid: "Valid",
+  rejected: "Ditolak",
 };
 
 export const workflowLabels = [

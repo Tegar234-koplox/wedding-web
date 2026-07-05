@@ -129,6 +129,18 @@ export function AdminOperations() {
     });
   }, [orders, packageFilter, paymentFilter, search, workflowFilter]);
 
+  const financeSummary = useMemo(() => {
+    return orders.reduce(
+      (summary, order) => ({
+        outstanding: summary.outstanding + Number(order.payment_outstanding ?? order.total_amount),
+        pending: summary.pending + Number(order.payment_pending_total ?? 0),
+        total: summary.total + Number(order.total_amount || 0),
+        valid: summary.valid + Number(order.payment_valid_total ?? 0),
+      }),
+      { outstanding: 0, pending: 0, total: 0, valid: 0 },
+    );
+  }, [orders]);
+
   function openAddOrder() {
     setOrderForm({
       ...emptyOrderForm,
@@ -246,6 +258,13 @@ export function AdminOperations() {
 
       {error ? <Notice tone="warn">{error}</Notice> : null}
       {notice ? <Notice tone="ok">{notice}</Notice> : null}
+
+      <section className="grid gap-3 md:grid-cols-4">
+        <Metric label="Total Tagihan" value={formatCurrency(financeSummary.total)} />
+        <Metric label="Pembayaran Valid" value={formatCurrency(financeSummary.valid)} />
+        <Metric label="Menunggu Cek" value={formatCurrency(financeSummary.pending)} />
+        <Metric label="Sisa Tagihan" value={formatCurrency(financeSummary.outstanding)} />
+      </section>
 
       <section className="border border-white/12 bg-[#141411]">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 p-4">
@@ -544,6 +563,15 @@ function Field({ children, label }: { children: ReactNode; label: string }) {
       <span className="text-xs uppercase tracking-[0.14em] text-white/45">{label}</span>
       <div className="mt-2">{children}</div>
     </label>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="border border-white/10 bg-[#141411] p-4">
+      <p className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">{label}</p>
+      <p className="mt-3 font-serif text-2xl text-white">{value}</p>
+    </div>
   );
 }
 

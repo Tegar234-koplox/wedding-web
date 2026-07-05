@@ -1,15 +1,17 @@
 import hashlib
 
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from rest_framework.generics import CreateAPIView, RetrieveAPIView
+from rest_framework.generics import CreateAPIView, ListCreateAPIView, RetrieveAPIView, UpdateAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from common.models import AuditEvent
+from orders.models import Order
 from orders.permissions import IsStaffRole
 from payments.models import PaymentInvoice, PaymentWebhookEvent
-from payments.serializers import PaymentInvoiceSerializer
+from payments.serializers import PaymentInvoiceSerializer, PaymentRecordSerializer
 
 
 class PaymentInvoiceCreateView(CreateAPIView):
@@ -22,6 +24,38 @@ class PaymentInvoiceDetailView(RetrieveAPIView):
     serializer_class = PaymentInvoiceSerializer
     lookup_field = "invoice_number"
     queryset = PaymentInvoice.objects.select_related("order")
+
+
+class StaffPaymentRecordListCreateView(ListCreateAPIView):
+    permission_classes = [IsStaffRole]
+    serializer_class = PaymentRecordSerializer
+
+    def get_order(self) -> Order:
+        return get_object_or_404(
+            Order.objects.filter(archived_at__isnull=True),
+            reference=self.kwargs["reference"],
+        )
+
+    def get_queryset(self):
+        return self.get_order().manual_payments.select_related("recorded_by", "reviewed_by")
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context["order"] = self.get_order()
+        return context
+
+
+class StaffPaymentRecordUpdateView(UpdateAPIView):
+    permission_classes = [IsStaffRole]
+    serializer_class = PaymentRecordSerializer
+    lookup_url_kwarg = "payment_id"
+
+    def get_queryset(self):
+        order = get_object_or_404(
+            Order.objects.filter(archived_at__isnull=True),
+            reference=self.kwargs["reference"],
+        )
+        return order.manual_payments.select_related("recorded_by", "reviewed_by")
 
 
 class MidtransWebhookView(APIView):

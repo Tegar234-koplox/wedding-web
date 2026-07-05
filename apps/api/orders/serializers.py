@@ -15,6 +15,8 @@ from invitations.models import (
 from invitations.preview import preview_token_for
 from leads.models import WhatsAppIntent
 from orders.models import Order
+from payments.serializers import PaymentRecordSerializer
+from payments.services import manual_payment_summary
 from users.models import User
 
 WORKFLOW_STATUS_LABELS = {
@@ -120,6 +122,18 @@ class OrderSerializer(serializers.ModelSerializer[Order]):
         allow_null=True,
         required=False,
     )
+    payment_valid_total = serializers.SerializerMethodField()
+    payment_pending_total = serializers.SerializerMethodField()
+    payment_outstanding = serializers.SerializerMethodField()
+
+    def get_payment_valid_total(self, obj: Order) -> str:
+        return str(manual_payment_summary(obj)["valid_total"])
+
+    def get_payment_pending_total(self, obj: Order) -> str:
+        return str(manual_payment_summary(obj)["pending_total"])
+
+    def get_payment_outstanding(self, obj: Order) -> str:
+        return str(manual_payment_summary(obj)["outstanding"])
 
     class Meta:
         model = Order
@@ -142,13 +156,24 @@ class OrderSerializer(serializers.ModelSerializer[Order]):
             "currency",
             "payment_method",
             "proof_url",
+            "payment_valid_total",
+            "payment_pending_total",
+            "payment_outstanding",
             "verified_at",
             "rejection_reason",
             "notes",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "verified_at", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "payment_valid_total",
+            "payment_pending_total",
+            "payment_outstanding",
+            "verified_at",
+            "created_at",
+            "updated_at",
+        ]
 
     def create(self, validated_data):
         order = super().create(validated_data)
@@ -225,6 +250,8 @@ class StaffOrderDetailSerializer(serializers.Serializer):
                 "events": [],
                 "media": [],
                 "rsvp": self._empty_rsvp(),
+                "payments": [],
+                "payment_summary": self._payment_summary(order),
                 "preview_url": "",
                 "revisions": [],
             }
@@ -235,6 +262,8 @@ class StaffOrderDetailSerializer(serializers.Serializer):
             "events": [self._event_payload(event) for event in invitation.events.all()],
             "media": [self._media_payload(media) for media in invitation.media.all()],
             "rsvp": self._rsvp_payload(invitation),
+            "payments": PaymentRecordSerializer(order.manual_payments.all(), many=True).data,
+            "payment_summary": self._payment_summary(order),
             "preview_url": self._preview_url(invitation, request),
             "revisions": [
                 self._revision_payload(revision) for revision in invitation.revisions.all()
@@ -324,6 +353,16 @@ class StaffOrderDetailSerializer(serializers.Serializer):
             "total_confirmed": 0,
             "total_declined": 0,
             "response_rate": 0,
+        }
+
+    def _payment_summary(self, order: Order) -> dict[str, str]:
+        summary = manual_payment_summary(order)
+        return {
+            "valid_total": str(summary["valid_total"]),
+            "pending_total": str(summary["pending_total"]),
+            "rejected_total": str(summary["rejected_total"]),
+            "outstanding": str(summary["outstanding"]),
+            "payment_status": str(summary["payment_status"]),
         }
 
     def _preview_url(self, invitation: Invitation, request) -> str:
