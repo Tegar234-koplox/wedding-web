@@ -59,6 +59,7 @@ export const packageCapabilities: Record<PackageCode, PackageCapabilities> = {
 const safeText = z.string().trim().min(1).max(1200);
 const safeUrl = z
   .string()
+  .max(500)
   .url()
   .refine(
     (url) => {
@@ -67,6 +68,20 @@ const safeUrl = z
     },
     { message: "Only HTTP(S) URLs are allowed" },
   );
+const safeMediaSrc = z.string().max(500).refine(
+  (src) => {
+    if (src.startsWith("/")) {
+      return true;
+    }
+    try {
+      const protocol = new URL(src).protocol;
+      return protocol === "https:" || protocol === "http:";
+    } catch {
+      return false;
+    }
+  },
+  { message: "Only local paths or HTTP(S) URLs are allowed" },
+);
 
 export const invitationContentSchema = z.object({
   couple: z.object({
@@ -100,12 +115,12 @@ export const invitationContentSchema = z.object({
   gallery: z
     .array(
       z.object({
-        src: z.string().startsWith("/").max(300),
+        src: safeMediaSrc,
         alt: safeText.max(180),
       }),
     )
     .min(3)
-    .max(12),
+    .max(18),
   closing: z.object({
     heading: safeText.max(120),
     message: safeText.max(600),
