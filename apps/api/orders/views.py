@@ -1,3 +1,4 @@
+import csv
 import hashlib
 import re
 from datetime import timedelta
@@ -5,6 +6,7 @@ from datetime import timedelta
 from django.conf import settings
 from django.db import transaction
 from django.db.models import Count, Max, Prefetch, Q, Sum
+from django.http import HttpResponse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.utils.text import slugify
@@ -353,6 +355,60 @@ class StaffOrderListCreateView(ListCreateAPIView):
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         return Response(serializer.data, status=201)
+
+
+class StaffOrderExportView(APIView):
+    permission_classes = [IsStaffRole]
+
+    def get(self, request) -> HttpResponse:
+        response = HttpResponse(content_type="text/csv; charset=utf-8")
+        response["Content-Disposition"] = 'attachment; filename="niskala-orders.csv"'
+        writer = csv.writer(response)
+        writer.writerow(
+            [
+                "order_id",
+                "client",
+                "email",
+                "phone",
+                "package",
+                "theme",
+                "total_amount",
+                "payment_status",
+                "workflow_status",
+                "order_date",
+                "preview_url",
+            ]
+        )
+
+        orders = (
+            Order.objects.filter(archived_at__isnull=True)
+            .select_related("theme", "package", "invitation")
+            .order_by("-created_at")
+        )
+        for order in orders:
+            preview_url = ""
+            if order.invitation_id:
+                preview_url = StaffOrderDetailSerializer(
+                    order,
+                    context={"request": request},
+                ).data.get("preview_url", "")
+            writer.writerow(
+                [
+                    order.reference,
+                    order.client_name,
+                    order.client_email,
+                    order.client_phone,
+                    order.package.code if order.package_id else "",
+                    order.theme.slug if order.theme_id else "",
+                    order.total_amount,
+                    order.get_payment_status_display(),
+                    order.get_status_display(),
+                    order.created_at.isoformat(),
+                    preview_url,
+                ]
+            )
+
+        return response
 
 
 class StaffOrderDetailView(RetrieveUpdateAPIView):
