@@ -25,6 +25,15 @@ class Order(UUIDTimeStampedModel, ArchivableModel):
         DP = "dp", "DP"
         PAID = "paid", "Lunas"
 
+    class CustomStatus(models.TextChoices):
+        NONE = "none", "Tidak Ada"
+        REQUESTED = "requested", "Diminta"
+        SCOPING = "scoping", "Briefing"
+        APPROVED = "approved", "Disetujui"
+        IN_PROGRESS = "in_progress", "Dikerjakan"
+        READY = "ready", "Siap Review"
+        REJECTED = "rejected", "Ditolak"
+
     reference = models.SlugField(max_length=40, unique=True)
     status = models.CharField(max_length=24, choices=Status.choices, default=Status.LEAD)
     payment_status = models.CharField(
@@ -93,6 +102,15 @@ class Order(UUIDTimeStampedModel, ArchivableModel):
     verified_at = models.DateTimeField(blank=True, null=True)
     rejection_reason = models.TextField(blank=True)
     notes = models.TextField(blank=True)
+    custom_status = models.CharField(
+        max_length=24,
+        choices=CustomStatus.choices,
+        default=CustomStatus.NONE,
+        db_index=True,
+    )
+    custom_brief = models.TextField(blank=True)
+    custom_approval_notes = models.TextField(blank=True)
+    custom_checklist = models.JSONField(default=dict, blank=True)
 
     class Meta:
         ordering = ["-created_at"]

@@ -18,6 +18,7 @@ import { useCallback, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
 import {
+  customStatusLabels,
   formatCurrency,
   manualPaymentMethodLabels,
   manualPaymentReviewLabels,
@@ -26,6 +27,7 @@ import {
   paymentLabels,
   staffDownload,
   staffFetch,
+  type CustomStatus,
   type DetailRevision,
   type GuestDeliveryLink,
   type ManualPaymentMethod,
@@ -54,6 +56,15 @@ type OrderDetailForm = {
   client_email: string;
   client_name: string;
   client_phone: string;
+  custom_approval_notes: string;
+  custom_brief: string;
+  custom_checklist_assets: boolean;
+  custom_checklist_copy: boolean;
+  custom_checklist_final: boolean;
+  custom_checklist_motion: boolean;
+  custom_checklist_overlay: boolean;
+  custom_checklist_parallax: boolean;
+  custom_status: CustomStatus;
   gallery_urls: string;
   package_code: string;
   payment_status: PaymentStatus;
@@ -112,6 +123,15 @@ const emptyForm: OrderDetailForm = {
   client_email: "",
   client_name: "",
   client_phone: "",
+  custom_approval_notes: "",
+  custom_brief: "",
+  custom_checklist_assets: false,
+  custom_checklist_copy: false,
+  custom_checklist_final: false,
+  custom_checklist_motion: false,
+  custom_checklist_overlay: false,
+  custom_checklist_parallax: false,
+  custom_status: "none",
   gallery_urls: "",
   package_code: "",
   payment_status: "unpaid",
@@ -241,6 +261,7 @@ function fromDetail(detail: StaffOrderDetail): OrderDetailForm {
   const photo = detail.media.find((item) => item.role === "photo");
   const gallery = detail.media.filter((item) => item.role === "gallery");
   const backsound = detail.media.find((item) => item.role === "backsound");
+  const customChecklist = detail.order.custom_checklist ?? {};
 
   return {
     bank_account_bank: account.bank ?? "",
@@ -254,6 +275,15 @@ function fromDetail(detail: StaffOrderDetail): OrderDetailForm {
     client_email: detail.order.client_email ?? "",
     client_name: detail.order.client_name ?? "",
     client_phone: detail.order.client_phone ?? "",
+    custom_approval_notes: detail.order.custom_approval_notes ?? "",
+    custom_brief: detail.order.custom_brief ?? "",
+    custom_checklist_assets: Boolean(customChecklist.assets_received),
+    custom_checklist_copy: Boolean(customChecklist.copy_approved),
+    custom_checklist_final: Boolean(customChecklist.final_approved),
+    custom_checklist_motion: Boolean(customChecklist.motion_brief),
+    custom_checklist_overlay: Boolean(customChecklist.overlay_assets),
+    custom_checklist_parallax: Boolean(customChecklist.parallax_plan),
+    custom_status: detail.order.custom_status ?? "none",
     gallery_urls: gallery.map((item) => item.asset.secure_url).join("\n"),
     package_code: detail.order.package_code ?? detail.invitation?.package_code ?? "",
     payment_status: detail.order.payment_status,
@@ -506,6 +536,17 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
           client_email: form.client_email.trim(),
           client_name: form.client_name.trim(),
           client_phone: form.client_phone.trim(),
+          custom_approval_notes: form.custom_approval_notes.trim(),
+          custom_brief: form.custom_brief.trim(),
+          custom_checklist: {
+            assets_received: form.custom_checklist_assets,
+            copy_approved: form.custom_checklist_copy,
+            final_approved: form.custom_checklist_final,
+            motion_brief: form.custom_checklist_motion,
+            overlay_assets: form.custom_checklist_overlay,
+            parallax_plan: form.custom_checklist_parallax,
+          },
+          custom_status: form.custom_status,
           media_urls: {
             backsound: form.backsound_url.trim(),
             gallery: form.gallery_urls
@@ -1206,6 +1247,86 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
             </div>
           </Panel>
 
+          <Panel eyebrow="Custom Request" title="Brief dan approval.">
+            <div className="grid gap-4 md:grid-cols-[0.7fr_1.3fr]">
+              <Field label="Status custom">
+                <select
+                  className={selectClassName}
+                  onChange={(event) =>
+                    updateForm("custom_status", event.target.value as CustomStatus)
+                  }
+                  value={form.custom_status}
+                >
+                  {Object.entries(customStatusLabels).map(([value, label]) => (
+                    <option className={optionClassName} key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Catatan approval">
+                <input
+                  className={controlClassName}
+                  onChange={(event) => updateForm("custom_approval_notes", event.target.value)}
+                  placeholder="Scope disetujui, estimasi, batas revisi, atau alasan ditolak."
+                  value={form.custom_approval_notes}
+                />
+              </Field>
+            </div>
+            <Field label="Brief custom">
+              <textarea
+                className="min-h-36 w-full border border-white/12 bg-black/20 p-3 text-sm text-white outline-none transition focus:border-[var(--color-gold)]"
+                onChange={(event) => updateForm("custom_brief", event.target.value)}
+                placeholder="Mood, referensi, love story/timeline, art direction, parallax, overlay motion, deadline, dan batasan request."
+                value={form.custom_brief}
+              />
+            </Field>
+            <div className="mt-5 grid gap-3 md:grid-cols-2">
+              <CustomChecklistItem
+                checked={form.custom_checklist_assets}
+                label="Asset lengkap"
+                onChange={(checked) =>
+                  setForm((current) => ({ ...current, custom_checklist_assets: checked }))
+                }
+              />
+              <CustomChecklistItem
+                checked={form.custom_checklist_motion}
+                label="Brief motion jelas"
+                onChange={(checked) =>
+                  setForm((current) => ({ ...current, custom_checklist_motion: checked }))
+                }
+              />
+              <CustomChecklistItem
+                checked={form.custom_checklist_overlay}
+                label="Overlay asset siap"
+                onChange={(checked) =>
+                  setForm((current) => ({ ...current, custom_checklist_overlay: checked }))
+                }
+              />
+              <CustomChecklistItem
+                checked={form.custom_checklist_parallax}
+                label="Parallax plan aman"
+                onChange={(checked) =>
+                  setForm((current) => ({ ...current, custom_checklist_parallax: checked }))
+                }
+              />
+              <CustomChecklistItem
+                checked={form.custom_checklist_copy}
+                label="Copy/story approved"
+                onChange={(checked) =>
+                  setForm((current) => ({ ...current, custom_checklist_copy: checked }))
+                }
+              />
+              <CustomChecklistItem
+                checked={form.custom_checklist_final}
+                label="Final approval"
+                onChange={(checked) =>
+                  setForm((current) => ({ ...current, custom_checklist_final: checked }))
+                }
+              />
+            </div>
+          </Panel>
+
           <Panel eyebrow="Media" title="Foto, galeri, dan musik.">
             <div className="grid gap-4">
               <Field label="Foto utama Cloudinary URL">
@@ -1743,6 +1864,28 @@ function Field({ children, label }: { children: ReactNode; label: string }) {
     <label className="block">
       <span className="text-xs uppercase tracking-[0.14em] text-white/45">{label}</span>
       <div className="mt-2">{children}</div>
+    </label>
+  );
+}
+
+function CustomChecklistItem({
+  checked,
+  label,
+  onChange,
+}: {
+  checked: boolean;
+  label: string;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="flex min-h-12 items-center justify-between gap-4 border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/70">
+      <span>{label}</span>
+      <input
+        checked={checked}
+        className="h-4 w-4 accent-[var(--color-gold)]"
+        onChange={(event) => onChange(event.target.checked)}
+        type="checkbox"
+      />
     </label>
   );
 }

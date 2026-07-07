@@ -162,6 +162,10 @@ class OrderSerializer(serializers.ModelSerializer[Order]):
             "verified_at",
             "rejection_reason",
             "notes",
+            "custom_status",
+            "custom_brief",
+            "custom_approval_notes",
+            "custom_checklist",
             "created_at",
             "updated_at",
         ]

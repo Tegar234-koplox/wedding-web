@@ -312,6 +312,17 @@ def test_staff_can_update_manual_order_detail_payload(client):
         reverse("admin-order-detail", kwargs={"reference": order.reference}),
         {
             "client_name": "Reno dan Erisa",
+            "custom_approval_notes": "Scope custom disetujui via WhatsApp.",
+            "custom_brief": "Custom love story, parallax lembut, dan overlay motion.",
+            "custom_checklist": {
+                "assets_received": True,
+                "copy_approved": False,
+                "final_approved": False,
+                "motion_brief": True,
+                "overlay_assets": True,
+                "parallax_plan": True,
+            },
+            "custom_status": Order.CustomStatus.APPROVED,
             "payment_status": Order.PaymentStatus.PAID,
             "status": Order.Status.REVISION,
             "ceremony": {
@@ -347,6 +358,10 @@ def test_staff_can_update_manual_order_detail_payload(client):
     assert response.status_code == 200
     order.refresh_from_db()
     assert order.client_name == "Reno dan Erisa"
+    assert order.custom_status == Order.CustomStatus.APPROVED
+    assert order.custom_brief.startswith("Custom love story")
+    assert order.custom_approval_notes == "Scope custom disetujui via WhatsApp."
+    assert order.custom_checklist["motion_brief"] is True
     assert order.payment_status == Order.PaymentStatus.PAID
     assert order.invitation is not None
     assert order.invitation.content["couple"]["partnerOne"] == "Reno"
@@ -357,6 +372,8 @@ def test_staff_can_update_manual_order_detail_payload(client):
     assert order.invitation.media.filter(role=InvitationMedia.Role.BACKSOUND).count() == 1
     assert order.invitation.content["bank_accounts"][0]["bank"] == "BCA"
     assert order.invitation.content["rsvp_manual"]["total_invited"] == 100
+    assert response.json()["order"]["custom_status"] == Order.CustomStatus.APPROVED
+    assert response.json()["order"]["custom_checklist"]["overlay_assets"] is True
     assert response.json()["preview_url"].startswith("http://testserver/id/i/")
     assert "preview=" in response.json()["preview_url"]
 

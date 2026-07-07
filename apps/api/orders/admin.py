@@ -9,6 +9,7 @@ class OrderAdmin(admin.ModelAdmin):
         "reference",
         "status",
         "payment_status",
+        "custom_status",
         "client_name",
         "client_user",
         "invitation",
@@ -17,7 +18,7 @@ class OrderAdmin(admin.ModelAdmin):
         "total_amount",
         "updated_at",
     ]
-    list_filter = ["status", "payment_status", "currency", "assigned_staff"]
+    list_filter = ["status", "payment_status", "custom_status", "currency", "assigned_staff"]
     search_fields = [
         "reference",
         "client_name",

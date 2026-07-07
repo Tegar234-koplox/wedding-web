@@ -322,6 +322,10 @@ def _manual_order_payload(data) -> dict:
             "total_amount",
             "currency",
             "notes",
+            "custom_status",
+            "custom_brief",
+            "custom_approval_notes",
+            "custom_checklist",
         ]
         if key in data
     }
