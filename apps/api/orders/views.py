@@ -13,6 +13,7 @@ from django.utils.text import slugify
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import ListAPIView, ListCreateAPIView, RetrieveUpdateAPIView
 from rest_framework.permissions import AllowAny
+from rest_framework.renderers import BaseRenderer, JSONRenderer
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -37,6 +38,17 @@ from orders.serializers import (
     StaffRejectOrderSerializer,
     StaffVerificationActionSerializer,
 )
+
+
+class StaffCSVRenderer(BaseRenderer):
+    media_type = "text/csv"
+    format = "csv"
+    charset = "utf-8"
+
+    def render(self, data, accepted_media_type=None, renderer_context=None):
+        if data is None:
+            return b""
+        return str(data).encode(self.charset)
 
 
 def _detail_queryset():
@@ -359,6 +371,7 @@ class StaffOrderListCreateView(ListCreateAPIView):
 
 class StaffOrderExportView(APIView):
     permission_classes = [IsStaffRole]
+    renderer_classes = [StaffCSVRenderer, JSONRenderer]
 
     def get(self, request) -> HttpResponse:
         response = HttpResponse(content_type="text/csv; charset=utf-8")

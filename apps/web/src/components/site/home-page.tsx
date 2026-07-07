@@ -64,7 +64,7 @@ export function EditorialHome({ locale }: { locale: Locale }) {
                   Love
                 </p>
               </div>
-              <div className="overflow-hidden md:pl-[15vw]">
+              <div className="overflow-hidden pb-[0.12em] md:pl-[15vw]">
                 <p
                   className="font-serif text-[clamp(4.7rem,12.5vw,12rem)] italic leading-[0.86] tracking-[-0.07em] text-[var(--color-gold)]"
                   data-hero-line
@@ -384,10 +384,10 @@ export function EditorialHome({ locale }: { locale: Locale }) {
                   : "Tell us what you are planning"}
               </p>
               <h2 className="mt-8 max-w-4xl font-serif text-[clamp(4rem,9vw,9rem)] leading-[0.82] tracking-[-0.06em]">
-                {id ? "Mari menebar" : "Let us make"}
+                {id ? "Mari menebar" : "Let us sow"}
                 <br />
                 <span className="italic text-[var(--color-gold-soft)]">
-                  {id ? "agar tak memudar." : "something felt."}
+                  {id ? "agar tak memudar." : "so it never fades."}
                 </span>
               </h2>
             </div>

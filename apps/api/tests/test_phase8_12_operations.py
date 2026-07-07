@@ -269,7 +269,7 @@ def test_staff_can_export_active_orders_csv(client):
     Order.objects.create(reference="N999", client_name="Archived", archived_at=timezone.now())
     client.force_login(staff)
 
-    response = client.get(reverse("admin-order-export"))
+    response = client.get(reverse("admin-order-export"), HTTP_ACCEPT="text/csv")
     body = response.content.decode()
 
     assert response.status_code == 200
@@ -641,6 +641,10 @@ def test_manual_order_preview_returns_complete_invitation_content(client):
     content = preview.json()["content"]
     assert content["couple"]["partnerOne"] == "Fahri"
     assert content["opening"]["title"]
+    assert content["event"]["dateLabel"] != "Tanggal acara"
+    assert content["event"]["ceremonyTime"] != "Waktu akad"
+    assert content["event"]["venue"] == "Venue"
+    assert content["event"]["address"] == "Jakarta"
     assert content["event"]["mapUrl"].startswith("http")
     assert content["closing"]["heading"]
 

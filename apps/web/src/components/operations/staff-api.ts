@@ -319,7 +319,7 @@ export async function staffFetch<T>(path: string, init?: RequestInit): Promise<T
 export async function staffDownload(path: string): Promise<Blob> {
   const response = await fetch(`${env.NEXT_PUBLIC_API_URL}${path}`, {
     credentials: "include",
-    headers: { Accept: "text/csv" },
+    headers: { Accept: "*/*" },
   });
 
   if (!response.ok) {
