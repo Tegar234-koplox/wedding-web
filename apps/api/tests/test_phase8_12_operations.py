@@ -641,8 +641,9 @@ def test_manual_order_preview_returns_complete_invitation_content(client):
     content = preview.json()["content"]
     assert content["couple"]["partnerOne"] == "Fahri"
     assert content["opening"]["title"]
-    assert content["event"]["dateLabel"] != "Tanggal acara"
-    assert content["event"]["ceremonyTime"] != "Waktu akad"
+    assert content["event"]["dateLabel"] == "Akad dan Resepsi"
+    assert "AM" in content["event"]["ceremonyTime"] or "PM" in content["event"]["ceremonyTime"]
+    assert "20" in content["event"]["ceremonyTime"]
     assert content["event"]["venue"] == "Venue"
     assert content["event"]["address"] == "Jakarta"
     assert content["event"]["mapUrl"].startswith("http")

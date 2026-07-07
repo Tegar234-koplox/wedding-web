@@ -203,11 +203,15 @@ function createContent(
         : `To witness and celebrate the wedding of ${names}.`,
     },
     event: {
-      dateLabel: id ? identity.dateId : identity.dateEn,
+      dateLabel: id ? "Akad dan Resepsi" : "Ceremony and Reception",
       ceremonyLabel: id ? "Akad Nikah" : "Wedding Ceremony",
-      ceremonyTime: "09.00 WIB",
+      ceremonyTime: id
+        ? `${identity.dateId}, 09.00 AM`
+        : `${identity.dateEn}, 09.00 AM`,
       receptionLabel: id ? "Resepsi" : "Reception",
-      receptionTime: "11.00–14.00 WIB",
+      receptionTime: id
+        ? `${identity.dateId}, 11.00 AM`
+        : `${identity.dateEn}, 11.00 AM`,
       venue: identity.venue,
       address: identity.address,
       mapUrl: "https://maps.google.com",
