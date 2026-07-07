@@ -264,6 +264,32 @@ def test_staff_can_archive_order_from_dashboard(client):
 
 
 @pytest.mark.django_db
+def test_staff_can_export_active_orders_csv(client):
+    staff, order = create_staff_order_fixture("staff-export-001")
+    Order.objects.create(reference="N999", client_name="Archived", archived_at=timezone.now())
+    client.force_login(staff)
+
+    response = client.get(reverse("admin-order-export"))
+    body = response.content.decode()
+
+    assert response.status_code == 200
+    assert response["Content-Type"].startswith("text/csv")
+    assert "order_id,client,email,phone,package,theme,total_amount" in body
+    assert order.reference in body
+    assert "N999" not in body
+
+
+@pytest.mark.django_db
+def test_client_cannot_export_staff_orders_csv(client):
+    user = create_user(username="client-export", email="client-export@example.com")
+    client.force_login(user)
+
+    response = client.get(reverse("admin-order-export"))
+
+    assert response.status_code == 403
+
+
+@pytest.mark.django_db
 def test_staff_can_update_manual_order_detail_payload(client):
     staff = create_user(
         username="staff-manual",

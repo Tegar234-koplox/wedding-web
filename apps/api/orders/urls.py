@@ -7,6 +7,7 @@ from orders.views import (
     StaffConfirmOrderView,
     StaffDashboardMetricsView,
     StaffOrderDetailView,
+    StaffOrderExportView,
     StaffOrderListCreateView,
     StaffOrderRevisionDetailView,
     StaffOrderRevisionListCreateView,
@@ -21,6 +22,7 @@ urlpatterns = [
         name="admin-dashboard-metrics",
     ),
     path("admin/orders", StaffOrderListCreateView.as_view(), name="admin-order-list"),
+    path("admin/orders/export", StaffOrderExportView.as_view(), name="admin-order-export"),
     path(
         "admin/orders/verification-queue",
         StaffVerificationQueueView.as_view(),

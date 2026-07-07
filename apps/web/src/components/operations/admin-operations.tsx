@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOut, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
+import { Download, LogOut, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -13,6 +13,7 @@ import {
   normalizeCurrencyInput,
   paymentLabels,
   redirectToStaffLogin,
+  staffDownload,
   staffFetch,
   type Order,
   type PackageOption,
@@ -206,6 +207,28 @@ export function AdminOperations() {
     }
   }
 
+  async function exportOrders() {
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      const blob = await staffDownload("/admin/orders/export");
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `niskala-orders-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      setNotice("Export CSV order berhasil disiapkan.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Export CSV order gagal.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function logoutStaff() {
     setSaving(true);
     try {
@@ -268,14 +291,25 @@ export function AdminOperations() {
 
       <section className="border border-white/12 bg-[#141411]">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 p-4">
-          <button
-            className="inline-flex min-h-10 items-center gap-2 bg-[var(--color-gold)] px-4 text-xs font-semibold uppercase tracking-[0.14em] text-black transition hover:bg-[#f4ddb0]"
-            onClick={openAddOrder}
-            type="button"
-          >
-            <Plus size={15} />
-            Tambah Order
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              className="inline-flex min-h-10 items-center gap-2 bg-[var(--color-gold)] px-4 text-xs font-semibold uppercase tracking-[0.14em] text-black transition hover:bg-[#f4ddb0]"
+              onClick={openAddOrder}
+              type="button"
+            >
+              <Plus size={15} />
+              Tambah Order
+            </button>
+            <button
+              className={ghostButtonClassName}
+              disabled={saving || loading}
+              onClick={() => void exportOrders()}
+              type="button"
+            >
+              <Download size={15} />
+              Export CSV
+            </button>
+          </div>
           <div className="flex flex-wrap items-center gap-3">
             <select
               className={cn(selectClassName, "w-44")}

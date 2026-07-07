@@ -16,6 +16,7 @@
 - Alert on sustained 5xx responses, readiness failures, Celery task failures, BMKG stale-cache use, and elevated request latency.
 - Logs are JSON and include request IDs. Do not add message bodies, guest data, tokens, or full query strings to logs.
 - Monitor `/health/live` for process availability and `/health/ready` for PostgreSQL and Redis readiness.
+- After every deploy, run the production smoke checklist in `docs/operations/production-smoke-test.md`.
 
 ## Backup and restore
 
