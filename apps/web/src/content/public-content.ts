@@ -39,19 +39,24 @@ function compactPackagePrice(value: string, currency: string, locale: Locale): s
 }
 
 function packageFromApi(item: PublicPackage, locale: Locale): ServicePackage {
+  const fallback = fallbackPackages.find((pack) => pack.code === item.code);
   return {
     code: item.code,
     name: item.name,
-    price: compactPackagePrice(item.price, item.currency, locale),
+    price: fallback?.price ?? compactPackagePrice(item.price, item.currency, locale),
     featured: item.is_featured,
-    description: { id: item.summary, en: item.summary },
+    description: fallback?.description ?? { id: item.summary, en: item.summary },
     features: {
-      id: item.features
-        .filter((feature) => feature.is_included)
-        .map((feature) => feature.label),
-      en: item.features
-        .filter((feature) => feature.is_included)
-        .map((feature) => feature.label),
+      id:
+        fallback?.features.id ??
+        item.features
+          .filter((feature) => feature.is_included)
+          .map((feature) => feature.label),
+      en:
+        fallback?.features.en ??
+        item.features
+          .filter((feature) => feature.is_included)
+          .map((feature) => feature.label),
     },
   };
 }

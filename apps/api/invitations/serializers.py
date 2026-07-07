@@ -31,6 +31,13 @@ def _couple_from_client_name(client_name: str) -> tuple[str, str]:
     return name, ""
 
 
+def _content_or_fallback(value: object, fallback: str, placeholders: set[str]) -> str:
+    text = str(value or "").strip()
+    if not text or text in placeholders:
+        return fallback
+    return text
+
+
 class EventLocationSerializer(serializers.ModelSerializer[EventLocation]):
     class Meta:
         model = EventLocation
@@ -177,8 +184,21 @@ class PublicInvitationSerializer(serializers.ModelSerializer[Invitation]):
             if reception
             else "Waktu resepsi"
         )
-        venue = event.get("venue") or getattr(primary_event, "venue_name", "") or "Nama Venue"
-        address = event.get("address") or getattr(primary_event, "address", "") or "Alamat venue"
+        venue = _content_or_fallback(
+            event.get("venue"),
+            getattr(primary_event, "venue_name", "") or "Nama Venue",
+            {"Nama Venue", "Nama venue"},
+        )
+        address = _content_or_fallback(
+            event.get("address"),
+            getattr(primary_event, "address", "") or "Alamat venue",
+            {"Alamat Venue", "Alamat venue"},
+        )
+        map_url = _content_or_fallback(
+            event.get("mapUrl"),
+            getattr(primary_event, "map_url", "") or "https://maps.google.com",
+            {"https://maps.google.com", "https://maps.google.com/"},
+        )
         gallery = content.get("gallery")
         if not isinstance(gallery, list) or not 3 <= len(gallery) <= 18:
             gallery = [
@@ -200,16 +220,26 @@ class PublicInvitationSerializer(serializers.ModelSerializer[Invitation]):
                 "message": opening.get("message") or "Untuk hadir di hari pernikahan kami.",
             },
             "event": {
-                "dateLabel": event.get("dateLabel") or date_label,
+                "dateLabel": _content_or_fallback(
+                    event.get("dateLabel"),
+                    date_label,
+                    {"Tanggal acara", "Tanggal Acara"},
+                ),
                 "ceremonyLabel": event.get("ceremonyLabel") or "Akad",
-                "ceremonyTime": event.get("ceremonyTime") or ceremony_time,
+                "ceremonyTime": _content_or_fallback(
+                    event.get("ceremonyTime"),
+                    ceremony_time,
+                    {"Waktu akad", "Waktu Akad"},
+                ),
                 "receptionLabel": event.get("receptionLabel") or "Resepsi",
-                "receptionTime": event.get("receptionTime") or reception_time,
+                "receptionTime": _content_or_fallback(
+                    event.get("receptionTime"),
+                    reception_time,
+                    {"Waktu resepsi", "Waktu Resepsi"},
+                ),
                 "venue": venue,
                 "address": address,
-                "mapUrl": event.get("mapUrl")
-                or getattr(primary_event, "map_url", "")
-                or "https://maps.google.com",
+                "mapUrl": map_url,
             },
             "story": {
                 "heading": story.get("heading") or "Cerita kami",

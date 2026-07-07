@@ -314,7 +314,7 @@ function CornerArtwork({ corners }: { corners: CornerAssets }) {
         <>
           {quadrants.map(([position, objectPosition]) => (
             <div
-              className={`absolute aspect-square w-[clamp(8rem,28vw,20rem)] overflow-hidden ${position}`}
+              className={`absolute aspect-square w-[clamp(8rem,28vw,20rem)] overflow-hidden md:w-[clamp(7rem,16vw,13rem)] ${position}`}
               key={objectPosition}
             >
               <AssetImage
@@ -371,7 +371,7 @@ function CornerArtwork({ corners }: { corners: CornerAssets }) {
 
         return src ? (
           <div
-            className={`absolute aspect-square w-[clamp(7rem,22vw,20rem)] ${position}`}
+            className={`absolute aspect-square w-[clamp(7rem,22vw,20rem)] md:w-[clamp(6rem,13vw,12rem)] ${position}`}
             key={key}
           >
             <AssetImage
