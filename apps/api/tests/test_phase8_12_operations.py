@@ -651,6 +651,41 @@ def test_manual_order_preview_returns_complete_invitation_content(client):
 
 
 @pytest.mark.django_db
+def test_public_preview_uses_theme_story_when_order_story_is_generic(client):
+    theme = create_theme(slug="islamic-soft")
+    invitation = create_invitation(theme=theme, public_slug="theme-story")
+
+    response = client.get(
+        reverse("invitation-preview-detail", kwargs={"public_slug": invitation.public_slug}),
+        {"token": preview_token_for(invitation)},
+    )
+
+    assert response.status_code == 200
+    story = response.json()["content"]["story"]["body"]
+    assert story.startswith("Dengan niat yang baik")
+    assert story != "Kami bertemu dan bertumbuh bersama."
+
+
+@pytest.mark.django_db
+def test_public_preview_keeps_custom_story_body(client):
+    theme = create_theme(slug="elegant-classic")
+    invitation = create_invitation(theme=theme, public_slug="custom-story")
+    invitation.content = {
+        **invitation.content,
+        "story": {"heading": "Cerita kami", "body": "Cerita custom dari staff."},
+    }
+    invitation.save(update_fields=["content", "updated_at"])
+
+    response = client.get(
+        reverse("invitation-preview-detail", kwargs={"public_slug": invitation.public_slug}),
+        {"token": preview_token_for(invitation)},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["content"]["story"]["body"] == "Cerita custom dari staff."
+
+
+@pytest.mark.django_db
 def test_staff_publishing_order_turns_preview_link_into_public_link(client):
     staff = create_user(
         username="staff-final-link",

@@ -73,6 +73,89 @@ ID_MONTHS = {
 }
 
 
+THEME_STORIES = {
+    "elegant-classic": {
+        "id": (
+            "Kami bertemu di antara rak-rak buku dan percakapan yang seharusnya singkat. "
+            "Lima tahun kemudian, kami masih memilih percakapan yang sama—kini untuk "
+            "seumur hidup."
+        ),
+        "en": (
+            "We met between bookshelves and a conversation meant to be brief. Five years "
+            "later, we are still choosing that same conversation—now for a lifetime."
+        ),
+    },
+    "islamic-soft": {
+        "id": (
+            "Dengan niat yang baik, doa kedua keluarga, dan hati yang dipertemukan pada "
+            "waktu yang tepat, kami melangkah menuju ibadah terpanjang bersama."
+        ),
+        "en": (
+            "With sincere intention, our families' prayers, and two hearts meeting at the "
+            "right time, we begin our longest act of devotion together."
+        ),
+    },
+    "luxury-gold": {
+        "id": (
+            "Dari dua kota dan dua ritme hidup yang berbeda, kami menemukan rumah dalam "
+            "keberanian satu sama lain. Malam ini, kisah itu menjadi perayaan."
+        ),
+        "en": (
+            "From two cities and two different rhythms, we found home in each other's "
+            "courage. Tonight, that story becomes a celebration."
+        ),
+    },
+    "minimalist-white": {
+        "id": (
+            "Tidak ada momen besar pada pertemuan pertama kami. Hanya rasa tenang, "
+            "secangkir kopi, dan keyakinan kecil bahwa kami ingin bertemu lagi."
+        ),
+        "en": (
+            "There was no grand moment when we first met. Only calm, a cup of coffee, and "
+            "the quiet certainty that we wanted to meet again."
+        ),
+    },
+    "dark-cinematic": {
+        "id": (
+            "Kisah kami tidak dimulai dengan sempurna. Ia tumbuh melalui jarak, "
+            "keberanian, dan keputusan untuk terus kembali—sampai pulang berarti satu "
+            "sama lain."
+        ),
+        "en": (
+            "Our story did not begin perfectly. It grew through distance, courage, and the "
+            "choice to keep returning—until home meant one another."
+        ),
+    },
+    "floral-romantic": {
+        "id": (
+            "Sebuah pertemanan lama berubah perlahan menjadi tempat paling hangat. Kami "
+            "bertumbuh, berpindah, dan akhirnya memilih mekar di musim yang sama."
+        ),
+        "en": (
+            "An old friendship slowly became our warmest place. We grew, wandered, and "
+            "finally chose to bloom in the same season."
+        ),
+    },
+    "javanese-traditional": {
+        "id": (
+            "Dibesarkan oleh nilai yang sama, kami belajar bahwa cinta juga berarti "
+            "ngugemi janji—merawat yang diwariskan sambil membangun rumah untuk masa "
+            "depan."
+        ),
+        "en": (
+            "Raised by shared values, we learned that love also means keeping a promise—"
+            "honoring what came before while building a home for the future."
+        ),
+    },
+}
+
+GENERIC_STORY_BODIES = {
+    "",
+    "Kami bertemu dan bertumbuh bersama.",
+    "We met and grew together.",
+}
+
+
 def _event_schedule_label(event: WeddingEvent | None, locale: str, fallback: str) -> str:
     if event is None:
         return fallback
@@ -84,6 +167,12 @@ def _event_schedule_label(event: WeddingEvent | None, locale: str, fallback: str
     else:
         date = local_time.strftime("%A, %d %B %Y")
     return f"{date}, {local_time.strftime('%I.%M %p')}"
+
+
+def _theme_story_body(invitation: Invitation) -> str:
+    locale = invitation.default_locale if invitation.default_locale in {"id", "en"} else "id"
+    theme_key = invitation.renderer_key or getattr(invitation.theme, "renderer_key", "")
+    return THEME_STORIES.get(theme_key, THEME_STORIES["elegant-classic"])[locale]
 
 
 class EventLocationSerializer(serializers.ModelSerializer[EventLocation]):
@@ -247,6 +336,9 @@ class PublicInvitationSerializer(serializers.ModelSerializer[Invitation]):
                 {"src": "/images/themes/elegant-classic.webp", "alt": "Invitation detail"},
                 {"src": "/images/themes/dark-cinematic.webp", "alt": "Editorial detail"},
             ]
+        story_body = str(story.get("body") or "").strip()
+        if story_body in GENERIC_STORY_BODIES:
+            story_body = _theme_story_body(obj)
 
         return {
             **content,
@@ -280,7 +372,7 @@ class PublicInvitationSerializer(serializers.ModelSerializer[Invitation]):
             },
             "story": {
                 "heading": story.get("heading") or "Cerita kami",
-                "body": story.get("body") or "Kami bertemu dan bertumbuh bersama.",
+                "body": story_body,
             },
             "quote": {
                 "text": quote.get("text")
