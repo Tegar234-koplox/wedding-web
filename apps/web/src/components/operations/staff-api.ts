@@ -14,6 +14,14 @@ export type StaffSession = {
 };
 
 export type PaymentStatus = "unpaid" | "dp" | "paid";
+export type CustomStatus =
+  | "none"
+  | "requested"
+  | "scoping"
+  | "approved"
+  | "in_progress"
+  | "ready"
+  | "rejected";
 export type ManualPaymentType = "dp" | "settlement" | "other";
 export type ManualPaymentMethod = "bank_transfer" | "qris" | "cash" | "other";
 export type ManualPaymentReviewStatus = "pending" | "valid" | "rejected";
@@ -42,6 +50,10 @@ export type Order = {
   payment_pending_total?: string;
   payment_outstanding?: string;
   notes: string;
+  custom_status: CustomStatus;
+  custom_brief: string;
+  custom_approval_notes: string;
+  custom_checklist: Record<string, boolean>;
   created_at: string;
   updated_at: string;
 };
@@ -175,6 +187,16 @@ export const paymentLabels: Record<PaymentStatus, string> = {
   unpaid: "Belum Bayar",
   dp: "DP",
   paid: "Lunas",
+};
+
+export const customStatusLabels: Record<CustomStatus, string> = {
+  approved: "Disetujui",
+  in_progress: "Dikerjakan",
+  none: "Tidak Ada",
+  ready: "Siap Review",
+  rejected: "Ditolak",
+  requested: "Diminta",
+  scoping: "Briefing",
 };
 
 export const manualPaymentTypeLabels: Record<ManualPaymentType, string> = {
