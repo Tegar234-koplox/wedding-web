@@ -1,6 +1,16 @@
 "use client";
 
-import { ArrowLeft, Copy, Download, ExternalLink, MessageCircle, Plus, Save } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  CheckCircle2,
+  Copy,
+  Download,
+  ExternalLink,
+  MessageCircle,
+  Plus,
+  Save,
+} from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
@@ -83,6 +93,11 @@ type MediaSectionPlan = {
   description: string;
   label: string;
   section: number;
+};
+
+type ChecklistItem = {
+  done: boolean;
+  label: string;
 };
 
 const emptyForm: OrderDetailForm = {
@@ -174,6 +189,39 @@ function gallerySlots(value: string): string[] {
 
 function mediaSectionStart(sections: MediaSectionPlan[], index: number): number {
   return sections.slice(0, index).reduce((total, section) => total + section.count, 0);
+}
+
+function parseCoupleNames(value: string): { partnerOne: string; partnerTwo: string } {
+  const parts = value
+    .split(/\s+(?:dan|and)\s+|\s*&\s*|\s*\+\s*/i)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  return {
+    partnerOne: parts[0] ?? "",
+    partnerTwo: parts[1] ?? "",
+  };
+}
+
+function coupleNameWarning(value: string): string {
+  const { partnerOne, partnerTwo } = parseCoupleNames(value);
+  if (!partnerOne || !partnerTwo) {
+    return "Isi nama pasangan dengan format seperti Reno dan Erisa, Reno & Erisa, atau Reno + Erisa.";
+  }
+  return "";
+}
+
+function mediaSectionStatus(
+  section: MediaSectionPlan,
+  sectionIndex: number,
+  sections: MediaSectionPlan[],
+  slots: string[],
+) {
+  const start = mediaSectionStart(sections, sectionIndex);
+  const filled = slots.slice(start, start + section.count).filter((url) => url.trim()).length;
+  return {
+    filled,
+    missing: Math.max(section.count - filled, 0),
+  };
 }
 
 function toDatetimeInput(value?: string | null): string {
@@ -284,6 +332,22 @@ function paymentReminderMessage(detail: StaffOrderDetail | null): string {
   ].join("\n");
 }
 
+function communicationStatus(detail: StaffOrderDetail | null, checklist: ChecklistItem[]): string {
+  if (!detail?.preview_url) {
+    return "Belum ada preview";
+  }
+  if (detail.order.status === "published" || detail.invitation?.status === "published") {
+    return "Publikasi siap dikirim";
+  }
+  if (checklist.some((item) => !item.done)) {
+    return "Data perlu dilengkapi";
+  }
+  if (detail.revisions.length > 0) {
+    return "Menunggu review revisi";
+  }
+  return "Preview siap dikirim";
+}
+
 export function AdminOrderDetail({ reference }: { reference: string }) {
   const [detail, setDetail] = useState<StaffOrderDetail | null>(null);
   const [form, setForm] = useState<OrderDetailForm>(emptyForm);
@@ -364,7 +428,56 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
     setPaymentRecordForm((current) => ({ ...current, [field]: value }));
   }
 
+  async function copyStaffMessage(kind: "data" | "final" | "preview" | "revision") {
+    const incompleteItems = completionItems.filter((item) => !item.done).map((item) => item.label);
+    const clientName = form.client_name.trim() || "Customer";
+    const previewUrl = detail?.preview_url || "";
+    const messageMap = {
+      data: [
+        `Halo ${clientName},`,
+        "",
+        "Kami sedang menyiapkan undangan Niskala Anda. Agar prosesnya lancar, mohon lengkapi data berikut:",
+        ...incompleteItems.map((item) => `- ${item}`),
+        "",
+        "Silakan kirim data/foto melalui WhatsApp ini ya.",
+      ],
+      final: [
+        `Halo ${clientName},`,
+        "",
+        "Undangan sudah masuk tahap final/publikasi.",
+        previewUrl ? `Link undangan: ${previewUrl}` : "",
+        "",
+        "Silakan cek kembali sebelum link dibagikan ke tamu.",
+      ],
+      preview: [
+        `Halo ${clientName},`,
+        "",
+        "Berikut link preview sementara undangan Anda:",
+        previewUrl,
+        "",
+        "Silakan dicek. Jika ada revisi, boleh langsung balas di WhatsApp ini.",
+      ],
+      revision: [
+        `Halo ${clientName},`,
+        "",
+        "Catatan revisi sudah kami terima dan akan kami proses.",
+        previewUrl ? `Link preview saat ini: ${previewUrl}` : "",
+      ],
+    } satisfies Record<typeof kind, string[]>;
+    try {
+      await navigator.clipboard.writeText(messageMap[kind].filter(Boolean).join("\n"));
+      setNotice("Template pesan WhatsApp disalin.");
+    } catch {
+      setError("Template pesan WhatsApp gagal disalin.");
+    }
+  }
+
   async function saveDetail() {
+    const nameWarning = coupleNameWarning(form.client_name);
+    if (nameWarning) {
+      setError(nameWarning);
+      return;
+    }
     setSaving(true);
     setError("");
     setNotice("");
@@ -690,6 +803,28 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
   const galleryUrlSlots = gallerySlots(form.gallery_urls);
   const expectedGalleryCount = mediaSections.reduce((total, section) => total + section.count, 0);
   const filledGalleryCount = galleryUrlSlots.filter((url) => url.trim()).length;
+  const nameWarning = coupleNameWarning(form.client_name);
+  const missingMediaSections = mediaSections
+    .map((section, index) => ({
+      ...section,
+      ...mediaSectionStatus(section, index, mediaSections, galleryUrlSlots),
+    }))
+    .filter((section) => section.missing > 0);
+  const completionItems: ChecklistItem[] = [
+    { done: !nameWarning, label: "Nama pasangan" },
+    { done: Boolean(form.theme_slug), label: "Tema" },
+    { done: Boolean(form.package_code), label: "Paket" },
+    { done: Boolean(form.ceremony_starts_at && form.ceremony_venue_name), label: "Data akad" },
+    {
+      done: Boolean(form.reception_starts_at && form.reception_venue_name),
+      label: "Data resepsi",
+    },
+    { done: Boolean(form.bank_account_bank && form.bank_account_number), label: "Rekening gift" },
+    { done: Boolean(form.backsound_url), label: "Musik backsound" },
+    { done: filledGalleryCount >= expectedGalleryCount, label: "Foto per section" },
+    { done: guestLinks.length > 0, label: "Link tamu" },
+  ];
+  const communicationLabel = communicationStatus(detail, completionItems);
 
   return (
     <div className="space-y-6">
@@ -715,6 +850,16 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
       {error ? <Notice tone="warn">{error}</Notice> : null}
       {notice ? <Notice tone="ok">{notice}</Notice> : null}
       {loading ? <Notice tone="warn">Memuat detail order...</Notice> : null}
+      {!loading && nameWarning ? <Notice tone="warn">{nameWarning}</Notice> : null}
+      {!loading && missingMediaSections.length ? (
+        <Notice tone="warn">
+          Foto belum lengkap untuk{" "}
+          {missingMediaSections
+            .map((section) => `Section ${section.section} (${section.missing} kosong)`)
+            .join(", ")}
+          .
+        </Notice>
+      ) : null}
 
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
         <div className="space-y-6">
@@ -982,8 +1127,10 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
                 <input
                   className={controlClassName}
                   onChange={(event) => updateForm("client_name", event.target.value)}
+                  placeholder="Reno dan Erisa"
                   value={form.client_name}
                 />
+                {nameWarning ? <p className="mt-2 text-xs leading-5 text-[#f4ddb0]">{nameWarning}</p> : null}
               </Field>
               <Field label="Email">
                 <input
@@ -1099,6 +1246,29 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
                               {section.description}
                             </p>
                           </div>
+                          <span
+                            className={cn(
+                              "text-xs uppercase tracking-[0.14em]",
+                              mediaSectionStatus(
+                                section,
+                                sectionIndex,
+                                mediaSections,
+                                galleryUrlSlots,
+                              ).missing
+                                ? "text-[#f4ddb0]"
+                                : "text-emerald-200",
+                            )}
+                          >
+                            {
+                              mediaSectionStatus(
+                                section,
+                                sectionIndex,
+                                mediaSections,
+                                galleryUrlSlots,
+                              ).filled
+                            }
+                            /{section.count} terisi
+                          </span>
                           <span className="text-xs uppercase tracking-[0.14em] text-[var(--color-gold)]">
                             {section.label}
                           </span>
@@ -1326,6 +1496,70 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
         </div>
 
         <aside className="space-y-6">
+          <Panel eyebrow="Komunikasi WA" title="Status customer.">
+            <div className="border border-white/12 bg-black/20 p-4">
+              <p className="text-[0.58rem] uppercase tracking-[0.16em] text-white/40">
+                Status komunikasi
+              </p>
+              <p className="mt-2 font-serif text-2xl text-white">{communicationLabel}</p>
+            </div>
+            <div className="mt-4 grid gap-3">
+              <button
+                className={outlineButtonClassName}
+                disabled={!detail?.preview_url}
+                onClick={() => void copyStaffMessage("preview")}
+                type="button"
+              >
+                <MessageCircle size={15} />
+                Preview Customer
+              </button>
+              <button
+                className={outlineButtonClassName}
+                disabled={!completionItems.some((item) => !item.done)}
+                onClick={() => void copyStaffMessage("data")}
+                type="button"
+              >
+                <MessageCircle size={15} />
+                Minta Data Kurang
+              </button>
+              <button
+                className={outlineButtonClassName}
+                onClick={() => void copyStaffMessage("revision")}
+                type="button"
+              >
+                <MessageCircle size={15} />
+                Update Revisi
+              </button>
+              <button
+                className={outlineButtonClassName}
+                disabled={!detail?.preview_url}
+                onClick={() => void copyStaffMessage("final")}
+                type="button"
+              >
+                <MessageCircle size={15} />
+                Publikasi Final
+              </button>
+            </div>
+          </Panel>
+
+          <Panel eyebrow="Checklist" title="Kelengkapan.">
+            <div className="space-y-3">
+              {completionItems.map((item) => (
+                <div
+                  className="flex items-center justify-between gap-3 border border-white/10 bg-black/20 p-3"
+                  key={item.label}
+                >
+                  <span className="text-sm text-white/70">{item.label}</span>
+                  {item.done ? (
+                    <CheckCircle2 className="text-emerald-200" size={16} />
+                  ) : (
+                    <AlertTriangle className="text-[#f4ddb0]" size={16} />
+                  )}
+                </div>
+              ))}
+            </div>
+          </Panel>
+
           <Panel eyebrow="Link Undangan" title={lifecycleLabel}>
             <p className="mb-4 text-sm leading-6 text-white/55">{lifecycleDescription}</p>
             <div className="border border-white/12 bg-black/20 p-4">
