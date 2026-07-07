@@ -38,6 +38,54 @@ def _content_or_fallback(value: object, fallback: str, placeholders: set[str]) -
     return text
 
 
+def _schedule_or_fallback(value: object, fallback: str, placeholders: set[str]) -> str:
+    text = _content_or_fallback(value, fallback, placeholders)
+    if text == fallback:
+        return fallback
+    if not re.search(r"\b\d{4}\b", text):
+        return fallback
+    return text
+
+
+ID_DAYS = {
+    0: "Senin",
+    1: "Selasa",
+    2: "Rabu",
+    3: "Kamis",
+    4: "Jumat",
+    5: "Sabtu",
+    6: "Minggu",
+}
+
+ID_MONTHS = {
+    1: "Januari",
+    2: "Februari",
+    3: "Maret",
+    4: "April",
+    5: "Mei",
+    6: "Juni",
+    7: "Juli",
+    8: "Agustus",
+    9: "September",
+    10: "Oktober",
+    11: "November",
+    12: "Desember",
+}
+
+
+def _event_schedule_label(event: WeddingEvent | None, locale: str, fallback: str) -> str:
+    if event is None:
+        return fallback
+    local_time = timezone.localtime(event.starts_at)
+    if locale == "id":
+        day = ID_DAYS[local_time.weekday()]
+        month = ID_MONTHS[local_time.month]
+        date = f"{day}, {local_time.day} {month} {local_time.year}"
+    else:
+        date = local_time.strftime("%A, %d %B %Y")
+    return f"{date}, {local_time.strftime('%I.%M %p')}"
+
+
 class EventLocationSerializer(serializers.ModelSerializer[EventLocation]):
     class Meta:
         model = EventLocation
@@ -174,16 +222,9 @@ class PublicInvitationSerializer(serializers.ModelSerializer[Invitation]):
         ceremony = obj.events.filter(event_type=WeddingEvent.EventType.CEREMONY).first()
         reception = obj.events.filter(event_type=WeddingEvent.EventType.RECEPTION).first()
         primary_event = ceremony or reception
-        local_event_time = timezone.localtime(primary_event.starts_at) if primary_event else None
-        date_label = local_event_time.strftime("%d %B %Y") if local_event_time else "Tanggal acara"
-        ceremony_time = (
-            timezone.localtime(ceremony.starts_at).strftime("%H.%M") if ceremony else "Waktu akad"
-        )
-        reception_time = (
-            timezone.localtime(reception.starts_at).strftime("%H.%M")
-            if reception
-            else "Waktu resepsi"
-        )
+        date_label = "Akad dan Resepsi" if obj.default_locale == "id" else "Ceremony and Reception"
+        ceremony_time = _event_schedule_label(ceremony, obj.default_locale, "Waktu akad")
+        reception_time = _event_schedule_label(reception, obj.default_locale, "Waktu resepsi")
         venue = _content_or_fallback(
             event.get("venue"),
             getattr(primary_event, "venue_name", "") or "Nama Venue",
@@ -220,22 +261,18 @@ class PublicInvitationSerializer(serializers.ModelSerializer[Invitation]):
                 "message": opening.get("message") or "Untuk hadir di hari pernikahan kami.",
             },
             "event": {
-                "dateLabel": _content_or_fallback(
-                    event.get("dateLabel"),
-                    date_label,
-                    {"Tanggal acara", "Tanggal Acara"},
-                ),
+                "dateLabel": date_label,
                 "ceremonyLabel": event.get("ceremonyLabel") or "Akad",
-                "ceremonyTime": _content_or_fallback(
+                "ceremonyTime": _schedule_or_fallback(
                     event.get("ceremonyTime"),
                     ceremony_time,
-                    {"Waktu akad", "Waktu Akad"},
+                    {"Waktu akad", "Waktu Akad", "09.00 WIB", "08.00"},
                 ),
                 "receptionLabel": event.get("receptionLabel") or "Resepsi",
-                "receptionTime": _content_or_fallback(
+                "receptionTime": _schedule_or_fallback(
                     event.get("receptionTime"),
                     reception_time,
-                    {"Waktu resepsi", "Waktu Resepsi"},
+                    {"Waktu resepsi", "Waktu Resepsi", "11.00-14.00 WIB", "08.00"},
                 ),
                 "venue": venue,
                 "address": address,
