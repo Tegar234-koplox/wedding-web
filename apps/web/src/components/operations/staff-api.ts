@@ -207,6 +207,7 @@ export type StaffOrderDetail = {
   payments: ManualPaymentRecord[];
   payment_summary: ManualPaymentSummary;
   preview_url: string;
+  wishes_url: string;
   revisions: DetailRevision[];
 };
 

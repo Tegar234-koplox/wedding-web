@@ -604,6 +604,18 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
     }
   }
 
+  async function copyWishesUrl() {
+    if (!detail?.wishes_url) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(detail.wishes_url);
+      setNotice("Link ucapan pengantin disalin.");
+    } catch {
+      setError("Link ucapan gagal disalin. Buka link lalu copy dari address bar.");
+    }
+  }
+
   async function copyGuestUrl(url: string | null) {
     if (!url) {
       setError("Link tamu belum tersedia untuk data ini.");
@@ -1904,6 +1916,40 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
                   !detail?.preview_url && "pointer-events-none opacity-45",
                 )}
                 href={detail?.preview_url || "#"}
+                rel="noreferrer"
+                target="_blank"
+              >
+                <ExternalLink size={15} />
+                Buka
+              </a>
+            </div>
+          </Panel>
+
+          <Panel eyebrow="RSVP & Ucapan" title="Link pengantin.">
+            <div className="border border-white/12 bg-black/20 p-4">
+              <p className="break-all text-sm leading-6 text-white/70">
+                {detail?.wishes_url || "Simpan detail order dulu untuk membuat link ucapan."}
+              </p>
+            </div>
+            <p className="mt-3 text-xs leading-5 text-white/45">
+              Kirim link ini ke pengantin untuk melihat rekap RSVP dan ucapan tamu tanpa login.
+            </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+              <button
+                className={outlineButtonClassName}
+                disabled={!detail?.wishes_url}
+                onClick={() => void copyWishesUrl()}
+                type="button"
+              >
+                <Copy size={15} />
+                Copy
+              </button>
+              <a
+                className={cn(
+                  outlineButtonClassName,
+                  !detail?.wishes_url && "pointer-events-none opacity-45",
+                )}
+                href={detail?.wishes_url || "#"}
                 rel="noreferrer"
                 target="_blank"
               >

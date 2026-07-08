@@ -25,7 +25,7 @@ from analytics.models import AnalyticsEvent
 from common.models import AuditEvent
 from common.notifications import enqueue_client_notification
 from invitations.models import Guest, Invitation, InvitationMedia
-from invitations.preview import preview_token_for, preview_token_is_valid
+from invitations.preview import preview_token_for, preview_token_is_valid, wishes_token_is_valid
 from invitations.selectors import public_invitations
 from invitations.serializers import (
     BacksoundAssetSerializer,
@@ -33,6 +33,7 @@ from invitations.serializers import (
     InvitationBacksoundSerializer,
     PublicGuestRSVPCreateSerializer,
     PublicInvitationSerializer,
+    PublicInvitationWishesSerializer,
     PublicRSVPSerializer,
     StaffGuestLinkCreateSerializer,
     StaffGuestLinkImportSerializer,
@@ -208,6 +209,20 @@ def _rsvp_invitation_for_request(request, public_slug: str) -> Invitation | None
     if invitation is None or not preview_token_is_valid(invitation, preview_token):
         return None
     return invitation
+
+
+def _invitation_couple_name(invitation: Invitation) -> str:
+    content = invitation.content if isinstance(invitation.content, dict) else {}
+    couple = content.get("couple") if isinstance(content.get("couple"), dict) else {}
+    partner_one = (
+        couple.get("partnerOne")
+        or couple.get("partner_one")
+        or getattr(getattr(invitation, "order", None), "client_name", "")
+    )
+    partner_two = couple.get("partnerTwo") or couple.get("partner_two") or ""
+    if partner_one and partner_two:
+        return f"{partner_one} & {partner_two}"
+    return str(partner_one or partner_two or invitation.public_slug)
 
 
 def _generate_guest_delivery_token() -> str:
@@ -767,6 +782,56 @@ class PublicGuestRSVPCreateView(APIView):
             locale=invitation.default_locale,
         )
         return Response({"status": guest.rsvp_status}, status=201)
+
+
+class PublicInvitationWishesView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, public_slug: str) -> Response:
+        invitation = (
+            Invitation.objects.filter(public_slug=public_slug, archived_at__isnull=True)
+            .select_related("theme", "package")
+            .prefetch_related("guests")
+            .first()
+        )
+        access_token = request.query_params.get("access", "")
+        if invitation is None or not wishes_token_is_valid(invitation, access_token):
+            raise Http404
+
+        guests = invitation.guests.filter(archived_at__isnull=True, anonymized_at__isnull=True)
+        total_invited = guests.count()
+        total_confirmed = guests.filter(rsvp_status=Guest.RSVPStatus.ACCEPTED).count()
+        total_declined = guests.filter(rsvp_status=Guest.RSVPStatus.DECLINED).count()
+        total_pending = guests.filter(rsvp_status=Guest.RSVPStatus.PENDING).count()
+        response_rate = (
+            round(((total_confirmed + total_declined) / total_invited) * 100, 1)
+            if total_invited
+            else 0
+        )
+        wishes = [
+            {
+                "display_name": guest.display_name,
+                "rsvp_status": guest.rsvp_status,
+                "attendance_count": guest.attendance_count,
+                "wishes": guest.wishes,
+                "responded_at": guest.responded_at,
+            }
+            for guest in guests.exclude(wishes="").order_by("-responded_at", "display_name")
+        ]
+        return Response(
+            PublicInvitationWishesSerializer(
+                {
+                    "public_slug": invitation.public_slug,
+                    "couple_name": _invitation_couple_name(invitation),
+                    "total_invited": total_invited,
+                    "total_confirmed": total_confirmed,
+                    "total_declined": total_declined,
+                    "total_pending": total_pending,
+                    "response_rate": response_rate,
+                    "wishes": wishes,
+                }
+            ).data
+        )
 
 
 class StaffInvitationOperationListView(ListAPIView):

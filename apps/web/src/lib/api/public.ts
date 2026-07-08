@@ -3,6 +3,7 @@ import "server-only";
 import {
   invitationWeatherSchema,
   publicInvitationSchema,
+  publicInvitationWishesSchema,
   publicPackageSchema,
   publicThemePageSchema,
   publicThemeSchema,
@@ -10,6 +11,7 @@ import {
   type PublicInvitation,
   type PublicTheme,
   type InvitationWeather,
+  type PublicInvitationWishes,
 } from "@/lib/api/contracts";
 import { env } from "@/lib/env";
 import type { Locale } from "@/lib/locales";
@@ -48,6 +50,33 @@ export async function fetchPublicInvitation(
     return publicInvitationSchema.parse(
       await apiFetch(path),
     );
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchInvitationWishes(
+  publicSlug: string,
+  accessToken?: string,
+): Promise<PublicInvitationWishes | null> {
+  if (!accessToken) {
+    return null;
+  }
+  try {
+    const response = await fetch(
+      `${env.NEXT_PUBLIC_API_URL}/invitations/${publicSlug}/wishes?access=${encodeURIComponent(
+        accessToken,
+      )}`,
+      {
+        cache: "no-store",
+        headers: { Accept: "application/json" },
+        signal: AbortSignal.timeout(2_000),
+      },
+    );
+    if (!response.ok) {
+      return null;
+    }
+    return publicInvitationWishesSchema.parse(await response.json());
   } catch {
     return null;
   }
