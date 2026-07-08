@@ -507,6 +507,27 @@ class StaffGuestLinkSerializer(serializers.Serializer):
     created_at = serializers.DateTimeField()
 
 
+class StaffGuestLinkImportRowSerializer(serializers.Serializer):
+    row_number = serializers.IntegerField()
+    name = serializers.CharField(allow_blank=True)
+    phone = serializers.CharField(allow_blank=True)
+    email = serializers.EmailField(allow_blank=True, required=False)
+    party_size = serializers.IntegerField()
+    group = serializers.CharField(allow_blank=True)
+    note = serializers.CharField(allow_blank=True)
+    status = serializers.CharField()
+    action = serializers.CharField()
+    errors = serializers.ListField(child=serializers.CharField())
+    warnings = serializers.ListField(child=serializers.CharField())
+    matched_guest_id = serializers.UUIDField(allow_null=True)
+    delivery_url = serializers.CharField(allow_blank=True, allow_null=True)
+
+
+class StaffGuestLinkImportSerializer(serializers.Serializer):
+    summary = serializers.DictField()
+    rows = StaffGuestLinkImportRowSerializer(many=True)
+
+
 class BacksoundAssetSerializer(serializers.ModelSerializer[MediaAsset]):
     class Meta:
         model = MediaAsset

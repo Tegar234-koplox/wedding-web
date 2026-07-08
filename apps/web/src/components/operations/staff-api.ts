@@ -124,6 +124,35 @@ export type GuestDeliveryLink = {
   created_at: string;
 };
 
+export type GuestImportRow = {
+  row_number: number;
+  name: string;
+  phone: string;
+  email: string;
+  party_size: number;
+  group: string;
+  note: string;
+  status: "ready" | "error" | string;
+  action: "create" | "update" | "skip" | string;
+  errors: string[];
+  warnings: string[];
+  matched_guest_id: string | null;
+  delivery_url: string | null;
+};
+
+export type GuestImportResult = {
+  summary: {
+    total_rows: number;
+    valid_rows: number;
+    error_rows: number;
+    warning_rows: number;
+    created_count: number;
+    updated_count: number;
+    skipped_count: number;
+  };
+  rows: GuestImportRow[];
+};
+
 export type ManualPaymentRecord = {
   id: string;
   payment_type: ManualPaymentType;
@@ -349,6 +378,40 @@ export async function staffDownload(path: string): Promise<Blob> {
   }
 
   return response.blob();
+}
+
+export async function staffUpload<T>(path: string, formData: FormData): Promise<T> {
+  const response = await fetch(`${env.NEXT_PUBLIC_API_URL}${path}`, {
+    body: formData,
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+      "X-CSRFToken": await csrfToken(),
+    },
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    let detail = "";
+    try {
+      const payload = (await response.json()) as {
+        detail?: string;
+        error?: { details?: unknown; message?: string };
+      };
+      detail =
+        payload.detail ??
+        payload.error?.message ??
+        (payload.error?.details ? JSON.stringify(payload.error.details) : "");
+    } catch {
+      detail = response.statusText;
+    }
+    throw new StaffFetchError(
+      `Upload CSV gagal (${response.status})${detail ? `: ${detail}` : ""}`,
+      response.status,
+    );
+  }
+
+  return response.json() as Promise<T>;
 }
 
 export function workflowFor(order: Pick<Order, "status" | "workflow_label">): string {

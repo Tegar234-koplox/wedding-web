@@ -10,6 +10,7 @@ import {
   MessageCircle,
   Plus,
   Save,
+  Upload,
 } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -27,9 +28,11 @@ import {
   paymentLabels,
   staffDownload,
   staffFetch,
+  staffUpload,
   type CustomStatus,
   type DetailRevision,
   type GuestDeliveryLink,
+  type GuestImportResult,
   type ManualPaymentMethod,
   type ManualPaymentRecord,
   type ManualPaymentReviewStatus,
@@ -383,6 +386,8 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
   const [form, setForm] = useState<OrderDetailForm>(emptyForm);
   const [guestLinks, setGuestLinks] = useState<GuestDeliveryLink[]>([]);
   const [guestLinkForm, setGuestLinkForm] = useState<GuestLinkForm>(emptyGuestLinkForm);
+  const [guestImportFile, setGuestImportFile] = useState<File | null>(null);
+  const [guestImportPreview, setGuestImportPreview] = useState<GuestImportResult | null>(null);
   const [paymentRecordForm, setPaymentRecordForm] = useState<PaymentRecordForm>(
     emptyPaymentRecordForm,
   );
@@ -394,6 +399,7 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savingGuestLink, setSavingGuestLink] = useState(false);
+  const [importingGuestLinks, setImportingGuestLinks] = useState(false);
   const [savingPayment, setSavingPayment] = useState(false);
   const [savingRevision, setSavingRevision] = useState(false);
   const [error, setError] = useState("");
@@ -415,6 +421,7 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
       setRevisionEdits(
         Object.fromEntries(nextDetail.revisions.map((revision) => [revision.id, revision.note])),
       );
+      setGuestImportPreview(null);
       if (nextDetail.invitation?.public_slug) {
         const links = await staffFetch<GuestDeliveryLink[]>(
           `/admin/invitations/${nextDetail.invitation.public_slug}/guest-links`,
@@ -777,6 +784,71 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
       setNotice("CSV link tamu didownload.");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "CSV link tamu gagal didownload.");
+    }
+  }
+
+  async function downloadGuestImportTemplate() {
+    if (!detail?.invitation?.public_slug) {
+      setError("Invitation belum tersedia untuk template import.");
+      return;
+    }
+    try {
+      const blob = await staffDownload(
+        `/admin/invitations/${detail.invitation.public_slug}/guest-links/import-template`,
+      );
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${detail.invitation.public_slug}-guest-import-template.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setNotice("Template CSV tamu didownload.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Template CSV gagal didownload.");
+    }
+  }
+
+  async function importGuestLinks(dryRun: boolean) {
+    if (!detail?.invitation?.public_slug) {
+      setError("Simpan detail order dulu agar invitation tersedia.");
+      return;
+    }
+    if (!guestImportFile) {
+      setError("Pilih file CSV tamu terlebih dahulu.");
+      return;
+    }
+    setImportingGuestLinks(true);
+    setError("");
+    setNotice("");
+    try {
+      const formData = new FormData();
+      formData.append("file", guestImportFile);
+      const result = await staffUpload<GuestImportResult>(
+        `/admin/invitations/${detail.invitation.public_slug}/guest-links/import${
+          dryRun ? "?dry_run=true" : ""
+        }`,
+        formData,
+      );
+      setGuestImportPreview(result);
+      if (dryRun) {
+        setNotice(
+          `Preview CSV selesai: ${result.summary.valid_rows} valid, ${result.summary.error_rows} error.`,
+        );
+      } else {
+        const links = await staffFetch<GuestDeliveryLink[]>(
+          `/admin/invitations/${detail.invitation.public_slug}/guest-links`,
+        );
+        setGuestLinks(links);
+        setNotice(
+          `Import selesai: ${result.summary.created_count} dibuat, ${result.summary.updated_count} diperbarui.`,
+        );
+      }
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Import CSV tamu gagal.");
+    } finally {
+      setImportingGuestLinks(false);
     }
   }
 
@@ -1529,6 +1601,15 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
             <div className="mt-5 flex flex-wrap gap-3">
               <button
                 className={outlineButtonClassName}
+                disabled={!detail?.invitation}
+                onClick={() => void downloadGuestImportTemplate()}
+                type="button"
+              >
+                <Download size={15} />
+                Template CSV
+              </button>
+              <button
+                className={outlineButtonClassName}
                 disabled={!guestLinks.some((guest) => guest.delivery_url)}
                 onClick={() => void copyAllGuestUrls()}
                 type="button"
@@ -1545,6 +1626,125 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
                 <Download size={15} />
                 Export CSV
               </button>
+            </div>
+
+            <div className="mt-5 border border-white/10 bg-white/[0.02] p-4">
+              <div className="grid gap-4 lg:grid-cols-[1fr_auto_auto] lg:items-end">
+                <Field label="Import CSV tamu">
+                  <input
+                    accept=".csv,text/csv"
+                    className={controlClassName}
+                    onChange={(event) => {
+                      setGuestImportFile(event.target.files?.[0] ?? null);
+                      setGuestImportPreview(null);
+                    }}
+                    type="file"
+                  />
+                </Field>
+                <button
+                  className={outlineButtonClassName}
+                  disabled={importingGuestLinks || !guestImportFile || !detail?.invitation}
+                  onClick={() => void importGuestLinks(true)}
+                  type="button"
+                >
+                  <Upload size={15} />
+                  Preview CSV
+                </button>
+                <button
+                  className="inline-flex min-h-11 items-center justify-center gap-3 bg-[var(--color-gold)] px-4 text-xs font-semibold uppercase tracking-[0.14em] text-black transition hover:bg-[#f4ddb0] disabled:opacity-50"
+                  disabled={importingGuestLinks || !guestImportFile || !detail?.invitation}
+                  onClick={() => void importGuestLinks(false)}
+                  type="button"
+                >
+                  <Plus size={15} />
+                  {importingGuestLinks ? "Memproses" : "Import Valid Rows"}
+                </button>
+              </div>
+              <p className="mt-3 text-xs leading-relaxed text-white/45">
+                Gunakan template CSV untuk ratusan tamu. Kolom wajib hanya nama; phone/email
+                membantu delivery, dan kuota hadir default 1.
+              </p>
+              {guestImportPreview ? (
+                <div className="mt-4 space-y-4">
+                  <div className="grid gap-3 text-sm md:grid-cols-4">
+                    <div className="border border-white/10 p-3">
+                      <p className="text-[10px] uppercase tracking-[0.14em] text-white/40">Rows</p>
+                      <p className="mt-2 text-lg text-white">
+                        {guestImportPreview.summary.total_rows}
+                      </p>
+                    </div>
+                    <div className="border border-white/10 p-3">
+                      <p className="text-[10px] uppercase tracking-[0.14em] text-white/40">Valid</p>
+                      <p className="mt-2 text-lg text-white">
+                        {guestImportPreview.summary.valid_rows}
+                      </p>
+                    </div>
+                    <div className="border border-white/10 p-3">
+                      <p className="text-[10px] uppercase tracking-[0.14em] text-white/40">
+                        Warning
+                      </p>
+                      <p className="mt-2 text-lg text-[var(--color-gold)]">
+                        {guestImportPreview.summary.warning_rows}
+                      </p>
+                    </div>
+                    <div className="border border-white/10 p-3">
+                      <p className="text-[10px] uppercase tracking-[0.14em] text-white/40">Error</p>
+                      <p className="mt-2 text-lg text-red-300">
+                        {guestImportPreview.summary.error_rows}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="max-h-72 overflow-auto border border-white/10">
+                    <table className="w-full min-w-[760px] border-collapse text-left text-xs">
+                      <thead className="bg-white/[0.03] uppercase tracking-[0.14em] text-white/45">
+                        <tr>
+                          <th className="px-3 py-3">Row</th>
+                          <th className="px-3 py-3">Nama</th>
+                          <th className="px-3 py-3">Kontak</th>
+                          <th className="px-3 py-3">Kuota</th>
+                          <th className="px-3 py-3">Action</th>
+                          <th className="px-3 py-3">Catatan</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {guestImportPreview.rows.slice(0, 80).map((row) => (
+                          <tr className="border-t border-white/10" key={row.row_number}>
+                            <td className="px-3 py-3 text-white/45">{row.row_number}</td>
+                            <td className="px-3 py-3 text-white">{row.name || "-"}</td>
+                            <td className="px-3 py-3 text-white/60">
+                              {[row.phone, row.email].filter(Boolean).join(" / ") || "-"}
+                            </td>
+                            <td className="px-3 py-3 text-white/60">{row.party_size}</td>
+                            <td className="px-3 py-3">
+                              <span
+                                className={cn(
+                                  "text-[10px] uppercase tracking-[0.14em]",
+                                  row.status === "error"
+                                    ? "text-red-300"
+                                    : row.action === "update"
+                                      ? "text-[var(--color-gold)]"
+                                      : "text-emerald-200",
+                                )}
+                              >
+                                {row.status === "error" ? "Error" : row.action}
+                              </span>
+                            </td>
+                            <td className="px-3 py-3 text-white/55">
+                              {[...row.errors, ...row.warnings].join(" ") || "-"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {guestImportPreview.rows.length > 80 ? (
+                    <p className="text-xs text-white/45">
+                      Preview menampilkan 80 baris pertama dari {guestImportPreview.rows.length}{" "}
+                      baris.
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
 
             <div className="mt-5 overflow-x-auto border border-white/10">
