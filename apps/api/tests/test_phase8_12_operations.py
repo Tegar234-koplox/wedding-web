@@ -1333,6 +1333,10 @@ def test_guest_management_link_allows_client_import_and_delivery_tracking(client
     assert detail.status_code == 200
     assert detail.json()["invitation"]["public_slug"] == order.invitation.public_slug
 
+    wishes_response = client.get(reverse("guest-management-wishes", kwargs={"token": token}))
+    assert wishes_response.status_code == 200
+    assert wishes_response.json()["couple_name"] == "Alya & Raka"
+
     upload = SimpleUploadedFile(
         "guests.csv",
         b"name,phone,email,party_size,group,note\nSyarif,+628123456789,syarif@example.com,2,Keluarga,\n",

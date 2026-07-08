@@ -17,7 +17,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { env } from "@/lib/env";
 import { cn } from "@/lib/utils";
 
-type GuestDeliveryMode = "import" | "list";
+type GuestDeliveryMode = "import" | "list" | "wishes";
 
 type GuestDeliveryDetail = {
   token: string;
@@ -78,6 +78,25 @@ type GuestImportResult = {
     skipped_count: number;
   };
   rows: GuestImportRow[];
+};
+
+type GuestWish = {
+  display_name: string;
+  rsvp_status: string;
+  attendance_count: number;
+  wishes: string;
+  responded_at: string | null;
+};
+
+type GuestWishesPayload = {
+  public_slug: string;
+  couple_name: string;
+  total_invited: number;
+  total_confirmed: number;
+  total_declined: number;
+  total_pending: number;
+  response_rate: number;
+  wishes: GuestWish[];
 };
 
 type GuestForm = {
@@ -182,6 +201,16 @@ function rsvpLabel(status: string): string {
   return "Belum RSVP";
 }
 
+function formatRespondedAt(value: string | null): string {
+  if (!value) {
+    return "Belum ada waktu";
+  }
+  return new Intl.DateTimeFormat("id-ID", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
+
 function whatsappUrl(guest: GuestDeliveryLink): string {
   const digits = guest.phone.replace(/\D/g, "");
   const message = [
@@ -215,6 +244,7 @@ export function GuestDeliveryWorkspace({
 }) {
   const [detail, setDetail] = useState<GuestDeliveryDetail | null>(null);
   const [guests, setGuests] = useState<GuestDeliveryLink[]>([]);
+  const [wishes, setWishes] = useState<GuestWishesPayload | null>(null);
   const [query, setQuery] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -228,12 +258,14 @@ export function GuestDeliveryWorkspace({
   const loadWorkspace = useCallback(async () => {
     setError("");
     try {
-      const [nextDetail, nextGuests] = await Promise.all([
+      const [nextDetail, nextGuests, nextWishes] = await Promise.all([
         guestFetch<GuestDeliveryDetail>(token),
         guestFetch<GuestDeliveryLink[]>(token, "/guest-links"),
+        guestFetch<GuestWishesPayload>(token, "/wishes"),
       ]);
       setDetail(nextDetail);
       setGuests(nextGuests);
+      setWishes(nextWishes);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Halaman daftar tamu gagal dimuat.");
     } finally {
@@ -257,6 +289,7 @@ export function GuestDeliveryWorkspace({
   }, [guests, query]);
   const importHref = `/guest-delivery/${encodeURIComponent(token)}` as Route;
   const listHref = `/guest-delivery/${encodeURIComponent(token)}/guests` as Route;
+  const wishesHref = `/guest-delivery/${encodeURIComponent(token)}/wishes` as Route;
 
   function updateForm(field: keyof GuestForm, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -401,16 +434,31 @@ export function GuestDeliveryWorkspace({
         </div>
         <nav className="flex flex-wrap gap-3">
           <Link
-            className={cn(outlineButtonClassName, mode === "import" && "border-[var(--color-gold)] text-[var(--color-gold)]")}
+            className={cn(
+              outlineButtonClassName,
+              mode === "import" && "border-[var(--color-gold)] text-[var(--color-gold)]",
+            )}
             href={importHref}
           >
             Import CSV
           </Link>
           <Link
-            className={cn(outlineButtonClassName, mode === "list" && "border-[var(--color-gold)] text-[var(--color-gold)]")}
+            className={cn(
+              outlineButtonClassName,
+              mode === "list" && "border-[var(--color-gold)] text-[var(--color-gold)]",
+            )}
             href={listHref}
           >
             Daftar Tamu
+          </Link>
+          <Link
+            className={cn(
+              outlineButtonClassName,
+              mode === "wishes" && "border-[var(--color-gold)] text-[var(--color-gold)]",
+            )}
+            href={wishesHref}
+          >
+            Ucapan Tamu
           </Link>
         </nav>
       </header>
@@ -600,7 +648,7 @@ export function GuestDeliveryWorkspace({
             </div>
           </div>
         </section>
-      ) : (
+      ) : mode === "list" ? (
         <section className="mx-auto mt-8 max-w-6xl border border-white/10 bg-white/[0.025]">
           <div className="flex flex-col gap-4 border-b border-white/10 p-5 md:flex-row md:items-center md:justify-between">
             <div>
@@ -721,6 +769,63 @@ export function GuestDeliveryWorkspace({
                 ))}
               </tbody>
             </table>
+          </div>
+        </section>
+      ) : (
+        <section className="mx-auto mt-8 max-w-6xl">
+          <div className="grid gap-6 border border-white/10 bg-white/[0.025] p-5 lg:grid-cols-[1fr_0.9fr] lg:items-end">
+            <div>
+              <p className="text-[0.66rem] uppercase tracking-[0.24em] text-[var(--color-gold)]">
+                RSVP & Ucapan
+              </p>
+              <h2 className="mt-3 font-serif text-4xl">Ucapan tamu.</h2>
+              <p className="mt-4 max-w-2xl text-sm leading-7 text-white/60">
+                Rekap ini hanya untuk client. Data kontak tamu tidak ditampilkan di halaman ucapan,
+                hanya nama, status RSVP, jumlah hadir, dan ucapan yang mereka tulis.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <StatCard label="Tamu" value={wishes?.total_invited ?? 0} />
+              <StatCard label="Respons" value={`${wishes?.response_rate ?? 0}%`} />
+            </div>
+          </div>
+
+          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard label="Hadir" value={wishes?.total_confirmed ?? 0} />
+            <StatCard label="Tidak Hadir" value={wishes?.total_declined ?? 0} />
+            <StatCard label="Belum RSVP" value={wishes?.total_pending ?? 0} />
+            <StatCard label="Ucapan Masuk" value={wishes?.wishes.length ?? 0} />
+          </div>
+
+          <div className="mt-6 grid gap-4">
+            {!wishes || wishes.wishes.length === 0 ? (
+              <div className="border border-white/10 bg-white/[0.03] p-6 text-sm text-white/55">
+                Belum ada ucapan yang masuk.
+              </div>
+            ) : null}
+
+            {wishes?.wishes.map((wish, index) => (
+              <article
+                className="border border-white/10 bg-white/[0.03] p-5 sm:p-6"
+                key={`${wish.display_name}-${wish.responded_at ?? index}`}
+              >
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="font-serif text-2xl text-[#f8f3ea]">{wish.display_name}</p>
+                    <p className="mt-2 text-xs uppercase tracking-[0.18em] text-[var(--color-gold)]">
+                      {rsvpLabel(wish.rsvp_status)}
+                      {wish.attendance_count ? ` / ${wish.attendance_count} jumlah hadir` : ""}
+                    </p>
+                  </div>
+                  <p className="text-xs text-white/35">
+                    {formatRespondedAt(wish.responded_at)}
+                  </p>
+                </div>
+                <p className="mt-5 max-w-3xl text-base leading-8 text-white/72">
+                  {wish.wishes}
+                </p>
+              </article>
+            ))}
           </div>
         </section>
       )}
