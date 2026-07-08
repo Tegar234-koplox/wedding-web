@@ -483,7 +483,7 @@ def test_ticket_model_links_to_existing_invitation_and_client_user():
         invitation=invitation,
         created_by=client_user,
         category=Ticket.Category.TECHNICAL,
-        description="BMKG widget does not load.",
+        description="Weather widget does not load.",
     )
 
     assert ticket.status == Ticket.Status.OPEN

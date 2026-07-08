@@ -115,19 +115,22 @@ const weatherEntrySchema = z.object({
 export const invitationWeatherSchema = z.object({
   status: z.enum(["ready", "stale", "unavailable"]),
   reason: z.string().nullable().optional(),
-  provider: z.literal("BMKG"),
+  provider: z.literal("Open-Meteo"),
   attribution_url: z.url(),
   updated_at: z.string().nullable().optional(),
   location: z
     .object({
-      adm4: z.string(),
-      province: z.string(),
-      regency: z.string(),
-      district: z.string(),
-      village: z.string(),
+      provider: z.string().optional(),
+      adm4: z.string().optional(),
+      province: z.string().optional(),
+      regency: z.string().optional(),
+      district: z.string().optional(),
+      village: z.string().optional(),
       latitude: z.number(),
       longitude: z.number(),
       timezone: z.string(),
+      venue: z.string().optional(),
+      address: z.string().optional(),
     })
     .nullable()
     .optional(),

@@ -113,7 +113,7 @@ export function EditorialHome({ locale }: { locale: Locale }) {
           <div className="flex flex-wrap items-center justify-between gap-4 text-[0.65rem] font-semibold uppercase tracking-[0.2em]">
             <span>{id ? "Desain Personal" : "Personal Design"}</span>
             <span>·</span>
-            <span>{id ? "Prakiraan Cuaca BMKG" : "BMKG Weather Forecast"}</span>
+            <span>{id ? "Prakiraan Cuaca" : "Weather Forecast"}</span>
             <span>·</span>
             <span>
               {id ? "Responsif di Semua Layar" : "Responsive on Every Screen"}
@@ -302,11 +302,11 @@ export function EditorialHome({ locale }: { locale: Locale }) {
               </h2>
               <p className="mt-8 max-w-xl text-base leading-7 text-[var(--color-muted)]">
                 {id
-                  ? "Setiap undangan Signature dan Couture menampilkan prakiraan cuaca resmi BMKG ketika hari acara memasuki jangkauan prakiraan."
-                  : "Every Signature and Couture invitation shows the official BMKG forecast once the event enters the available forecast window."}
+                  ? "Setiap undangan Signature dan Couture menampilkan prakiraan cuaca Open-Meteo ketika hari acara memasuki jangkauan prakiraan."
+                  : "Every Signature and Couture invitation shows the Open-Meteo forecast once the event enters the available forecast window."}
               </p>
               <p className="mt-6 text-xs uppercase tracking-[0.16em] text-white/45">
-                Data cuaca: BMKG ·{" "}
+                Data cuaca: Open-Meteo ·{" "}
                 {id ? "Diperbarui otomatis" : "Updated automatically"}
               </p>
             </div>

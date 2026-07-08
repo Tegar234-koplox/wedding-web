@@ -84,6 +84,10 @@ export type DetailEvent = {
   venue_name: string;
   address: string;
   map_url: string;
+  location?: null | {
+    latitude?: number | string | null;
+    longitude?: number | string | null;
+  };
 };
 
 export type DetailMedia = {

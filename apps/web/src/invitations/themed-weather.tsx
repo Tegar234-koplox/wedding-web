@@ -87,11 +87,11 @@ export function ThemedWeather({
             <p className={`mt-8 max-w-2xl text-sm leading-7 ${design.muted}`}>
               {weather?.reason === "provider_unavailable"
                 ? id
-                  ? "Layanan BMKG sedang tidak tersedia. Informasi akan diperbarui kembali tanpa mengganggu undangan."
-                  : "BMKG is temporarily unavailable. The invitation will remain available while weather refreshes."
+                  ? "Layanan Open-Meteo sedang tidak tersedia. Informasi akan diperbarui kembali tanpa mengganggu undangan."
+                  : "Open-Meteo is temporarily unavailable. The invitation will remain available while weather refreshes."
                 : id
-                  ? "Prakiraan resmi akan muncul ketika acara memasuki jangkauan prakiraan BMKG. Preview ini tidak menampilkan data cuaca buatan."
-                  : "The official forecast appears when the event enters BMKG's forecast window. This preview never invents weather data."}
+                  ? "Prakiraan akan muncul ketika acara memasuki jangkauan prakiraan 16 hari. Preview ini tidak menampilkan data cuaca buatan."
+                  : "The forecast appears when the event enters Open-Meteo's 16-day forecast window. This preview never invents weather data."}
             </p>
           )}
 
@@ -100,12 +100,12 @@ export function ThemedWeather({
               className="underline underline-offset-4"
               href={
                 weather?.attribution_url ??
-                "https://data.bmkg.go.id/prakiraan-cuaca/"
+                "https://open-meteo.com/"
               }
               rel="noopener noreferrer"
               target="_blank"
             >
-              {id ? "Bersumber dari BMKG" : "Source: BMKG"}
+              {id ? "Bersumber dari Open-Meteo" : "Source: Open-Meteo"}
             </a>
             <span>
               {weather?.updated_at

@@ -48,6 +48,8 @@ type OrderDetailForm = {
   bank_account_number: string;
   backsound_url: string;
   ceremony_address: string;
+  ceremony_latitude: string;
+  ceremony_longitude: string;
   ceremony_map_url: string;
   ceremony_starts_at: string;
   ceremony_venue_name: string;
@@ -68,6 +70,8 @@ type OrderDetailForm = {
   payment_status: PaymentStatus;
   photo_url: string;
   reception_address: string;
+  reception_latitude: string;
+  reception_longitude: string;
   reception_map_url: string;
   reception_starts_at: string;
   reception_venue_name: string;
@@ -108,6 +112,8 @@ const emptyForm: OrderDetailForm = {
   bank_account_number: "",
   backsound_url: "",
   ceremony_address: "",
+  ceremony_latitude: "",
+  ceremony_longitude: "",
   ceremony_map_url: "",
   ceremony_starts_at: "",
   ceremony_venue_name: "",
@@ -128,6 +134,8 @@ const emptyForm: OrderDetailForm = {
   payment_status: "unpaid",
   photo_url: "",
   reception_address: "",
+  reception_latitude: "",
+  reception_longitude: "",
   reception_map_url: "",
   reception_starts_at: "",
   reception_venue_name: "",
@@ -253,6 +261,8 @@ function fromDetail(detail: StaffOrderDetail): OrderDetailForm {
     bank_account_number: account.number ?? account.account_number ?? "",
     backsound_url: backsound?.asset.secure_url ?? "",
     ceremony_address: ceremony?.address ?? "",
+    ceremony_latitude: String(ceremony?.location?.latitude ?? ""),
+    ceremony_longitude: String(ceremony?.location?.longitude ?? ""),
     ceremony_map_url: ceremony?.map_url ?? "",
     ceremony_starts_at: toDatetimeInput(ceremony?.starts_at),
     ceremony_venue_name: ceremony?.venue_name ?? "",
@@ -273,6 +283,8 @@ function fromDetail(detail: StaffOrderDetail): OrderDetailForm {
     payment_status: detail.order.payment_status,
     photo_url: photo?.asset.secure_url ?? "",
     reception_address: reception?.address ?? "",
+    reception_latitude: String(reception?.location?.latitude ?? ""),
+    reception_longitude: String(reception?.location?.longitude ?? ""),
     reception_map_url: reception?.map_url ?? "",
     reception_starts_at: toDatetimeInput(reception?.starts_at),
     reception_venue_name: reception?.venue_name ?? "",
@@ -483,6 +495,8 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
           ].filter((account) => account.bank || account.name || account.number),
           ceremony: {
             address: form.ceremony_address.trim(),
+            latitude: form.ceremony_latitude.trim(),
+            longitude: form.ceremony_longitude.trim(),
             map_url: form.ceremony_map_url.trim(),
             starts_at: form.ceremony_starts_at,
             venue_name: form.ceremony_venue_name.trim(),
@@ -513,6 +527,8 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
           payment_status: form.payment_status,
           reception: {
             address: form.reception_address.trim(),
+            latitude: form.reception_latitude.trim(),
+            longitude: form.reception_longitude.trim(),
             map_url: form.reception_map_url.trim(),
             starts_at: form.reception_starts_at,
             venue_name: form.reception_venue_name.trim(),
@@ -1057,6 +1073,8 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
             <div className="mt-5 grid gap-4 md:grid-cols-2">
               <EventFields
                 address={form.ceremony_address}
+                latitude={form.ceremony_latitude}
+                longitude={form.ceremony_longitude}
                 mapUrl={form.ceremony_map_url}
                 onChange={updateForm}
                 startsAt={form.ceremony_starts_at}
@@ -1066,6 +1084,8 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
               />
               <EventFields
                 address={form.reception_address}
+                latitude={form.reception_latitude}
+                longitude={form.reception_longitude}
                 mapUrl={form.reception_map_url}
                 onChange={updateForm}
                 startsAt={form.reception_starts_at}
@@ -1565,6 +1585,8 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
 
 function EventFields({
   address,
+  latitude,
+  longitude,
   mapUrl,
   onChange,
   prefix,
@@ -1573,6 +1595,8 @@ function EventFields({
   venueName,
 }: {
   address: string;
+  latitude: string;
+  longitude: string;
   mapUrl: string;
   onChange: (field: keyof OrderDetailForm, value: string) => void;
   prefix: "ceremony" | "reception";
@@ -1623,6 +1647,30 @@ function EventFields({
             value={mapUrl}
           />
         </Field>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Latitude cuaca">
+            <input
+              className={controlClassName}
+              inputMode="decimal"
+              onChange={(event) =>
+                onChange(`${prefix}_latitude` as keyof OrderDetailForm, event.target.value)
+              }
+              placeholder="-6.200000"
+              value={latitude}
+            />
+          </Field>
+          <Field label="Longitude cuaca">
+            <input
+              className={controlClassName}
+              inputMode="decimal"
+              onChange={(event) =>
+                onChange(`${prefix}_longitude` as keyof OrderDetailForm, event.target.value)
+              }
+              placeholder="106.816666"
+              value={longitude}
+            />
+          </Field>
+        </div>
       </div>
     </div>
   );

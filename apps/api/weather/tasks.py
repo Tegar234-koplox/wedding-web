@@ -8,7 +8,7 @@ from django.utils import timezone
 
 from invitations.models import EventLocation, Invitation
 from weather.exceptions import WeatherProviderError
-from weather.services import refresh_forecast
+from weather.services import location_key, refresh_forecast
 
 
 @shared_task(
@@ -18,8 +18,8 @@ from weather.services import refresh_forecast
     max_retries=3,
     rate_limit="50/m",
 )
-def refresh_adm4_forecast(adm4: str) -> None:
-    refresh_forecast(adm4, force=True)
+def refresh_location_forecast(key: str, latitude: str, longitude: str) -> None:
+    refresh_forecast(key, force=True, latitude=latitude, longitude=longitude)
 
 
 @shared_task
@@ -34,20 +34,29 @@ def schedule_upcoming_weather_refreshes() -> int:
 
     try:
         now = timezone.now()
-        adm4_codes = (
+        locations = (
             EventLocation.objects.filter(
-                bmkg_adm4__gt="",
+                latitude__isnull=False,
+                longitude__isnull=False,
                 event__invitation__status=Invitation.Status.PUBLISHED,
                 event__starts_at__gte=now,
-                event__starts_at__lte=now + timedelta(hours=72),
+                event__starts_at__lte=now + timedelta(days=16),
             )
-            .values_list("bmkg_adm4", flat=True)
+            .values_list("latitude", "longitude")
             .distinct()
         )
-        codes = list(adm4_codes)
-        for index, adm4 in enumerate(codes):
-            refresh_adm4_forecast.apply_async(args=[adm4], countdown=index * 2)
-        return len(codes)
+        queued: list[tuple[str, str, str]] = []
+        for latitude, longitude in locations:
+            key = location_key(latitude, longitude)
+            if key is None:
+                continue
+            queued.append((key, str(latitude), str(longitude)))
+        for index, (key, latitude, longitude) in enumerate(queued):
+            refresh_location_forecast.apply_async(
+                args=[key, latitude, longitude],
+                countdown=index * 2,
+            )
+        return len(queued)
     finally:
         try:
             cache.delete(lock_key)
