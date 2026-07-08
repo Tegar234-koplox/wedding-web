@@ -25,7 +25,12 @@ from analytics.models import AnalyticsEvent
 from common.models import AuditEvent
 from common.notifications import enqueue_client_notification
 from invitations.models import Guest, Invitation, InvitationMedia
-from invitations.preview import preview_token_for, preview_token_is_valid, wishes_token_is_valid
+from invitations.preview import (
+    guest_management_token_payload,
+    preview_token_for,
+    preview_token_is_valid,
+    wishes_token_is_valid,
+)
 from invitations.selectors import public_invitations
 from invitations.serializers import (
     BacksoundAssetSerializer,
@@ -164,6 +169,7 @@ def _guest_delivery_url(invitation: Invitation, token: str, request) -> str:
 
 def _guest_delivery_payload(invitation: Invitation, guest: Guest, request) -> dict[str, object]:
     token = str(guest.metadata.get("delivery_token", "")).strip()
+    delivery_sent_at = guest.metadata.get("delivery_sent_at")
     return {
         "id": guest.id,
         "display_name": guest.display_name,
@@ -174,6 +180,8 @@ def _guest_delivery_payload(invitation: Invitation, guest: Guest, request) -> di
         "attendance_count": guest.attendance_count,
         "responded_at": guest.responded_at,
         "delivery_url": _guest_delivery_url(invitation, token, request) if token else None,
+        "delivery_status": "sent" if delivery_sent_at else "not_sent",
+        "delivery_sent_at": delivery_sent_at,
         "token_available": bool(token),
         "created_at": guest.created_at,
     }
@@ -184,6 +192,60 @@ def _guest_delivery_queryset(invitation: Invitation):
         archived_at__isnull=True,
         anonymized_at__isnull=True,
     ).order_by("created_at")
+
+
+def _guest_management_invitation(token: str) -> Invitation | None:
+    payload = guest_management_token_payload(token)
+    if payload is None:
+        return None
+    invitation_id, public_slug = payload
+    return (
+        Invitation.objects.filter(
+            id=invitation_id,
+            public_slug=public_slug,
+            archived_at__isnull=True,
+        )
+        .select_related("theme", "package", "order")
+        .prefetch_related("guests")
+        .first()
+    )
+
+
+def _guest_management_detail_payload(
+    invitation: Invitation, token: str, request
+) -> dict[str, object]:
+    guests = _guest_delivery_queryset(invitation)
+    content = invitation.content if isinstance(invitation.content, dict) else {}
+    sent_count = sum(1 for guest in guests if guest.metadata.get("delivery_sent_at"))
+    return {
+        "token": token,
+        "invitation": {
+            "public_slug": invitation.public_slug,
+            "default_locale": invitation.default_locale,
+            "status": invitation.status,
+            "approval_status": invitation.approval_status,
+            "couple_name": _invitation_couple_name(invitation),
+            "theme_name": invitation.theme.slug,
+            "theme_slug": invitation.theme.slug,
+            "package_name": invitation.package.code if invitation.package_id else "",
+            "package_code": invitation.package.code if invitation.package_id else "",
+        },
+        "rsvp": _guest_aggregate_rows(invitation)[0]
+        if _guest_aggregate_rows(invitation)
+        else {
+            "wedding_id": str(invitation.id),
+            "total_invited": 0,
+            "total_confirmed": 0,
+            "total_declined": 0,
+            "response_rate": 0,
+        },
+        "delivery": {
+            "total_guests": guests.count(),
+            "sent_count": sent_count,
+            "not_sent_count": max(guests.count() - sent_count, 0),
+        },
+        "client_note": content.get("guest_management_note", ""),
+    }
 
 
 def _rsvp_invitation_for_request(request, public_slug: str) -> Invitation | None:
@@ -1073,6 +1135,208 @@ class StaffInvitationGuestLinkExportView(APIView):
                 ]
             )
         return response
+
+
+class GuestManagementDetailView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, token: str) -> Response:
+        invitation = _guest_management_invitation(token)
+        if invitation is None:
+            raise Http404
+        return Response(_guest_management_detail_payload(invitation, token, request))
+
+
+class GuestManagementGuestLinkListCreateView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, token: str) -> Response:
+        invitation = _guest_management_invitation(token)
+        if invitation is None:
+            raise Http404
+        guests = _guest_delivery_queryset(invitation)
+        query = str(request.query_params.get("q", "")).strip().lower()
+        if query:
+            guests = guests.filter(display_name__icontains=query)
+        payload = [_guest_delivery_payload(invitation, guest, request) for guest in guests]
+        return Response(StaffGuestLinkSerializer(payload, many=True).data)
+
+    def post(self, request, token: str) -> Response:
+        invitation = _guest_management_invitation(token)
+        if invitation is None:
+            raise Http404
+        serializer = StaffGuestLinkCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        guest_token = _generate_guest_delivery_token()
+        guest = Guest.objects.create(
+            invitation=invitation,
+            access_token_hash=guest_token,
+            display_name=serializer.validated_data["display_name"],
+            email=serializer.validated_data.get("email", ""),
+            phone=serializer.validated_data.get("phone", ""),
+            party_size=serializer.validated_data["party_size"],
+            metadata={"delivery_token": guest_token, "source": "client_guest_management"},
+        )
+        AuditEvent.objects.create(
+            actor=None,
+            action="guest.delivery_link_created_by_client",
+            resource_type="invitation",
+            resource_reference=invitation.public_slug,
+            metadata={
+                "guest_id": str(guest.id),
+                "source": "client_guest_management",
+            },
+        )
+        payload = _guest_delivery_payload(invitation, guest, request)
+        return Response(StaffGuestLinkSerializer(payload).data, status=201)
+
+
+class GuestManagementGuestLinkImportTemplateView(APIView):
+    permission_classes = [AllowAny]
+    renderer_classes = [CSVRenderer, JSONRenderer]
+
+    def get(self, request, token: str) -> HttpResponse:
+        invitation = _guest_management_invitation(token)
+        if invitation is None:
+            raise Http404
+        response = HttpResponse(content_type="text/csv; charset=utf-8")
+        response["Content-Disposition"] = (
+            f'attachment; filename="{invitation.public_slug}-template-daftar-tamu.csv"'
+        )
+        writer = csv.writer(response)
+        writer.writerow(GUEST_IMPORT_TEMPLATE_HEADERS)
+        writer.writerow(
+            ["Syarif dan Istri", "+628123456789", "syarif@example.com", "2", "Keluarga", ""]
+        )
+        writer.writerow(["Rara", "+628987654321", "", "1", "Teman", ""])
+        return response
+
+
+class GuestManagementGuestLinkImportView(APIView):
+    permission_classes = [AllowAny]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request, token: str) -> Response:
+        invitation = _guest_management_invitation(token)
+        if invitation is None:
+            raise Http404
+        uploaded_file = request.FILES.get("file")
+        if uploaded_file is None:
+            raise ValidationError({"file": "Pilih file CSV daftar tamu terlebih dahulu."})
+        if not uploaded_file.name.lower().endswith(".csv"):
+            raise ValidationError({"file": "File harus berformat .csv."})
+
+        rows = _parse_guest_import_upload(uploaded_file)
+        dry_run = request.query_params.get("dry_run", "").lower() in {"1", "true", "yes"}
+        if dry_run:
+            payload = _guest_import_payload(
+                invitation=invitation,
+                rows=rows,
+                request=request,
+                commit=False,
+            )
+            return Response(StaffGuestLinkImportSerializer(payload).data)
+
+        with transaction.atomic():
+            payload = _guest_import_payload(
+                invitation=invitation,
+                rows=rows,
+                request=request,
+                commit=True,
+            )
+            AuditEvent.objects.create(
+                actor=None,
+                action="guest.delivery_links_imported_by_client",
+                resource_type="invitation",
+                resource_reference=invitation.public_slug,
+                metadata={
+                    "total_rows": payload["summary"]["total_rows"],
+                    "valid_rows": payload["summary"]["valid_rows"],
+                    "error_rows": payload["summary"]["error_rows"],
+                    "created_count": payload["summary"]["created_count"],
+                    "updated_count": payload["summary"]["updated_count"],
+                    "source": "client_guest_management",
+                },
+            )
+        return Response(StaffGuestLinkImportSerializer(payload).data)
+
+
+class GuestManagementGuestLinkExportView(APIView):
+    permission_classes = [AllowAny]
+    renderer_classes = [CSVRenderer, JSONRenderer]
+
+    def get(self, request, token: str) -> HttpResponse:
+        invitation = _guest_management_invitation(token)
+        if invitation is None:
+            raise Http404
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = (
+            f'attachment; filename="{invitation.public_slug}-daftar-link-tamu.csv"'
+        )
+        writer = csv.writer(response)
+        writer.writerow(
+            [
+                "name",
+                "email",
+                "phone",
+                "party_size",
+                "rsvp_status",
+                "attendance_count",
+                "delivery_status",
+                "delivery_url",
+            ]
+        )
+        for guest in _guest_delivery_queryset(invitation):
+            payload = _guest_delivery_payload(invitation, guest, request)
+            writer.writerow(
+                [
+                    _csv_safe(payload["display_name"]),
+                    _csv_safe(payload["email"]),
+                    _csv_safe(payload["phone"]),
+                    payload["party_size"],
+                    _csv_safe(payload["rsvp_status"]),
+                    payload["attendance_count"],
+                    _csv_safe(payload["delivery_status"]),
+                    _csv_safe(payload["delivery_url"] or ""),
+                ]
+            )
+        return response
+
+
+class GuestManagementGuestDeliveryStatusView(APIView):
+    permission_classes = [AllowAny]
+
+    def patch(self, request, token: str, guest_id) -> Response:
+        invitation = _guest_management_invitation(token)
+        if invitation is None:
+            raise Http404
+        guest = _guest_delivery_queryset(invitation).filter(id=guest_id).first()
+        if guest is None:
+            raise Http404
+
+        sent = bool(request.data.get("sent"))
+        metadata = {**guest.metadata}
+        if sent:
+            metadata["delivery_sent_at"] = timezone.now().isoformat()
+        else:
+            metadata.pop("delivery_sent_at", None)
+        metadata["delivery_updated_at"] = timezone.now().isoformat()
+        metadata["delivery_updated_by"] = "client_guest_management"
+        guest.metadata = metadata
+        guest.save(update_fields=["metadata", "updated_at"])
+        AuditEvent.objects.create(
+            actor=None,
+            action="guest.delivery_status_updated_by_client",
+            resource_type="invitation",
+            resource_reference=invitation.public_slug,
+            metadata={
+                "guest_id": str(guest.id),
+                "delivery_status": "sent" if sent else "not_sent",
+            },
+        )
+        return Response(
+            StaffGuestLinkSerializer(_guest_delivery_payload(invitation, guest, request)).data
+        )
 
 
 class StaffInvitationMusicView(APIView):

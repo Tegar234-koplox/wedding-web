@@ -120,6 +120,7 @@ def test_staff_order_detail_returns_operational_payload_without_guest_rows(clien
     assert payload["rsvp"]["total_invited"] == 2
     assert payload["rsvp"]["total_confirmed"] == 1
     assert "/id/i/inv-staff-detail-001/wishes?access=" in payload["wishes_url"]
+    assert "/guest-delivery/" in payload["guest_management_url"]
     assert payload["invitation"]["bank_accounts"][0]["bank"] == "BCA"
     content = response.content.decode()
     assert "Keluarga Budi" not in content
@@ -1315,6 +1316,63 @@ def test_staff_exports_guest_delivery_links_as_csv(client):
     content = response.content.decode()
     assert "Syarif" in content
     assert "https://wedding.example/id/i/delivery-export?guest=delivery-token-1" in content
+
+
+@pytest.mark.django_db
+def test_guest_management_link_allows_client_import_and_delivery_tracking(client):
+    staff, order = create_staff_order_fixture("guest-management-001")
+    client.force_login(staff)
+    detail_response = client.get(
+        reverse("admin-order-detail", kwargs={"reference": order.reference}),
+        HTTP_ORIGIN="https://wedding.example",
+    )
+    token = detail_response.json()["guest_management_url"].rsplit("/", 1)[-1]
+    client.logout()
+
+    detail = client.get(reverse("guest-management-detail", kwargs={"token": token}))
+    assert detail.status_code == 200
+    assert detail.json()["invitation"]["public_slug"] == order.invitation.public_slug
+
+    upload = SimpleUploadedFile(
+        "guests.csv",
+        b"name,phone,email,party_size,group,note\nSyarif,+628123456789,syarif@example.com,2,Keluarga,\n",
+        content_type="text/csv",
+    )
+    preview = client.post(
+        f"{reverse('guest-management-guest-link-import', kwargs={'token': token})}?dry_run=true",
+        {"file": upload},
+        HTTP_ORIGIN="https://wedding.example",
+    )
+    assert preview.status_code == 200
+    assert preview.json()["summary"]["valid_rows"] == 1
+    assert Guest.objects.filter(display_name="Syarif").count() == 0
+
+    upload = SimpleUploadedFile(
+        "guests.csv",
+        b"name,phone,email,party_size,group,note\nSyarif,+628123456789,syarif@example.com,2,Keluarga,\n",
+        content_type="text/csv",
+    )
+    commit = client.post(
+        reverse("guest-management-guest-link-import", kwargs={"token": token}),
+        {"file": upload},
+        HTTP_ORIGIN="https://wedding.example",
+    )
+    assert commit.status_code == 200
+    guest = Guest.objects.get(display_name="Syarif")
+    assert guest.metadata["delivery_token"]
+    assert AuditEvent.objects.filter(action="guest.delivery_links_imported_by_client").exists()
+
+    delivery = client.patch(
+        reverse(
+            "guest-management-guest-link-delivery",
+            kwargs={"token": token, "guest_id": guest.id},
+        ),
+        {"sent": True},
+        content_type="application/json",
+    )
+    assert delivery.status_code == 200
+    guest.refresh_from_db()
+    assert guest.metadata["delivery_sent_at"]
 
 
 @pytest.mark.django_db
