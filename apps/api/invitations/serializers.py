@@ -522,6 +522,8 @@ class StaffGuestLinkSerializer(serializers.Serializer):
     attendance_count = serializers.IntegerField()
     responded_at = serializers.DateTimeField(allow_null=True)
     delivery_url = serializers.CharField(allow_blank=True, allow_null=True)
+    delivery_status = serializers.CharField()
+    delivery_sent_at = serializers.DateTimeField(allow_null=True)
     token_available = serializers.BooleanField()
     created_at = serializers.DateTimeField()
 

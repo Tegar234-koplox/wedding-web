@@ -1,6 +1,12 @@
 from django.urls import path
 
 from invitations.views import (
+    GuestManagementDetailView,
+    GuestManagementGuestDeliveryStatusView,
+    GuestManagementGuestLinkExportView,
+    GuestManagementGuestLinkImportTemplateView,
+    GuestManagementGuestLinkImportView,
+    GuestManagementGuestLinkListCreateView,
     InvitationDetailView,
     InvitationPreviewDetailView,
     InvitationRSVPView,
@@ -49,6 +55,36 @@ urlpatterns = [
         "invitations/<slug:public_slug>/wishes",
         PublicInvitationWishesView.as_view(),
         name="invitation-wishes",
+    ),
+    path(
+        "guest-management/<str:token>",
+        GuestManagementDetailView.as_view(),
+        name="guest-management-detail",
+    ),
+    path(
+        "guest-management/<str:token>/guest-links",
+        GuestManagementGuestLinkListCreateView.as_view(),
+        name="guest-management-guest-link-list",
+    ),
+    path(
+        "guest-management/<str:token>/guest-links/export",
+        GuestManagementGuestLinkExportView.as_view(),
+        name="guest-management-guest-link-export",
+    ),
+    path(
+        "guest-management/<str:token>/guest-links/import-template",
+        GuestManagementGuestLinkImportTemplateView.as_view(),
+        name="guest-management-guest-link-import-template",
+    ),
+    path(
+        "guest-management/<str:token>/guest-links/import",
+        GuestManagementGuestLinkImportView.as_view(),
+        name="guest-management-guest-link-import",
+    ),
+    path(
+        "guest-management/<str:token>/guest-links/<uuid:guest_id>/delivery",
+        GuestManagementGuestDeliveryStatusView.as_view(),
+        name="guest-management-guest-link-delivery",
     ),
     path(
         "admin/invitations",

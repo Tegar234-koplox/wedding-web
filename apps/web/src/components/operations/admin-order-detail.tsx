@@ -5,12 +5,10 @@ import {
   ArrowLeft,
   CheckCircle2,
   Copy,
-  Download,
   ExternalLink,
   MessageCircle,
   Plus,
   Save,
-  Upload,
 } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -26,13 +24,10 @@ import {
   manualPaymentTypeLabels,
   normalizeCurrencyInput,
   paymentLabels,
-  staffDownload,
   staffFetch,
-  staffUpload,
   type CustomStatus,
   type DetailRevision,
   type GuestDeliveryLink,
-  type GuestImportResult,
   type ManualPaymentMethod,
   type ManualPaymentRecord,
   type ManualPaymentReviewStatus,
@@ -82,13 +77,6 @@ type OrderDetailForm = {
   status_label: string;
   theme_slug: string;
   total_amount: string;
-};
-
-type GuestLinkForm = {
-  display_name: string;
-  email: string;
-  phone: string;
-  party_size: string;
 };
 
 type PaymentRecordForm = {
@@ -149,13 +137,6 @@ const emptyForm: OrderDetailForm = {
   status_label: "Baru",
   theme_slug: "",
   total_amount: "0",
-};
-
-const emptyGuestLinkForm: GuestLinkForm = {
-  display_name: "",
-  email: "",
-  party_size: "1",
-  phone: "",
 };
 
 const emptyPaymentRecordForm: PaymentRecordForm = {
@@ -304,16 +285,6 @@ function fromDetail(detail: StaffOrderDetail): OrderDetailForm {
   };
 }
 
-function guestRsvpLabel(status: string): string {
-  if (status === "accepted") {
-    return "Hadir";
-  }
-  if (status === "declined") {
-    return "Tidak hadir";
-  }
-  return "Menunggu";
-}
-
 function linkLifecycleLabel(detail: StaffOrderDetail | null): string {
   if (!detail?.invitation) {
     return "Data belum lengkap";
@@ -338,20 +309,6 @@ function linkLifecycleDescription(detail: StaffOrderDetail | null): string {
     return "Final check sudah siap. Ubah status ke Publikasi untuk membuka link final.";
   }
   return "Link sementara untuk customer dan tamu, masih memakai preview token.";
-}
-
-function guestWhatsAppMessage(detail: StaffOrderDetail | null, guest: GuestDeliveryLink): string {
-  const coupleName = detail?.order.client_name || "Niskala";
-  return [
-    `Halo ${guest.display_name},`,
-    "",
-    `Kami mengundang Anda untuk hadir dalam undangan pernikahan ${coupleName}.`,
-    guest.delivery_url ? `Silakan buka link personal berikut: ${guest.delivery_url}` : "",
-    "",
-    "Mohon konfirmasi kehadiran melalui form RSVP di dalam undangan.",
-  ]
-    .filter(Boolean)
-    .join("\n");
 }
 
 function paymentReminderMessage(detail: StaffOrderDetail | null): string {
@@ -385,9 +342,6 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
   const [detail, setDetail] = useState<StaffOrderDetail | null>(null);
   const [form, setForm] = useState<OrderDetailForm>(emptyForm);
   const [guestLinks, setGuestLinks] = useState<GuestDeliveryLink[]>([]);
-  const [guestLinkForm, setGuestLinkForm] = useState<GuestLinkForm>(emptyGuestLinkForm);
-  const [guestImportFile, setGuestImportFile] = useState<File | null>(null);
-  const [guestImportPreview, setGuestImportPreview] = useState<GuestImportResult | null>(null);
   const [paymentRecordForm, setPaymentRecordForm] = useState<PaymentRecordForm>(
     emptyPaymentRecordForm,
   );
@@ -398,8 +352,6 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
   const [revisionEdits, setRevisionEdits] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [savingGuestLink, setSavingGuestLink] = useState(false);
-  const [importingGuestLinks, setImportingGuestLinks] = useState(false);
   const [savingPayment, setSavingPayment] = useState(false);
   const [savingRevision, setSavingRevision] = useState(false);
   const [error, setError] = useState("");
@@ -421,7 +373,6 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
       setRevisionEdits(
         Object.fromEntries(nextDetail.revisions.map((revision) => [revision.id, revision.note])),
       );
-      setGuestImportPreview(null);
       if (nextDetail.invitation?.public_slug) {
         const links = await staffFetch<GuestDeliveryLink[]>(
           `/admin/invitations/${nextDetail.invitation.public_slug}/guest-links`,
@@ -455,10 +406,6 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
     }
     urls[index] = value;
     updateForm("gallery_urls", urls.join("\n"));
-  }
-
-  function updateGuestLinkForm(field: keyof GuestLinkForm, value: string) {
-    setGuestLinkForm((current) => ({ ...current, [field]: value }));
   }
 
   function updatePaymentRecordForm(field: keyof PaymentRecordForm, value: string) {
@@ -616,29 +563,16 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
     }
   }
 
-  async function copyGuestUrl(url: string | null) {
-    if (!url) {
-      setError("Link tamu belum tersedia untuk data ini.");
+  async function copyGuestManagementUrl() {
+    if (!detail?.guest_management_url) {
+      setError("Link form daftar tamu belum tersedia.");
       return;
     }
     try {
-      await navigator.clipboard.writeText(url);
-      setNotice("Link tamu disalin.");
+      await navigator.clipboard.writeText(detail.guest_management_url);
+      setNotice("Link form daftar tamu disalin.");
     } catch {
-      setError("Link tamu gagal disalin.");
-    }
-  }
-
-  async function copyGuestWhatsAppMessage(guest: GuestDeliveryLink) {
-    if (!guest.delivery_url) {
-      setError("Link tamu belum tersedia untuk pesan WhatsApp.");
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(guestWhatsAppMessage(detail, guest));
-      setNotice("Pesan WhatsApp tamu disalin.");
-    } catch {
-      setError("Pesan WhatsApp gagal disalin.");
+      setError("Link form daftar tamu gagal disalin.");
     }
   }
 
@@ -721,146 +655,6 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
       setError(caught instanceof Error ? caught.message : "Status pembayaran gagal diperbarui.");
     } finally {
       setSavingPayment(false);
-    }
-  }
-
-  async function copyAllGuestUrls() {
-    const text = guestLinks
-      .filter((guest) => guest.delivery_url)
-      .map((guest) => `${guest.display_name}: ${guest.delivery_url}`)
-      .join("\n");
-    if (!text) {
-      setError("Belum ada link tamu yang bisa disalin.");
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(text);
-      setNotice("Semua link tamu disalin.");
-    } catch {
-      setError("Daftar link tamu gagal disalin.");
-    }
-  }
-
-  async function createGuestLink() {
-    if (!detail?.invitation?.public_slug) {
-      setError("Simpan detail order dulu agar invitation tersedia.");
-      return;
-    }
-    if (!guestLinkForm.display_name.trim()) {
-      setError("Nama tamu wajib diisi.");
-      return;
-    }
-    setSavingGuestLink(true);
-    setError("");
-    setNotice("");
-    try {
-      const guest = await staffFetch<GuestDeliveryLink>(
-        `/admin/invitations/${detail.invitation.public_slug}/guest-links`,
-        {
-          body: JSON.stringify({
-            display_name: guestLinkForm.display_name.trim(),
-            email: guestLinkForm.email.trim(),
-            party_size: Number(guestLinkForm.party_size || 1),
-            phone: guestLinkForm.phone.trim(),
-          }),
-          method: "POST",
-        },
-      );
-      setGuestLinks((current) => [...current, guest]);
-      setGuestLinkForm(emptyGuestLinkForm);
-      setNotice("Link tamu dibuat.");
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Link tamu gagal dibuat.");
-    } finally {
-      setSavingGuestLink(false);
-    }
-  }
-
-  async function exportGuestLinks() {
-    if (!detail?.invitation?.public_slug) {
-      setError("Invitation belum tersedia untuk export link tamu.");
-      return;
-    }
-    try {
-      const blob = await staffDownload(
-        `/admin/invitations/${detail.invitation.public_slug}/guest-links/export`,
-      );
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `${detail.invitation.public_slug}-guest-links.csv`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
-      setNotice("CSV link tamu didownload.");
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "CSV link tamu gagal didownload.");
-    }
-  }
-
-  async function downloadGuestImportTemplate() {
-    if (!detail?.invitation?.public_slug) {
-      setError("Invitation belum tersedia untuk template import.");
-      return;
-    }
-    try {
-      const blob = await staffDownload(
-        `/admin/invitations/${detail.invitation.public_slug}/guest-links/import-template`,
-      );
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `${detail.invitation.public_slug}-guest-import-template.csv`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
-      setNotice("Template CSV tamu didownload.");
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Template CSV gagal didownload.");
-    }
-  }
-
-  async function importGuestLinks(dryRun: boolean) {
-    if (!detail?.invitation?.public_slug) {
-      setError("Simpan detail order dulu agar invitation tersedia.");
-      return;
-    }
-    if (!guestImportFile) {
-      setError("Pilih file CSV tamu terlebih dahulu.");
-      return;
-    }
-    setImportingGuestLinks(true);
-    setError("");
-    setNotice("");
-    try {
-      const formData = new FormData();
-      formData.append("file", guestImportFile);
-      const result = await staffUpload<GuestImportResult>(
-        `/admin/invitations/${detail.invitation.public_slug}/guest-links/import${
-          dryRun ? "?dry_run=true" : ""
-        }`,
-        formData,
-      );
-      setGuestImportPreview(result);
-      if (dryRun) {
-        setNotice(
-          `Preview CSV selesai: ${result.summary.valid_rows} valid, ${result.summary.error_rows} error.`,
-        );
-      } else {
-        const links = await staffFetch<GuestDeliveryLink[]>(
-          `/admin/invitations/${detail.invitation.public_slug}/guest-links`,
-        );
-        setGuestLinks(links);
-        setNotice(
-          `Import selesai: ${result.summary.created_count} dibuat, ${result.summary.updated_count} diperbarui.`,
-        );
-      }
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Import CSV tamu gagal.");
-    } finally {
-      setImportingGuestLinks(false);
     }
   }
 
@@ -1561,269 +1355,64 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
             </div>
           </Panel>
 
-          <Panel eyebrow="Link Tamu & Delivery" title="Daftar link personal.">
-            <div className="grid gap-4 md:grid-cols-[1fr_1fr_0.6fr]">
-              <Field label="Nama tamu">
-                <input
-                  className={controlClassName}
-                  onChange={(event) => updateGuestLinkForm("display_name", event.target.value)}
-                  placeholder="Syarif"
-                  value={guestLinkForm.display_name}
-                />
-              </Field>
-              <Field label="Email">
-                <input
-                  className={controlClassName}
-                  onChange={(event) => updateGuestLinkForm("email", event.target.value)}
-                  placeholder="opsional"
-                  type="email"
-                  value={guestLinkForm.email}
-                />
-              </Field>
-              <Field label="Kuota Hadir">
-                <input
-                  className={controlClassName}
-                  min={1}
-                  onChange={(event) => updateGuestLinkForm("party_size", event.target.value)}
-                  type="number"
-                  value={guestLinkForm.party_size}
-                />
-              </Field>
-              <Field label="Phone / WhatsApp">
-                <input
-                  className={controlClassName}
-                  onChange={(event) => updateGuestLinkForm("phone", event.target.value)}
-                  placeholder="+62812"
-                  value={guestLinkForm.phone}
-                />
-              </Field>
-              <div className="flex items-end md:col-span-2">
-                <button
-                  className="inline-flex min-h-11 w-full items-center justify-center gap-3 bg-[var(--color-gold)] px-4 text-xs font-semibold uppercase tracking-[0.14em] text-black transition hover:bg-[#f4ddb0] disabled:opacity-50"
-                  disabled={savingGuestLink || !detail?.invitation}
-                  onClick={() => void createGuestLink()}
-                  type="button"
-                >
-                  <Plus size={15} />
-                  {savingGuestLink ? "Membuat" : "Tambah Link Tamu"}
-                </button>
+          <Panel eyebrow="Link Tamu & Delivery" title="Form client.">
+            <div className="border border-[var(--color-gold)]/35 bg-[var(--color-gold)]/10 p-4">
+              <p className="text-sm leading-relaxed text-white/70">
+                Bagikan link ini ke client setelah undangan sudah fix dan siap publikasi. Client
+                dapat import CSV, export CSV, mencari tamu, copy link personal, dan menandai link
+                yang sudah dikirim.
+              </p>
+              <div className="mt-4 border border-white/10 bg-black/20 p-4">
+                <p className="break-all text-sm text-white/80">
+                  {detail?.guest_management_url || "Simpan detail order dulu agar link tersedia."}
+                </p>
               </div>
-            </div>
-
-            <div className="mt-5 flex flex-wrap gap-3">
-              <button
-                className={outlineButtonClassName}
-                disabled={!detail?.invitation}
-                onClick={() => void downloadGuestImportTemplate()}
-                type="button"
-              >
-                <Download size={15} />
-                Template CSV
-              </button>
-              <button
-                className={outlineButtonClassName}
-                disabled={!guestLinks.some((guest) => guest.delivery_url)}
-                onClick={() => void copyAllGuestUrls()}
-                type="button"
-              >
-                <Copy size={15} />
-                Copy Semua
-              </button>
-              <button
-                className={outlineButtonClassName}
-                disabled={!guestLinks.length}
-                onClick={() => void exportGuestLinks()}
-                type="button"
-              >
-                <Download size={15} />
-                Export CSV
-              </button>
-            </div>
-
-            <div className="mt-5 border border-white/10 bg-white/[0.02] p-4">
-              <div className="grid gap-4 lg:grid-cols-[1fr_auto_auto] lg:items-end">
-                <Field label="Import CSV tamu">
-                  <input
-                    accept=".csv,text/csv"
-                    className={controlClassName}
-                    onChange={(event) => {
-                      setGuestImportFile(event.target.files?.[0] ?? null);
-                      setGuestImportPreview(null);
-                    }}
-                    type="file"
-                  />
-                </Field>
+              <div className="mt-4 flex flex-wrap gap-3">
                 <button
                   className={outlineButtonClassName}
-                  disabled={importingGuestLinks || !guestImportFile || !detail?.invitation}
-                  onClick={() => void importGuestLinks(true)}
+                  disabled={!detail?.guest_management_url}
+                  onClick={() => void copyGuestManagementUrl()}
                   type="button"
                 >
-                  <Upload size={15} />
-                  Preview CSV
+                  <Copy size={15} />
+                  Copy Link Form
                 </button>
-                <button
-                  className="inline-flex min-h-11 items-center justify-center gap-3 bg-[var(--color-gold)] px-4 text-xs font-semibold uppercase tracking-[0.14em] text-black transition hover:bg-[#f4ddb0] disabled:opacity-50"
-                  disabled={importingGuestLinks || !guestImportFile || !detail?.invitation}
-                  onClick={() => void importGuestLinks(false)}
-                  type="button"
+                <a
+                  className={cn(
+                    outlineButtonClassName,
+                    !detail?.guest_management_url && "pointer-events-none opacity-50",
+                  )}
+                  href={detail?.guest_management_url || "#"}
+                  rel="noreferrer"
+                  target="_blank"
                 >
-                  <Plus size={15} />
-                  {importingGuestLinks ? "Memproses" : "Import Valid Rows"}
-                </button>
+                  <ExternalLink size={15} />
+                  Buka Form
+                </a>
               </div>
-              <p className="mt-3 text-xs leading-relaxed text-white/45">
-                Gunakan template CSV untuk ratusan tamu. Kolom wajib hanya nama; phone/email
-                membantu delivery, dan kuota hadir default 1.
-              </p>
-              {guestImportPreview ? (
-                <div className="mt-4 space-y-4">
-                  <div className="grid gap-3 text-sm md:grid-cols-4">
-                    <div className="border border-white/10 p-3">
-                      <p className="text-[10px] uppercase tracking-[0.14em] text-white/40">Rows</p>
-                      <p className="mt-2 text-lg text-white">
-                        {guestImportPreview.summary.total_rows}
-                      </p>
-                    </div>
-                    <div className="border border-white/10 p-3">
-                      <p className="text-[10px] uppercase tracking-[0.14em] text-white/40">Valid</p>
-                      <p className="mt-2 text-lg text-white">
-                        {guestImportPreview.summary.valid_rows}
-                      </p>
-                    </div>
-                    <div className="border border-white/10 p-3">
-                      <p className="text-[10px] uppercase tracking-[0.14em] text-white/40">
-                        Warning
-                      </p>
-                      <p className="mt-2 text-lg text-[var(--color-gold)]">
-                        {guestImportPreview.summary.warning_rows}
-                      </p>
-                    </div>
-                    <div className="border border-white/10 p-3">
-                      <p className="text-[10px] uppercase tracking-[0.14em] text-white/40">Error</p>
-                      <p className="mt-2 text-lg text-red-300">
-                        {guestImportPreview.summary.error_rows}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="max-h-72 overflow-auto border border-white/10">
-                    <table className="w-full min-w-[760px] border-collapse text-left text-xs">
-                      <thead className="bg-white/[0.03] uppercase tracking-[0.14em] text-white/45">
-                        <tr>
-                          <th className="px-3 py-3">Row</th>
-                          <th className="px-3 py-3">Nama</th>
-                          <th className="px-3 py-3">Kontak</th>
-                          <th className="px-3 py-3">Kuota</th>
-                          <th className="px-3 py-3">Action</th>
-                          <th className="px-3 py-3">Catatan</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {guestImportPreview.rows.slice(0, 80).map((row) => (
-                          <tr className="border-t border-white/10" key={row.row_number}>
-                            <td className="px-3 py-3 text-white/45">{row.row_number}</td>
-                            <td className="px-3 py-3 text-white">{row.name || "-"}</td>
-                            <td className="px-3 py-3 text-white/60">
-                              {[row.phone, row.email].filter(Boolean).join(" / ") || "-"}
-                            </td>
-                            <td className="px-3 py-3 text-white/60">{row.party_size}</td>
-                            <td className="px-3 py-3">
-                              <span
-                                className={cn(
-                                  "text-[10px] uppercase tracking-[0.14em]",
-                                  row.status === "error"
-                                    ? "text-red-300"
-                                    : row.action === "update"
-                                      ? "text-[var(--color-gold)]"
-                                      : "text-emerald-200",
-                                )}
-                              >
-                                {row.status === "error" ? "Error" : row.action}
-                              </span>
-                            </td>
-                            <td className="px-3 py-3 text-white/55">
-                              {[...row.errors, ...row.warnings].join(" ") || "-"}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  {guestImportPreview.rows.length > 80 ? (
-                    <p className="text-xs text-white/45">
-                      Preview menampilkan 80 baris pertama dari {guestImportPreview.rows.length}{" "}
-                      baris.
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
             </div>
 
-            <div className="mt-5 overflow-x-auto border border-white/10">
-              <table className="w-full min-w-[760px] border-collapse text-left text-sm">
-                <thead className="bg-white/[0.03] text-xs uppercase tracking-[0.14em] text-white/45">
-                  <tr>
-                    <th className="px-4 py-3">Tamu</th>
-                    <th className="px-4 py-3">Kontak</th>
-                    <th className="px-4 py-3">RSVP</th>
-                    <th className="px-4 py-3">Link</th>
-                    <th className="px-4 py-3">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {guestLinks.length === 0 ? (
-                    <tr>
-                      <td className="px-4 py-6 text-white/45" colSpan={5}>
-                        Belum ada link tamu. Tambahkan nama tamu untuk membuat link personal.
-                      </td>
-                    </tr>
-                  ) : null}
-                  {guestLinks.map((guest) => (
-                    <tr className="border-t border-white/10" key={guest.id}>
-                      <td className="px-4 py-4">
-                        <p className="font-semibold text-white">{guest.display_name}</p>
-                        <p className="mt-1 text-xs text-white/45">
-                          Kuota {guest.party_size} orang
-                        </p>
-                      </td>
-                      <td className="px-4 py-4 text-white/60">
-                        {[guest.email, guest.phone].filter(Boolean).join(" / ") || "-"}
-                      </td>
-                      <td className="px-4 py-4 text-white/60">
-                        {guestRsvpLabel(guest.rsvp_status)}
-                        {guest.attendance_count ? ` / ${guest.attendance_count} hadir` : ""}
-                      </td>
-                      <td className="max-w-[18rem] px-4 py-4">
-                        <p className="truncate text-white/50">
-                          {guest.delivery_url ?? "Token lama tidak bisa ditampilkan ulang"}
-                        </p>
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            className={outlineButtonClassName}
-                            disabled={!guest.delivery_url}
-                            onClick={() => void copyGuestUrl(guest.delivery_url)}
-                            type="button"
-                          >
-                            <Copy size={14} />
-                            Link
-                          </button>
-                          <button
-                            className={outlineButtonClassName}
-                            disabled={!guest.delivery_url}
-                            onClick={() => void copyGuestWhatsAppMessage(guest)}
-                            type="button"
-                          >
-                            <MessageCircle size={14} />
-                            WA
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="mt-5 grid gap-3 text-sm md:grid-cols-4">
+              <div className="border border-white/10 p-3">
+                <p className="text-[10px] uppercase tracking-[0.14em] text-white/40">Tamu</p>
+                <p className="mt-2 text-lg text-white">{detail?.rsvp.total_invited ?? 0}</p>
+              </div>
+              <div className="border border-white/10 p-3">
+                <p className="text-[10px] uppercase tracking-[0.14em] text-white/40">Hadir</p>
+                <p className="mt-2 text-lg text-white">{detail?.rsvp.total_confirmed ?? 0}</p>
+              </div>
+              <div className="border border-white/10 p-3">
+                <p className="text-[10px] uppercase tracking-[0.14em] text-white/40">
+                  Tidak Hadir
+                </p>
+                <p className="mt-2 text-lg text-white">{detail?.rsvp.total_declined ?? 0}</p>
+              </div>
+              <div className="border border-white/10 p-3">
+                <p className="text-[10px] uppercase tracking-[0.14em] text-white/40">Response</p>
+                <p className="mt-2 text-lg text-[var(--color-gold)]">
+                  {detail?.rsvp.response_rate ?? 0}%
+                </p>
+              </div>
             </div>
           </Panel>
         </div>

@@ -120,6 +120,8 @@ export type GuestDeliveryLink = {
   attendance_count: number;
   responded_at: string | null;
   delivery_url: string | null;
+  delivery_status: "sent" | "not_sent" | string;
+  delivery_sent_at: string | null;
   token_available: boolean;
   created_at: string;
 };
@@ -208,6 +210,7 @@ export type StaffOrderDetail = {
   payment_summary: ManualPaymentSummary;
   preview_url: string;
   wishes_url: string;
+  guest_management_url: string;
   revisions: DetailRevision[];
 };
 
