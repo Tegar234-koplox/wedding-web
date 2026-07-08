@@ -7,6 +7,7 @@ from invitations.views import (
     GuestManagementGuestLinkImportTemplateView,
     GuestManagementGuestLinkImportView,
     GuestManagementGuestLinkListCreateView,
+    GuestManagementWishesView,
     InvitationDetailView,
     InvitationPreviewDetailView,
     InvitationRSVPView,
@@ -60,6 +61,11 @@ urlpatterns = [
         "guest-management/<str:token>",
         GuestManagementDetailView.as_view(),
         name="guest-management-detail",
+    ),
+    path(
+        "guest-management/<str:token>/wishes",
+        GuestManagementWishesView.as_view(),
+        name="guest-management-wishes",
     ),
     path(
         "guest-management/<str:token>/guest-links",

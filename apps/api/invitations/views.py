@@ -248,6 +248,39 @@ def _guest_management_detail_payload(
     }
 
 
+def _invitation_wishes_payload(invitation: Invitation) -> dict[str, object]:
+    guests = invitation.guests.filter(archived_at__isnull=True, anonymized_at__isnull=True)
+    total_invited = guests.count()
+    total_confirmed = guests.filter(rsvp_status=Guest.RSVPStatus.ACCEPTED).count()
+    total_declined = guests.filter(rsvp_status=Guest.RSVPStatus.DECLINED).count()
+    total_pending = guests.filter(rsvp_status=Guest.RSVPStatus.PENDING).count()
+    response_rate = (
+        round(((total_confirmed + total_declined) / total_invited) * 100, 1) if total_invited else 0
+    )
+    wishes = [
+        {
+            "display_name": guest.display_name,
+            "rsvp_status": guest.rsvp_status,
+            "attendance_count": guest.attendance_count,
+            "wishes": guest.wishes,
+            "responded_at": guest.responded_at,
+        }
+        for guest in guests.exclude(wishes="").order_by("-responded_at", "display_name")
+    ]
+    return PublicInvitationWishesSerializer(
+        {
+            "public_slug": invitation.public_slug,
+            "couple_name": _invitation_couple_name(invitation),
+            "total_invited": total_invited,
+            "total_confirmed": total_confirmed,
+            "total_declined": total_declined,
+            "total_pending": total_pending,
+            "response_rate": response_rate,
+            "wishes": wishes,
+        }
+    ).data
+
+
 def _rsvp_invitation_for_request(request, public_slug: str) -> Invitation | None:
     invitation = public_invitations().filter(public_slug=public_slug).first()
     if invitation is not None:
@@ -860,40 +893,7 @@ class PublicInvitationWishesView(APIView):
         if invitation is None or not wishes_token_is_valid(invitation, access_token):
             raise Http404
 
-        guests = invitation.guests.filter(archived_at__isnull=True, anonymized_at__isnull=True)
-        total_invited = guests.count()
-        total_confirmed = guests.filter(rsvp_status=Guest.RSVPStatus.ACCEPTED).count()
-        total_declined = guests.filter(rsvp_status=Guest.RSVPStatus.DECLINED).count()
-        total_pending = guests.filter(rsvp_status=Guest.RSVPStatus.PENDING).count()
-        response_rate = (
-            round(((total_confirmed + total_declined) / total_invited) * 100, 1)
-            if total_invited
-            else 0
-        )
-        wishes = [
-            {
-                "display_name": guest.display_name,
-                "rsvp_status": guest.rsvp_status,
-                "attendance_count": guest.attendance_count,
-                "wishes": guest.wishes,
-                "responded_at": guest.responded_at,
-            }
-            for guest in guests.exclude(wishes="").order_by("-responded_at", "display_name")
-        ]
-        return Response(
-            PublicInvitationWishesSerializer(
-                {
-                    "public_slug": invitation.public_slug,
-                    "couple_name": _invitation_couple_name(invitation),
-                    "total_invited": total_invited,
-                    "total_confirmed": total_confirmed,
-                    "total_declined": total_declined,
-                    "total_pending": total_pending,
-                    "response_rate": response_rate,
-                    "wishes": wishes,
-                }
-            ).data
-        )
+        return Response(_invitation_wishes_payload(invitation))
 
 
 class StaffInvitationOperationListView(ListAPIView):
@@ -1145,6 +1145,16 @@ class GuestManagementDetailView(APIView):
         if invitation is None:
             raise Http404
         return Response(_guest_management_detail_payload(invitation, token, request))
+
+
+class GuestManagementWishesView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, token: str) -> Response:
+        invitation = _guest_management_invitation(token)
+        if invitation is None:
+            raise Http404
+        return Response(_invitation_wishes_payload(invitation))
 
 
 class GuestManagementGuestLinkListCreateView(APIView):
