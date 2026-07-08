@@ -64,9 +64,9 @@ export function EditorialHome({ locale }: { locale: Locale }) {
                   Love
                 </p>
               </div>
-              <div className="overflow-hidden pb-[0.12em] md:pl-[15vw]">
+              <div className="overflow-hidden pb-[0.24em] md:pl-[15vw]">
                 <p
-                  className="font-serif text-[clamp(4.7rem,12.5vw,12rem)] italic leading-[0.86] tracking-[-0.07em] text-[var(--color-gold)]"
+                  className="font-serif text-[clamp(4.7rem,12.5vw,12rem)] italic leading-[0.92] tracking-[-0.07em] text-[var(--color-gold)]"
                   data-hero-line
                 >
                   Begins
