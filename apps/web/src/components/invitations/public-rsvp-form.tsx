@@ -31,7 +31,7 @@ export function PublicRSVPForm({
   previewToken = "",
   publicSlug,
 }: PublicRSVPFormProps) {
-  const [token, setToken] = useState(initialToken);
+  const [token] = useState(initialToken);
   const [status, setStatus] = useState("accepted");
   const [attendanceCount, setAttendanceCount] = useState("1");
   const [wishes, setWishes] = useState("");
@@ -103,17 +103,6 @@ export function PublicRSVPForm({
           <h2 className="mt-3 font-serif text-3xl">Konfirmasi kehadiran.</h2>
         </div>
         <div className="grid gap-3 md:grid-cols-2">
-          <label className="grid gap-2 md:col-span-2">
-            <span className={mutedLabelClassName}>
-              Token tamu
-            </span>
-            <input
-              className={controlClassName}
-              onChange={(event) => setToken(event.target.value)}
-              placeholder="Token dari link undangan personal"
-              value={token}
-            />
-          </label>
           <label className="grid gap-2">
             <span className={mutedLabelClassName}>
               Status
