@@ -125,6 +125,17 @@ export const invitationContentSchema = z.object({
     heading: safeText.max(120),
     message: safeText.max(600),
   }),
+  bank_accounts: z
+    .array(
+      z.object({
+        bank: z.string().trim().max(80).optional(),
+        name: z.string().trim().max(120).optional(),
+        number: z.string().trim().max(80).optional(),
+        account_number: z.string().trim().max(80).optional(),
+      }),
+    )
+    .max(4)
+    .optional(),
 });
 
 export type InvitationContent = z.infer<typeof invitationContentSchema>;

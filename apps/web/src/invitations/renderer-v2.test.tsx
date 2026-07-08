@@ -218,6 +218,35 @@ describe("renderer v2 invitation experience", () => {
     expect(screen.getByText("BCA 615xxxxx")).toBeTruthy();
   });
 
+  it("renders saved bank account details in the gift section", () => {
+    const invitation = getSampleInvitation("luxury-gold", "id");
+
+    render(
+      <RendererV2
+        invitation={{
+          ...invitation,
+          content: {
+            ...invitation.content,
+            bank_accounts: [
+              {
+                bank: "MANDIRI",
+                name: "Doni Rifda",
+                number: "1234567890",
+              },
+            ],
+          },
+        }}
+        packageCode="signature"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Buka Undangan" }));
+    fireEvent.click(screen.getByRole("button", { name: "Gift" }));
+
+    expect(screen.getByText("MANDIRI 1234567890")).toBeTruthy();
+    expect(screen.getByText("Doni Rifda")).toBeTruthy();
+  });
+
   it("adds the subtle contrast layer only when configured", () => {
     const readable = render(
       <RendererV2

@@ -100,4 +100,43 @@ describe("invitation envelope", () => {
 
     expect(result.success).toBe(true);
   });
+
+  it("keeps optional bank account details for gift sections", () => {
+    const result = invitationEnvelopeSchema.safeParse({
+      rendererKey: "luxury-gold",
+      rendererVersion: 2,
+      contentSchemaVersion: 1,
+      locale: "id",
+      content: {
+        couple: { partnerOne: "Alya", partnerTwo: "Raka", monogram: "A&R" },
+        opening: {
+          eyebrow: "The wedding of",
+          title: "A celebration",
+          message: "Together with our families.",
+        },
+        event: {
+          dateLabel: "12 September 2026",
+          ceremonyLabel: "Akad",
+          ceremonyTime: "09.00 WIB",
+          receptionLabel: "Resepsi",
+          receptionTime: "11.00 WIB",
+          venue: "Venue",
+          address: "Jakarta",
+          mapUrl: "https://maps.google.com",
+        },
+        story: { heading: "Our story", body: "A long story." },
+        quote: { text: "A quote.", attribution: "Us" },
+        gallery: [
+          { src: "/one.jpg", alt: "One" },
+          { src: "/two.jpg", alt: "Two" },
+          { src: "/three.jpg", alt: "Three" },
+        ],
+        closing: { heading: "Thank you", message: "See you." },
+        bank_accounts: [{ bank: "BCA", name: "Doni", number: "1234567890" }],
+      },
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data?.content.bank_accounts?.[0]?.number).toBe("1234567890");
+  });
 });
