@@ -68,6 +68,25 @@ export const publicInvitationSchema = invitationEnvelopeSchema.extend({
   published_at: z.string().nullable(),
 });
 
+export const publicInvitationWishesSchema = z.object({
+  public_slug: z.string(),
+  couple_name: z.string(),
+  total_invited: z.number(),
+  total_confirmed: z.number(),
+  total_declined: z.number(),
+  total_pending: z.number(),
+  response_rate: z.number(),
+  wishes: z.array(
+    z.object({
+      display_name: z.string(),
+      rsvp_status: z.string(),
+      attendance_count: z.number(),
+      wishes: z.string(),
+      responded_at: z.string().nullable(),
+    }),
+  ),
+});
+
 const weatherEntrySchema = z.object({
   at: z.string(),
   local_at: z.string(),
@@ -122,5 +141,6 @@ export const invitationWeatherSchema = z.object({
 export type PublicTheme = z.infer<typeof publicThemeSchema>;
 export type PublicPackage = z.infer<typeof publicPackageSchema>;
 export type PublicInvitation = z.infer<typeof publicInvitationSchema>;
+export type PublicInvitationWishes = z.infer<typeof publicInvitationWishesSchema>;
 export type InvitationWeather = z.infer<typeof invitationWeatherSchema>;
 export type InvitationAudio = NonNullable<PublicInvitation["audio"]>;

@@ -6,6 +6,7 @@ from invitations.views import (
     InvitationRSVPView,
     InvitationWeatherView,
     PublicGuestRSVPCreateView,
+    PublicInvitationWishesView,
     StaffGuestAnonymizeView,
     StaffGuestArchiveView,
     StaffInvitationGuestLinkExportView,
@@ -41,6 +42,11 @@ urlpatterns = [
         "invitations/<slug:public_slug>/public-rsvp",
         PublicGuestRSVPCreateView.as_view(),
         name="invitation-public-rsvp-create",
+    ),
+    path(
+        "invitations/<slug:public_slug>/wishes",
+        PublicInvitationWishesView.as_view(),
+        name="invitation-wishes",
     ),
     path(
         "admin/invitations",

@@ -129,6 +129,7 @@ export type StaffOrderDetail = {
     response_rate: number;
   };
   preview_url: string;
+  wishes_url: string;
   revisions: DetailRevision[];
 };
 

@@ -273,6 +273,25 @@ class GuestAggregateSerializer(serializers.Serializer):
     response_rate = serializers.FloatField()
 
 
+class PublicInvitationWishSerializer(serializers.Serializer):
+    display_name = serializers.CharField()
+    rsvp_status = serializers.CharField()
+    attendance_count = serializers.IntegerField()
+    wishes = serializers.CharField(allow_blank=True)
+    responded_at = serializers.DateTimeField(allow_null=True)
+
+
+class PublicInvitationWishesSerializer(serializers.Serializer):
+    public_slug = serializers.CharField()
+    couple_name = serializers.CharField()
+    total_invited = serializers.IntegerField()
+    total_confirmed = serializers.IntegerField()
+    total_declined = serializers.IntegerField()
+    total_pending = serializers.IntegerField()
+    response_rate = serializers.FloatField()
+    wishes = PublicInvitationWishSerializer(many=True)
+
+
 class StaffGuestLinkCreateSerializer(serializers.Serializer):
     display_name = serializers.CharField(max_length=120)
     email = serializers.EmailField(required=False, allow_blank=True)

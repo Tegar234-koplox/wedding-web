@@ -11,7 +11,7 @@ from rest_framework.exceptions import ValidationError
 from analytics.models import AnalyticsEvent
 from common.models import AuditEvent
 from invitations.models import Guest, Invitation, InvitationMedia, WeddingEvent
-from invitations.preview import preview_token_for
+from invitations.preview import preview_token_for, wishes_token_for
 from leads.models import WhatsAppIntent
 from media_library.models import MediaAsset
 from orders.lifecycle import ensure_order_transition
@@ -118,6 +118,7 @@ def test_staff_order_detail_returns_operational_payload_without_guest_rows(clien
     assert payload["media"][0]["role"] == InvitationMedia.Role.PHOTO
     assert payload["rsvp"]["total_invited"] == 2
     assert payload["rsvp"]["total_confirmed"] == 1
+    assert "/id/i/inv-staff-detail-001/wishes?access=" in payload["wishes_url"]
     assert payload["invitation"]["bank_accounts"][0]["bank"] == "BCA"
     content = response.content.decode()
     assert "Keluarga Budi" not in content
@@ -986,6 +987,65 @@ def test_draft_guest_delivery_link_accepts_rsvp_with_preview_token(client):
     assert guest.rsvp_status == Guest.RSVPStatus.ACCEPTED
     assert guest.attendance_count == 1
     assert guest.wishes == "Selamat memulai lembaran baru"
+
+
+@pytest.mark.django_db
+def test_public_wishes_requires_access_token_and_hides_guest_contact(client):
+    theme = create_theme()
+    invitation = create_invitation(theme=theme, public_slug="client-wishes")
+    invitation.content = {
+        **invitation.content,
+        "couple": {"partnerOne": "Reno", "partnerTwo": "Erisa"},
+    }
+    invitation.save(update_fields=["content", "updated_at"])
+    Guest.objects.create(
+        invitation=invitation,
+        access_token_hash="wish-token-1",
+        display_name="Syarif",
+        email="syarif@example.com",
+        phone="+62812",
+        party_size=2,
+        rsvp_status=Guest.RSVPStatus.ACCEPTED,
+        attendance_count=2,
+        wishes="Selamat menempuh hidup baru.",
+        responded_at=timezone.now(),
+    )
+    Guest.objects.create(
+        invitation=invitation,
+        access_token_hash="wish-token-2",
+        display_name="Budi",
+        phone="+62813",
+        party_size=1,
+        rsvp_status=Guest.RSVPStatus.PENDING,
+        attendance_count=0,
+    )
+
+    blocked_response = client.get(
+        reverse("invitation-wishes", kwargs={"public_slug": invitation.public_slug})
+    )
+    response = client.get(
+        reverse("invitation-wishes", kwargs={"public_slug": invitation.public_slug}),
+        {"access": wishes_token_for(invitation)},
+    )
+
+    assert blocked_response.status_code == 404
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["couple_name"] == "Reno & Erisa"
+    assert payload["total_invited"] == 3
+    assert payload["total_confirmed"] == 1
+    assert payload["total_pending"] == 2
+    assert payload["wishes"] == [
+        {
+            "display_name": "Syarif",
+            "rsvp_status": Guest.RSVPStatus.ACCEPTED,
+            "attendance_count": 2,
+            "wishes": "Selamat menempuh hidup baru.",
+            "responded_at": payload["wishes"][0]["responded_at"],
+        }
+    ]
+    assert "email" not in payload["wishes"][0]
+    assert "phone" not in payload["wishes"][0]
 
 
 @pytest.mark.django_db

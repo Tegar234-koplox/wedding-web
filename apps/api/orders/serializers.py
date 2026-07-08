@@ -12,7 +12,7 @@ from invitations.models import (
     InvitationRevision,
     WeddingEvent,
 )
-from invitations.preview import preview_token_for
+from invitations.preview import preview_token_for, wishes_token_for
 from leads.models import WhatsAppIntent
 from orders.models import Order
 from users.models import User
@@ -226,6 +226,7 @@ class StaffOrderDetailSerializer(serializers.Serializer):
                 "media": [],
                 "rsvp": self._empty_rsvp(),
                 "preview_url": "",
+                "wishes_url": "",
                 "revisions": [],
             }
 
@@ -236,6 +237,7 @@ class StaffOrderDetailSerializer(serializers.Serializer):
             "media": [self._media_payload(media) for media in invitation.media.all()],
             "rsvp": self._rsvp_payload(invitation),
             "preview_url": self._preview_url(invitation, request),
+            "wishes_url": self._wishes_url(invitation, request),
             "revisions": [
                 self._revision_payload(revision) for revision in invitation.revisions.all()
             ],
@@ -335,6 +337,16 @@ class StaffOrderDetailSerializer(serializers.Serializer):
         if origin:
             return f"{origin}{preview_path}"
         return request.build_absolute_uri(preview_path)
+
+    def _wishes_url(self, invitation: Invitation, request) -> str:
+        path = f"/{invitation.default_locale}/i/{invitation.public_slug}/wishes"
+        wishes_path = f"{path}?{urlencode({'access': wishes_token_for(invitation)})}"
+        if request is None:
+            return wishes_path
+        origin = request.headers.get("Origin", "").rstrip("/")
+        if origin:
+            return f"{origin}{wishes_path}"
+        return request.build_absolute_uri(wishes_path)
 
     def _revision_payload(self, revision: InvitationRevision) -> dict:
         return {
