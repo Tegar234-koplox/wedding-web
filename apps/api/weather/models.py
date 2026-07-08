@@ -26,7 +26,7 @@ class WeatherSnapshot(UUIDTimeStampedModel):
                 fields=["provider", "location_key", "analysis_at"],
                 condition=Q(provider="Open-Meteo"),
                 name="unique_weather_provider_location_analysis",
-            )
+            ),
         ]
         indexes = [
             models.Index(fields=["adm4", "expires_at"]),

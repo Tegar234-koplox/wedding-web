@@ -20,7 +20,13 @@ from rest_framework.views import APIView
 
 from common.models import AuditEvent
 from common.notifications import enqueue_client_notification
-from invitations.models import EventLocation, Invitation, InvitationMedia, InvitationRevision, WeddingEvent
+from invitations.models import (
+    EventLocation,
+    Invitation,
+    InvitationMedia,
+    InvitationRevision,
+    WeddingEvent,
+)
 from leads.models import WhatsAppIntent
 from media_library.models import MediaAsset
 from orders.lifecycle import (
