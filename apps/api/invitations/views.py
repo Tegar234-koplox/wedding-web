@@ -1,17 +1,21 @@
 import csv
 import hashlib
+import io
+import re
 from datetime import timedelta
 from urllib.parse import urlencode, urlparse
 
 from django.contrib.auth.hashers import check_password, make_password
 from django.core.exceptions import ObjectDoesNotExist
-from django.db import connection
+from django.db import connection, transaction
 from django.http import Http404, HttpResponse
 from django.utils import timezone
 from django.utils.crypto import constant_time_compare, get_random_string
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
 from rest_framework.generics import ListAPIView, RetrieveAPIView
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import AllowAny
 from rest_framework.renderers import BaseRenderer, JSONRenderer
 from rest_framework.response import Response
@@ -31,6 +35,7 @@ from invitations.serializers import (
     PublicInvitationSerializer,
     PublicRSVPSerializer,
     StaffGuestLinkCreateSerializer,
+    StaffGuestLinkImportSerializer,
     StaffGuestLinkSerializer,
     StaffInvitationOperationSerializer,
 )
@@ -210,6 +215,279 @@ def _generate_guest_delivery_token() -> str:
         token = get_random_string(40)
         if not Guest.objects.filter(access_token_hash=token).exists():
             return token
+
+
+GUEST_IMPORT_TEMPLATE_HEADERS = ["name", "phone", "email", "party_size", "group", "note"]
+GUEST_IMPORT_MAX_ROWS = 1000
+
+
+def _csv_safe(value: object) -> str:
+    text = "" if value is None else str(value)
+    if text.startswith(("=", "+", "-", "@", "\t", "\r")):
+        return f"'{text}"
+    return text
+
+
+def _normalize_import_text(value: object) -> str:
+    return str(value or "").strip()
+
+
+def _normalize_import_email(value: object) -> str:
+    return _normalize_import_text(value).lower()
+
+
+def _normalize_import_phone(value: object) -> str:
+    text = _normalize_import_text(value)
+    if not text:
+        return ""
+    cleaned = re.sub(r"[^\d+]", "", text)
+    if cleaned.startswith("+"):
+        digits = re.sub(r"\D", "", cleaned)
+        return f"+{digits}" if digits else ""
+    digits = re.sub(r"\D", "", cleaned)
+    if digits.startswith("0") and len(digits) > 1:
+        return f"+62{digits[1:]}"
+    if digits.startswith("62"):
+        return f"+{digits}"
+    if digits.startswith("8"):
+        return f"+62{digits}"
+    return digits
+
+
+def _normalize_import_name(value: object) -> str:
+    return re.sub(r"\s+", " ", _normalize_import_text(value))
+
+
+def _guest_token_for_delivery(guest: Guest) -> str:
+    token = str(guest.metadata.get("delivery_token", "")).strip()
+    if token:
+        return token
+    token = _generate_guest_delivery_token()
+    guest.access_token_hash = token
+    guest.metadata = {
+        **guest.metadata,
+        "delivery_token": token,
+        "source": guest.metadata.get("source") or "staff_dashboard",
+    }
+    guest.save(update_fields=["access_token_hash", "metadata", "updated_at"])
+    return token
+
+
+def _guest_import_field(row: dict[str, str], *names: str) -> str:
+    normalized = {key.strip().lower(): value for key, value in row.items() if key}
+    for name in names:
+        if name in normalized:
+            return normalized[name]
+    return ""
+
+
+def _guest_lookup_maps(invitation: Invitation) -> dict[str, dict[str, Guest]]:
+    guests = list(_guest_delivery_queryset(invitation))
+    return {
+        "phone": {guest.phone.strip(): guest for guest in guests if guest.phone.strip()},
+        "email": {guest.email.strip().lower(): guest for guest in guests if guest.email.strip()},
+        "name": {
+            _normalize_import_name(guest.display_name).lower(): guest
+            for guest in guests
+            if guest.display_name.strip()
+        },
+    }
+
+
+def _match_guest_from_maps(
+    lookup_maps: dict[str, dict[str, Guest]], *, phone: str, email: str, name: str
+) -> Guest | None:
+    if phone and phone in lookup_maps["phone"]:
+        return lookup_maps["phone"][phone]
+    if email and email in lookup_maps["email"]:
+        return lookup_maps["email"][email]
+    name_key = name.lower()
+    if name_key and name_key in lookup_maps["name"]:
+        return lookup_maps["name"][name_key]
+    return None
+
+
+def _parse_guest_import_upload(uploaded_file) -> list[dict[str, object]]:
+    try:
+        raw = uploaded_file.read().decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise ValidationError({"file": "CSV harus memakai encoding UTF-8."}) from exc
+
+    reader = csv.DictReader(io.StringIO(raw))
+    if not reader.fieldnames:
+        raise ValidationError({"file": "CSV kosong atau header tidak ditemukan."})
+
+    rows: list[dict[str, object]] = []
+    seen_keys: set[str] = set()
+    for index, row in enumerate(reader, start=2):
+        if len(rows) >= GUEST_IMPORT_MAX_ROWS:
+            raise ValidationError({"file": f"Maksimal {GUEST_IMPORT_MAX_ROWS} tamu per import."})
+
+        name = _normalize_import_name(_guest_import_field(row, "name", "nama", "display_name"))
+        phone = _normalize_import_phone(_guest_import_field(row, "phone", "whatsapp", "wa"))
+        email = _normalize_import_email(_guest_import_field(row, "email", "e-mail"))
+        group = _normalize_import_text(_guest_import_field(row, "group", "grup", "kategori"))
+        note = _normalize_import_text(_guest_import_field(row, "note", "catatan"))
+        party_size_raw = _normalize_import_text(
+            _guest_import_field(row, "party_size", "jumlah", "kuota", "attendance")
+        )
+        errors: list[str] = []
+        warnings: list[str] = []
+
+        if not name:
+            errors.append("Nama tamu wajib diisi.")
+
+        try:
+            party_size = int(party_size_raw or "1")
+        except ValueError:
+            party_size = 1
+            errors.append("Party size harus angka.")
+        if party_size < 1 or party_size > 20:
+            errors.append("Party size harus di antara 1 dan 20.")
+
+        if not phone and not email:
+            warnings.append(
+                "Phone/email kosong; link tetap dibuat, tapi delivery perlu disalin manual."
+            )
+        if email and "@" not in email:
+            errors.append("Format email tidak valid.")
+
+        dedupe_key = phone or email or name.lower()
+        if dedupe_key in seen_keys:
+            warnings.append("Baris terindikasi duplikat di file import.")
+        seen_keys.add(dedupe_key)
+
+        rows.append(
+            {
+                "row_number": index,
+                "name": name,
+                "phone": phone,
+                "email": email,
+                "party_size": party_size,
+                "group": group,
+                "note": note,
+                "errors": errors,
+                "warnings": warnings,
+            }
+        )
+    return rows
+
+
+def _guest_import_payload(
+    *,
+    invitation: Invitation,
+    rows: list[dict[str, object]],
+    request,
+    commit: bool,
+) -> dict[str, object]:
+    lookup_maps = _guest_lookup_maps(invitation)
+    result_rows: list[dict[str, object]] = []
+    summary = {
+        "total_rows": len(rows),
+        "valid_rows": 0,
+        "error_rows": 0,
+        "warning_rows": 0,
+        "created_count": 0,
+        "updated_count": 0,
+        "skipped_count": 0,
+    }
+
+    for row in rows:
+        errors = list(row["errors"])
+        warnings = list(row["warnings"])
+        name = str(row["name"])
+        phone = str(row["phone"])
+        email = str(row["email"])
+        matched_guest = _match_guest_from_maps(lookup_maps, phone=phone, email=email, name=name)
+        action = "update" if matched_guest else "create"
+        status = "ready"
+        delivery_url = None
+
+        if errors:
+            status = "error"
+            action = "skip"
+            summary["error_rows"] += 1
+            summary["skipped_count"] += 1
+        else:
+            summary["valid_rows"] += 1
+            if warnings:
+                summary["warning_rows"] += 1
+            if matched_guest:
+                summary["updated_count"] += 1
+            else:
+                summary["created_count"] += 1
+
+            if commit:
+                metadata = {
+                    "delivery_token": "",
+                    "source": "staff_dashboard_csv_import",
+                    "import_group": row["group"],
+                    "import_note": row["note"],
+                    "imported_at": timezone.now().isoformat(),
+                }
+                if matched_guest:
+                    metadata["delivery_token"] = str(
+                        matched_guest.metadata.get("delivery_token", "")
+                    ).strip()
+                    matched_guest.display_name = name
+                    matched_guest.email = email
+                    matched_guest.phone = phone
+                    matched_guest.party_size = int(row["party_size"])
+                    matched_guest.metadata = {**matched_guest.metadata, **metadata}
+                    matched_guest.save(
+                        update_fields=[
+                            "display_name",
+                            "email",
+                            "phone",
+                            "party_size",
+                            "metadata",
+                            "updated_at",
+                        ]
+                    )
+                    token = _guest_token_for_delivery(matched_guest)
+                    delivery_url = _guest_delivery_url(invitation, token, request)
+                else:
+                    token = _generate_guest_delivery_token()
+                    metadata["delivery_token"] = token
+                    matched_guest = Guest.objects.create(
+                        invitation=invitation,
+                        access_token_hash=token,
+                        display_name=name,
+                        email=email,
+                        phone=phone,
+                        party_size=int(row["party_size"]),
+                        metadata=metadata,
+                    )
+                    delivery_url = _guest_delivery_url(invitation, token, request)
+
+                    lookup_maps["name"][_normalize_import_name(name).lower()] = matched_guest
+                    if phone:
+                        lookup_maps["phone"][phone] = matched_guest
+                    if email:
+                        lookup_maps["email"][email] = matched_guest
+            elif matched_guest:
+                token = str(matched_guest.metadata.get("delivery_token", "")).strip()
+                delivery_url = _guest_delivery_url(invitation, token, request) if token else None
+
+        result_rows.append(
+            {
+                "row_number": row["row_number"],
+                "name": name,
+                "phone": phone,
+                "email": email,
+                "party_size": row["party_size"],
+                "group": row["group"],
+                "note": row["note"],
+                "status": status,
+                "action": action,
+                "errors": errors,
+                "warnings": warnings,
+                "matched_guest_id": matched_guest.id if matched_guest else None,
+                "delivery_url": delivery_url,
+            }
+        )
+
+    return {"summary": summary, "rows": result_rows}
 
 
 def _invitation_client_recipient(invitation: Invitation):
@@ -625,6 +903,73 @@ class StaffInvitationGuestLinkListCreateView(APIView):
         return Response(StaffGuestLinkSerializer(payload).data, status=201)
 
 
+class StaffInvitationGuestLinkImportTemplateView(APIView):
+    permission_classes = [IsStaffRole]
+    renderer_classes = [CSVRenderer, JSONRenderer]
+
+    def get(self, request, public_slug: str) -> HttpResponse:
+        invitation = Invitation.objects.filter(public_slug=public_slug).first()
+        if invitation is None:
+            raise Http404
+        response = HttpResponse(content_type="text/csv; charset=utf-8")
+        response["Content-Disposition"] = (
+            f'attachment; filename="{invitation.public_slug}-guest-import-template.csv"'
+        )
+        writer = csv.writer(response)
+        writer.writerow(GUEST_IMPORT_TEMPLATE_HEADERS)
+        writer.writerow(["Syarif", "+628123456789", "syarif@example.com", "2", "Teman", "VIP"])
+        return response
+
+
+class StaffInvitationGuestLinkImportView(APIView):
+    permission_classes = [IsStaffRole]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request, public_slug: str) -> Response:
+        invitation = Invitation.objects.filter(public_slug=public_slug).first()
+        if invitation is None:
+            raise Http404
+        uploaded_file = request.FILES.get("file")
+        if uploaded_file is None:
+            raise ValidationError({"file": "Upload file CSV wajib disertakan."})
+        if not uploaded_file.name.lower().endswith(".csv"):
+            raise ValidationError({"file": "Untuk v1, import hanya menerima file .csv."})
+
+        rows = _parse_guest_import_upload(uploaded_file)
+        dry_run = request.query_params.get("dry_run", "").lower() in {"1", "true", "yes"}
+        if dry_run:
+            payload = _guest_import_payload(
+                invitation=invitation,
+                rows=rows,
+                request=request,
+                commit=False,
+            )
+            return Response(StaffGuestLinkImportSerializer(payload).data)
+
+        with transaction.atomic():
+            payload = _guest_import_payload(
+                invitation=invitation,
+                rows=rows,
+                request=request,
+                commit=True,
+            )
+            AuditEvent.objects.create(
+                actor=request.user,
+                action="guest.delivery_links_imported",
+                resource_type="invitation",
+                resource_reference=invitation.public_slug,
+                metadata={
+                    "total_rows": payload["summary"]["total_rows"],
+                    "valid_rows": payload["summary"]["valid_rows"],
+                    "error_rows": payload["summary"]["error_rows"],
+                    "created_count": payload["summary"]["created_count"],
+                    "updated_count": payload["summary"]["updated_count"],
+                    "source": "staff_dashboard_csv_import",
+                },
+            )
+        return Response(StaffGuestLinkImportSerializer(payload).data)
+
+
 class StaffInvitationGuestLinkExportView(APIView):
     permission_classes = [IsStaffRole]
     renderer_classes = [CSVRenderer, JSONRenderer]
@@ -653,13 +998,13 @@ class StaffInvitationGuestLinkExportView(APIView):
             payload = _guest_delivery_payload(invitation, guest, request)
             writer.writerow(
                 [
-                    payload["display_name"],
-                    payload["email"],
-                    payload["phone"],
+                    _csv_safe(payload["display_name"]),
+                    _csv_safe(payload["email"]),
+                    _csv_safe(payload["phone"]),
                     payload["party_size"],
-                    payload["rsvp_status"],
+                    _csv_safe(payload["rsvp_status"]),
                     payload["attendance_count"],
-                    payload["delivery_url"] or "",
+                    _csv_safe(payload["delivery_url"] or ""),
                 ]
             )
         return response

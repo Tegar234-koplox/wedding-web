@@ -4,6 +4,7 @@ from urllib.parse import parse_qs, urlparse
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
@@ -1254,6 +1255,208 @@ def test_staff_exports_guest_delivery_links_as_csv(client):
     content = response.content.decode()
     assert "Syarif" in content
     assert "https://wedding.example/id/i/delivery-export?guest=delivery-token-1" in content
+
+
+@pytest.mark.django_db
+def test_staff_downloads_guest_import_template(client):
+    staff = create_user(
+        username="staff-template",
+        email="staff-template@example.com",
+        role="staff",
+        is_staff=True,
+    )
+    theme = create_theme(slug="theme-delivery-template")
+    invitation = create_invitation(theme=theme, public_slug="delivery-template")
+    client.force_login(staff)
+
+    response = client.get(
+        reverse(
+            "admin-invitation-guest-link-import-template",
+            kwargs={"public_slug": invitation.public_slug},
+        )
+    )
+
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert "name,phone,email,party_size,group,note" in content
+    assert "delivery-template-guest-import-template.csv" in response["Content-Disposition"]
+
+
+@pytest.mark.django_db
+def test_staff_previews_guest_import_without_creating_rows(client):
+    staff = create_user(
+        username="staff-import-preview",
+        email="staff-import-preview@example.com",
+        role="staff",
+        is_staff=True,
+    )
+    theme = create_theme(slug="theme-delivery-import-preview")
+    invitation = create_invitation(theme=theme, public_slug="delivery-import-preview")
+    initial_guest_count = invitation.guests.count()
+    client.force_login(staff)
+    uploaded = SimpleUploadedFile(
+        "guests.csv",
+        b"name,phone,email,party_size,group,note\nSyarif,08123456789,,2,Teman,VIP\n",
+        content_type="text/csv",
+    )
+
+    response = client.post(
+        reverse(
+            "admin-invitation-guest-link-import",
+            kwargs={"public_slug": invitation.public_slug},
+        )
+        + "?dry_run=true",
+        {"file": uploaded},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["summary"]["total_rows"] == 1
+    assert payload["summary"]["valid_rows"] == 1
+    assert payload["summary"]["created_count"] == 1
+    assert payload["rows"][0]["phone"] == "+628123456789"
+    assert payload["rows"][0]["action"] == "create"
+    assert invitation.guests.count() == initial_guest_count
+
+
+@pytest.mark.django_db
+def test_staff_imports_guest_links_and_deduplicates_by_phone(client):
+    staff = create_user(
+        username="staff-import-commit",
+        email="staff-import-commit@example.com",
+        role="staff",
+        is_staff=True,
+    )
+    theme = create_theme(slug="theme-delivery-import-commit")
+    invitation = create_invitation(theme=theme, public_slug="delivery-import-commit")
+    initial_guest_count = invitation.guests.count()
+    client.force_login(staff)
+    uploaded = SimpleUploadedFile(
+        "guests.csv",
+        b"name,phone,email,party_size,group,note\n"
+        b"Syarif,08123456789,syarif@example.com,2,Teman,VIP\n"
+        b"Keluarga Budi,,budi@example.com,3,Keluarga,\n",
+        content_type="text/csv",
+    )
+
+    response = client.post(
+        reverse(
+            "admin-invitation-guest-link-import",
+            kwargs={"public_slug": invitation.public_slug},
+        ),
+        {"file": uploaded},
+        HTTP_ORIGIN="https://wedding.example",
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["summary"]["created_count"] == 2
+    assert invitation.guests.count() == initial_guest_count + 2
+    syarif = invitation.guests.get(display_name="Syarif")
+    assert syarif.phone == "+628123456789"
+    assert syarif.party_size == 2
+    assert syarif.metadata["import_group"] == "Teman"
+    assert "delivery_token" in syarif.metadata
+    assert (
+        "https://wedding.example/id/i/delivery-import-commit?guest="
+        in payload["rows"][0]["delivery_url"]
+    )
+    assert AuditEvent.objects.filter(action="guest.delivery_links_imported").exists()
+
+    syarif.rsvp_status = Guest.RSVPStatus.ACCEPTED
+    syarif.attendance_count = 2
+    syarif.responded_at = timezone.now()
+    syarif.save(update_fields=["rsvp_status", "attendance_count", "responded_at", "updated_at"])
+    update_upload = SimpleUploadedFile(
+        "guests.csv",
+        b"name,phone,email,party_size,group,note\nSyarif Updated,08123456789,,4,Teman,\n",
+        content_type="text/csv",
+    )
+    update_response = client.post(
+        reverse(
+            "admin-invitation-guest-link-import",
+            kwargs={"public_slug": invitation.public_slug},
+        ),
+        {"file": update_upload},
+    )
+
+    assert update_response.status_code == 200
+    assert update_response.json()["summary"]["updated_count"] == 1
+    assert invitation.guests.count() == initial_guest_count + 2
+    syarif.refresh_from_db()
+    assert syarif.display_name == "Syarif Updated"
+    assert syarif.party_size == 4
+    assert syarif.rsvp_status == Guest.RSVPStatus.ACCEPTED
+    assert syarif.attendance_count == 2
+
+
+@pytest.mark.django_db
+def test_guest_import_reports_invalid_rows(client):
+    staff = create_user(
+        username="staff-import-invalid",
+        email="staff-import-invalid@example.com",
+        role="staff",
+        is_staff=True,
+    )
+    theme = create_theme(slug="theme-delivery-import-invalid")
+    invitation = create_invitation(theme=theme, public_slug="delivery-import-invalid")
+    initial_guest_count = invitation.guests.count()
+    client.force_login(staff)
+    uploaded = SimpleUploadedFile(
+        "guests.csv",
+        b"name,phone,email,party_size,group,note\n,0812,bad-email,25,,\n",
+        content_type="text/csv",
+    )
+
+    response = client.post(
+        reverse(
+            "admin-invitation-guest-link-import",
+            kwargs={"public_slug": invitation.public_slug},
+        )
+        + "?dry_run=true",
+        {"file": uploaded},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["summary"]["error_rows"] == 1
+    assert payload["rows"][0]["status"] == "error"
+    assert "Nama tamu wajib diisi." in payload["rows"][0]["errors"]
+    assert invitation.guests.count() == initial_guest_count
+
+
+@pytest.mark.django_db
+def test_guest_link_export_escapes_formula_cells(client):
+    staff = create_user(
+        username="staff-export-safe",
+        email="staff-export-safe@example.com",
+        role="staff",
+        is_staff=True,
+    )
+    theme = create_theme(slug="theme-delivery-export-safe")
+    invitation = create_invitation(theme=theme, public_slug="delivery-export-safe")
+    Guest.objects.create(
+        invitation=invitation,
+        access_token_hash="delivery-token-safe",
+        display_name="=cmd|' /C calc'!A0",
+        phone="+62812",
+        party_size=1,
+        metadata={"delivery_token": "delivery-token-safe"},
+    )
+    client.force_login(staff)
+
+    response = client.get(
+        reverse(
+            "admin-invitation-guest-link-export",
+            kwargs={"public_slug": invitation.public_slug},
+        ),
+        HTTP_ACCEPT="text/csv",
+    )
+
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert "'=cmd|' /C calc'!A0" in content
+    assert ",'+62812," in content
 
 
 @pytest.mark.django_db
