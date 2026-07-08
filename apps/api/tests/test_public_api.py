@@ -207,7 +207,7 @@ def test_weather_endpoint_exposes_safe_placeholder(client):
     assert response.json() == {
         "status": "unavailable",
         "reason": "location_unconfigured",
-        "provider": "BMKG",
-        "attribution_url": "https://data.bmkg.go.id/prakiraan-cuaca/",
+        "provider": "Open-Meteo",
+        "attribution_url": "https://open-meteo.com/",
         "forecast": [],
     }

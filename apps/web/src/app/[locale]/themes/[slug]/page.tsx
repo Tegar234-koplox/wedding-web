@@ -138,7 +138,7 @@ export default async function ThemePage({ params }: ThemePageProps) {
                 : "Responsive mobile & desktop",
               id ? "Musik & galeri" : "Music & gallery",
               id ? "Lokasi & RSVP" : "Location & RSVP",
-              id ? "Cuaca BMKG*" : "BMKG weather*",
+              id ? "Cuaca Open-Meteo*" : "Open-Meteo weather*",
             ].map((feature, index) => (
               <div
                 className="border-l border-[var(--color-gold)] pl-4"

@@ -2,6 +2,7 @@ import csv
 import hashlib
 import re
 from datetime import timedelta
+from decimal import Decimal, InvalidOperation
 
 from django.conf import settings
 from django.db import transaction
@@ -19,7 +20,7 @@ from rest_framework.views import APIView
 
 from common.models import AuditEvent
 from common.notifications import enqueue_client_notification
-from invitations.models import Invitation, InvitationMedia, InvitationRevision, WeddingEvent
+from invitations.models import EventLocation, Invitation, InvitationMedia, InvitationRevision, WeddingEvent
 from leads.models import WhatsAppIntent
 from media_library.models import MediaAsset
 from orders.lifecycle import (
@@ -87,6 +88,18 @@ def _parse_staff_datetime(value: str):
     if timezone.is_naive(parsed):
         parsed = timezone.make_aware(parsed, timezone.get_current_timezone())
     return parsed
+
+
+def _parse_coordinate(value, *, field: str, minimum: Decimal, maximum: Decimal) -> Decimal | None:
+    if value in (None, ""):
+        return None
+    try:
+        coordinate = Decimal(str(value)).quantize(Decimal("0.000001"))
+    except (InvalidOperation, ValueError) as exc:
+        raise ValidationError({field: "Coordinate is not valid."}) from exc
+    if coordinate < minimum or coordinate > maximum:
+        raise ValidationError({field: "Coordinate is out of range."})
+    return coordinate
 
 
 def _unique_invitation_slug(reference: str) -> str:
@@ -243,6 +256,53 @@ def _update_event(invitation: Invitation, event_type: str, data: dict) -> None:
             update_fields.append(field)
     if update_fields:
         event.save(update_fields=[*sorted(set(update_fields)), "updated_at"])
+
+    has_location_data = any(
+        field in data
+        for field in [
+            "latitude",
+            "longitude",
+            "province",
+            "regency",
+            "district",
+            "village",
+        ]
+    )
+    if has_location_data:
+        latitude = _parse_coordinate(
+            data.get("latitude"),
+            field="latitude",
+            minimum=Decimal("-90"),
+            maximum=Decimal("90"),
+        )
+        longitude = _parse_coordinate(
+            data.get("longitude"),
+            field="longitude",
+            minimum=Decimal("-180"),
+            maximum=Decimal("180"),
+        )
+        location, _created = EventLocation.objects.get_or_create(
+            event=event,
+            defaults={
+                "province": str(data.get("province", "")).strip(),
+                "regency": str(data.get("regency", "")).strip(),
+                "district": str(data.get("district", "")).strip(),
+                "village": str(data.get("village", "")).strip() or event.venue_name,
+            },
+        )
+        location_fields: list[str] = []
+        for field in ["province", "regency", "district", "village"]:
+            if field in data:
+                setattr(location, field, str(data.get(field, "")).strip())
+                location_fields.append(field)
+        if "latitude" in data:
+            location.latitude = latitude
+            location_fields.append("latitude")
+        if "longitude" in data:
+            location.longitude = longitude
+            location_fields.append("longitude")
+        if location_fields:
+            location.save(update_fields=[*sorted(set(location_fields)), "updated_at"])
 
 
 def _update_invitation_content(invitation: Invitation, data: dict) -> None:

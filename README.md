@@ -264,7 +264,7 @@ Aturan import:
 
 ### Phase 6 - Weather, Music, and Interaction
 
-- Integrasi BMKG/weather foundation.
+- Integrasi Open-Meteo/weather foundation.
 - Backsound undangan setelah klik buka undangan.
 - Live preview juga memutar/mematikan musik sesuai state undangan.
 - Gift interaction dengan icon before/after dan morph transition.

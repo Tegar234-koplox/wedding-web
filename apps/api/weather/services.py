@@ -4,6 +4,7 @@ import hashlib
 import json
 import time
 from datetime import timedelta
+from decimal import Decimal, InvalidOperation
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -14,21 +15,42 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
 from invitations.models import Invitation
-from weather.client import fetch_bmkg_forecast
+from weather.client import fetch_open_meteo_forecast
 from weather.exceptions import WeatherProviderError
 from weather.models import WeatherFetchLog, WeatherSnapshot
-from weather.normalizers import normalize_bmkg_payload
+from weather.normalizers import normalize_open_meteo_payload
 
-PROVIDER_NAME = "BMKG"
-PROVIDER_ATTRIBUTION_URL = "https://data.bmkg.go.id/prakiraan-cuaca/"
-
-
-def _cache_key(adm4: str) -> str:
-    return f"weather:forecast:{adm4}"
+PROVIDER_NAME = "Open-Meteo"
+PROVIDER_ATTRIBUTION_URL = "https://open-meteo.com/"
 
 
-def _refresh_lock_key(adm4: str) -> str:
-    return f"weather:refresh-lock:{adm4}"
+def _coordinate(value: Any) -> Decimal | None:
+    if value in (None, ""):
+        return None
+    try:
+        return Decimal(str(value)).quantize(Decimal("0.000001"))
+    except (InvalidOperation, ValueError):
+        return None
+
+
+def location_key(latitude: Any, longitude: Any) -> str | None:
+    lat = _coordinate(latitude)
+    lon = _coordinate(longitude)
+    if lat is None or lon is None:
+        return None
+    return f"open-meteo:{lat}:{lon}"
+
+
+def _legacy_adm4_from_key(key: str) -> str:
+    return hashlib.sha1(key.encode("utf-8")).hexdigest()[:20]
+
+
+def _cache_key(key: str) -> str:
+    return f"weather:forecast:{key}"
+
+
+def _refresh_lock_key(key: str) -> str:
+    return f"weather:refresh-lock:{key}"
 
 
 def _cache_get(key: str) -> Any:
@@ -69,44 +91,72 @@ def _snapshot_payload(snapshot: WeatherSnapshot) -> dict[str, Any]:
     }
 
 
-def _latest_snapshot(adm4: str) -> WeatherSnapshot | None:
-    return WeatherSnapshot.objects.filter(adm4=adm4).order_by("-analysis_at").first()
+def _latest_snapshot(key: str) -> WeatherSnapshot | None:
+    return (
+        WeatherSnapshot.objects.filter(provider=PROVIDER_NAME, location_key=key)
+        .order_by("-analysis_at", "-fetched_at")
+        .first()
+    )
 
 
-def refresh_forecast(adm4: str, *, force: bool = False) -> dict[str, Any]:
-    cached = _cache_get(_cache_key(adm4))
+def refresh_forecast(
+    location: str | None = None,
+    *,
+    force: bool = False,
+    latitude: Any = None,
+    longitude: Any = None,
+) -> dict[str, Any]:
+    key = location or location_key(latitude, longitude)
+    if key is None:
+        raise WeatherProviderError("location_unconfigured", "Weather coordinates are missing.")
+
+    cached = _cache_get(_cache_key(key))
     if cached is not None and not force:
         return cached
 
     lock_acquired = _acquire_lock(
-        _refresh_lock_key(adm4),
-        timeout=max(settings.BMKG_REQUEST_TIMEOUT_SECONDS * 3, 30),
+        _refresh_lock_key(key),
+        timeout=max(settings.OPEN_METEO_REQUEST_TIMEOUT_SECONDS * 3, 30),
     )
     if not lock_acquired:
-        stale = _latest_snapshot(adm4)
+        stale = _latest_snapshot(key)
         if stale is not None:
             return _snapshot_payload(stale)
         raise WeatherProviderError("refresh_in_progress", "Forecast refresh is in progress.")
 
+    if latitude is None or longitude is None:
+        try:
+            _, lat_text, lon_text = key.split(":", 2)
+        except ValueError as exc:
+            raise WeatherProviderError(
+                "invalid_coordinate",
+                "Weather location key is invalid.",
+            ) from exc
+        latitude = lat_text
+        longitude = lon_text
+
     started = time.monotonic()
     try:
-        raw = fetch_bmkg_forecast(adm4)
-        normalized = normalize_bmkg_payload(raw)
+        raw = fetch_open_meteo_forecast(latitude, longitude)
+        normalized = normalize_open_meteo_payload(raw)
         analysis_at = parse_datetime(normalized["analysis_at"])
         if analysis_at is None:
-            raise WeatherProviderError("invalid_schema", "BMKG analysis time is invalid.")
+            raise WeatherProviderError("invalid_schema", "Open-Meteo analysis time is invalid.")
 
         now = timezone.now()
-        expires_at = now + timedelta(seconds=settings.BMKG_CACHE_TTL_SECONDS)
+        expires_at = now + timedelta(seconds=settings.OPEN_METEO_CACHE_TTL_SECONDS)
         checksum = hashlib.sha256(
             json.dumps(raw, sort_keys=True, separators=(",", ":")).encode()
         ).hexdigest()
+        legacy_adm4 = _legacy_adm4_from_key(key)
 
         with transaction.atomic():
             snapshot, _ = WeatherSnapshot.objects.update_or_create(
-                adm4=adm4,
+                provider=PROVIDER_NAME,
+                location_key=key,
                 analysis_at=analysis_at,
                 defaults={
+                    "adm4": legacy_adm4,
                     "location": normalized["location"],
                     "forecast": normalized["forecast"],
                     "raw_checksum": checksum,
@@ -115,7 +165,9 @@ def refresh_forecast(adm4: str, *, force: bool = False) -> dict[str, Any]:
                 },
             )
             WeatherFetchLog.objects.create(
-                adm4=adm4,
+                adm4=legacy_adm4,
+                provider=PROVIDER_NAME,
+                location_key=key,
                 status=WeatherFetchLog.Status.SUCCESS,
                 latency_ms=int((time.monotonic() - started) * 1000),
                 analysis_at=analysis_at,
@@ -123,21 +175,23 @@ def refresh_forecast(adm4: str, *, force: bool = False) -> dict[str, Any]:
 
         payload = _snapshot_payload(snapshot)
         _cache_set(
-            _cache_key(adm4),
+            _cache_key(key),
             payload,
-            timeout=settings.BMKG_CACHE_TTL_SECONDS,
+            timeout=settings.OPEN_METEO_CACHE_TTL_SECONDS,
         )
         return payload
     except WeatherProviderError as exc:
         WeatherFetchLog.objects.create(
-            adm4=adm4,
+            adm4=_legacy_adm4_from_key(key),
+            provider=PROVIDER_NAME,
+            location_key=key,
             status=WeatherFetchLog.Status.FAILURE,
             latency_ms=int((time.monotonic() - started) * 1000),
             failure_category=exc.category,
         )
         raise
     finally:
-        _release_lock(_refresh_lock_key(adm4))
+        _release_lock(_refresh_lock_key(key))
 
 
 def _unavailable(reason: str) -> dict[str, Any]:
@@ -153,7 +207,8 @@ def _unavailable(reason: str) -> dict[str, Any]:
 def weather_for_invitation(invitation: Invitation) -> dict[str, Any]:
     now = timezone.now()
     weather_events = invitation.events.filter(
-        location__bmkg_adm4__gt="",
+        location__latitude__isnull=False,
+        location__longitude__isnull=False,
     ).select_related("location")
     if not weather_events.exists():
         return _unavailable("location_unconfigured")
@@ -163,15 +218,22 @@ def weather_for_invitation(invitation: Invitation) -> dict[str, Any]:
     )
     if event is None:
         return _unavailable("event_passed")
-    if event.starts_at > now + timedelta(hours=72):
+    if event.starts_at > now + timedelta(days=16):
         return _unavailable("outside_forecast_window")
 
-    adm4 = event.location.bmkg_adm4
+    key = location_key(event.location.latitude, event.location.longitude)
+    if key is None:
+        return _unavailable("location_unconfigured")
+
     stale = False
     try:
-        snapshot = refresh_forecast(adm4)
+        snapshot = refresh_forecast(
+            key,
+            latitude=event.location.latitude,
+            longitude=event.location.longitude,
+        )
     except WeatherProviderError:
-        stored = _latest_snapshot(adm4)
+        stored = _latest_snapshot(key)
         if stored is None:
             return _unavailable("provider_unavailable")
         snapshot = _snapshot_payload(stored)
@@ -180,7 +242,10 @@ def weather_for_invitation(invitation: Invitation) -> dict[str, Any]:
     try:
         event_timezone = ZoneInfo(event.timezone)
     except ZoneInfoNotFoundError:
-        event_timezone = ZoneInfo("Asia/Jakarta")
+        try:
+            event_timezone = ZoneInfo(snapshot["location"].get("timezone") or "UTC")
+        except ZoneInfoNotFoundError:
+            event_timezone = ZoneInfo("UTC")
 
     event_local = event.starts_at.astimezone(event_timezone)
     event_date = event_local.date().isoformat()
@@ -206,7 +271,11 @@ def weather_for_invitation(invitation: Invitation) -> dict[str, Any]:
         "provider": PROVIDER_NAME,
         "attribution_url": PROVIDER_ATTRIBUTION_URL,
         "updated_at": snapshot["analysis_at"],
-        "location": snapshot["location"],
+        "location": {
+            **snapshot["location"],
+            "venue": event.venue_name,
+            "address": event.address,
+        },
         "event": {
             "starts_at": event.starts_at.isoformat(),
             "timezone": event.timezone,

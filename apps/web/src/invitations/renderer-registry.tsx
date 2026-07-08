@@ -400,6 +400,11 @@ function WeatherSection({
           },
         ).format(new Date(weather.updated_at))
       : "";
+    const locationLabel =
+      weather.location?.venue ||
+      [weather.location?.village, weather.location?.regency].filter(Boolean).join(", ") ||
+      weather.location?.address ||
+      (id ? "Lokasi acara" : "Event location");
 
     return (
       <section className="px-6 py-24 md:px-12 md:py-32">
@@ -417,9 +422,7 @@ function WeatherSection({
               <h2 className={`${design.display} mt-5 text-5xl md:text-7xl`}>
                 {description}
               </h2>
-              <p className={`mt-4 text-sm ${design.muted}`}>
-                {weather.location?.village}, {weather.location?.regency}
-              </p>
+              <p className={`mt-4 text-sm ${design.muted}`}>{locationLabel}</p>
             </div>
 
             <div className="grid grid-cols-3 gap-px bg-current/20">
@@ -455,7 +458,7 @@ function WeatherSection({
               rel="noreferrer"
               target="_blank"
             >
-              Data cuaca: BMKG
+              Data cuaca: Open-Meteo
             </a>
             <span>
               {weather.status === "stale"
@@ -490,19 +493,19 @@ function WeatherSection({
               ? "Layanan cuaca sedang tidak tersedia. Silakan periksa kembali beberapa saat lagi."
               : "Weather information is temporarily unavailable. Please check again shortly."
             : id
-              ? "Prakiraan resmi BMKG akan tampil ketika tanggal pernikahan memasuki jangkauan prakiraan tiga hari."
-              : "The official BMKG forecast will appear when the wedding enters the three-day forecast window."}
+              ? "Prakiraan akan tampil ketika tanggal pernikahan memasuki jangkauan prakiraan 16 hari."
+              : "The forecast will appear when the wedding enters Open-Meteo's 16-day forecast window."}
         </p>
         <a
           className="mt-7 inline-block text-[0.58rem] uppercase tracking-[0.18em] opacity-45 underline underline-offset-4"
           href={
             weather?.attribution_url ??
-            "https://data.bmkg.go.id/prakiraan-cuaca/"
+            "https://open-meteo.com/"
           }
           rel="noreferrer"
           target="_blank"
         >
-          Data cuaca: BMKG
+          Data cuaca: Open-Meteo
         </a>
       </div>
     </section>
