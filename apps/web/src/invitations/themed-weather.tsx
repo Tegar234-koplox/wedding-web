@@ -59,7 +59,7 @@ function MeteoconsLottieIcon({
   src: string;
 }) {
   const containerRef = React.useRef<HTMLDivElement | null>(null);
-  const [failed, setFailed] = React.useState(false);
+  const [failedSrc, setFailedSrc] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     let destroyed = false;
@@ -81,12 +81,11 @@ function MeteoconsLottieIcon({
         });
       } catch {
         if (!destroyed) {
-          setFailed(true);
+          setFailedSrc(src);
         }
       }
     }
 
-    setFailed(false);
     void loadAnimation();
 
     return () => {
@@ -95,7 +94,7 @@ function MeteoconsLottieIcon({
     };
   }, [src]);
 
-  if (failed) {
+  if (failedSrc === src) {
     return (
       <img
         alt={alt}
