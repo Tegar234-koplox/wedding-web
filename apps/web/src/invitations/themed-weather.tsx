@@ -18,7 +18,7 @@ type ThemedWeatherProps = {
 
 type WeatherSlot = NonNullable<InvitationWeather["selections"]>[number];
 
-const METEOCONS_CDN_BASE = "https://cdn.meteocons.com/3.0.0-next.10";
+const METEOCONS_PROXY_BASE = "/api/meteocons";
 
 function meteoconsSlugForCode(code: number) {
   if (code === 0) {
@@ -65,7 +65,7 @@ function MeteoconsWeatherIcon({
       className: sizeClass,
       loop: true,
       speed: "1",
-      src: `${METEOCONS_CDN_BASE}/lottie/fill/${slug}.json`,
+      src: `${METEOCONS_PROXY_BASE}/lottie/fill/${slug}.json`,
     } as Record<string, unknown>);
   }
 
@@ -76,7 +76,7 @@ function MeteoconsWeatherIcon({
       className={sizeClass}
       height={72}
       loading="lazy"
-      src={`${METEOCONS_CDN_BASE}/svg-static/fill/${slug}.svg`}
+      src={`${METEOCONS_PROXY_BASE}/svg-static/fill/${slug}.svg`}
       width={72}
     />
   );
