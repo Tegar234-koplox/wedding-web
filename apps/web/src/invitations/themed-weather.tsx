@@ -1,9 +1,11 @@
+/* eslint-disable @next/next/no-img-element */
+"use client";
+
 import type {
   InvitationEnvelope,
   PackageCode,
 } from "@wedding/invitation-themes";
 import { Droplets, Wind } from "lucide-react";
-import Script from "next/script";
 import React from "react";
 
 import type { ThemeVisual } from "@/invitations/presentation";
@@ -45,6 +47,76 @@ function meteoconsSlugForCode(code: number) {
   return "partly-cloudy-day";
 }
 
+function MeteoconsLottieIcon({
+  alt,
+  fallbackSrc,
+  sizeClass,
+  src,
+}: {
+  alt: string;
+  fallbackSrc: string;
+  sizeClass: string;
+  src: string;
+}) {
+  const containerRef = React.useRef<HTMLDivElement | null>(null);
+  const [failedSrc, setFailedSrc] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let destroyed = false;
+    let animation: { destroy: () => void } | null = null;
+
+    async function loadAnimation() {
+      try {
+        const lottie = (await import("lottie-web")).default;
+        if (destroyed || !containerRef.current) {
+          return;
+        }
+
+        animation = lottie.loadAnimation({
+          autoplay: true,
+          container: containerRef.current,
+          loop: true,
+          path: src,
+          renderer: "svg",
+        });
+      } catch {
+        if (!destroyed) {
+          setFailedSrc(src);
+        }
+      }
+    }
+
+    void loadAnimation();
+
+    return () => {
+      destroyed = true;
+      animation?.destroy();
+    };
+  }, [src]);
+
+  if (failedSrc === src) {
+    return (
+      <img
+        alt={alt}
+        className={sizeClass}
+        height={72}
+        loading="lazy"
+        src={fallbackSrc}
+        width={72}
+      />
+    );
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      aria-label={alt}
+      className={sizeClass}
+      role="img"
+    />
+  );
+}
+
 function MeteoconsWeatherIcon({
   alt,
   packageCode,
@@ -57,26 +129,26 @@ function MeteoconsWeatherIcon({
   sizeClass: string;
 }) {
   const slug = meteoconsSlugForCode(weatherCode);
+  const svgSrc = `${METEOCONS_PROXY_BASE}/svg-static/fill/${slug}.svg`;
+
   if (packageCode === "couture") {
-    return React.createElement("lottie-player", {
-      "aria-label": alt,
-      autoplay: true,
-      background: "transparent",
-      className: sizeClass,
-      loop: true,
-      speed: "1",
-      src: `${METEOCONS_PROXY_BASE}/lottie/fill/${slug}.json`,
-    } as Record<string, unknown>);
+    return (
+      <MeteoconsLottieIcon
+        alt={alt}
+        fallbackSrc={svgSrc}
+        sizeClass={sizeClass}
+        src={`${METEOCONS_PROXY_BASE}/lottie/fill/${slug}.json`}
+      />
+    );
   }
 
   return (
-    // eslint-disable-next-line @next/next/no-img-element -- Meteocons static SVG paths are dynamic CDN assets.
     <img
       alt={alt}
       className={sizeClass}
       height={72}
       loading="lazy"
-      src={`${METEOCONS_PROXY_BASE}/svg-static/fill/${slug}.svg`}
+      src={svgSrc}
       width={72}
     />
   );
@@ -118,6 +190,7 @@ export function ThemedWeather({
   }
 
   const id = invitation.locale === "id";
+  const locale = id ? "id" : "en";
   const slots: WeatherSlot[] =
     weather?.selections?.length
       ? weather.selections
@@ -139,12 +212,6 @@ export function ThemedWeather({
 
   return (
     <section className="px-5 py-24 md:px-12 md:py-36">
-      {packageCode === "couture" ? (
-        <Script
-          src="https://unpkg.com/@lottiefiles/lottie-player@2.0.12/dist/lottie-player.js"
-          strategy="afterInteractive"
-        />
-      ) : null}
       <div
         className={`relative mx-auto max-w-5xl overflow-hidden border p-7 md:p-12 ${design.weather} ${design.glow}`}
       >
@@ -163,7 +230,7 @@ export function ThemedWeather({
                     ? id
                       ? "Akad & Resepsi"
                       : "Ceremony & Reception"
-                    : primarySlot?.selected.description[invitation.locale]
+                    : primarySlot?.selected.description[locale]
                 : id
                   ? "Tersedia mendekati hari acara"
                   : "Available closer to the event"}
@@ -171,7 +238,7 @@ export function ThemedWeather({
           </div>
             {available && primarySlot ? (
               <MeteoconsWeatherIcon
-                alt={primarySlot.selected.description[invitation.locale]}
+                alt={primarySlot.selected.description[locale]}
                 packageCode={packageCode}
                 sizeClass={`h-16 w-16 ${rich ? "md:h-20 md:w-20" : "md:h-16 md:w-16"}`}
                 weatherCode={primarySlot.selected.weather_code}
@@ -209,14 +276,14 @@ export function ThemedWeather({
                       </p>
                     </div>
                     <MeteoconsWeatherIcon
-                      alt={slot.selected.description[invitation.locale]}
+                      alt={slot.selected.description[locale]}
                       packageCode={packageCode}
                       sizeClass={`h-12 w-12 ${rich ? "md:h-14 md:w-14" : ""}`}
                       weatherCode={slot.selected.weather_code}
                     />
                   </div>
                   <p className="mt-8 font-serif text-3xl">
-                    {slot.selected.description[invitation.locale]}
+                    {slot.selected.description[locale]}
                   </p>
                   <p className={`mt-3 text-sm ${design.muted}`}>
                     {slot.event.venue}
