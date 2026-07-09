@@ -2,7 +2,8 @@ import type {
   InvitationEnvelope,
   PackageCode,
 } from "@wedding/invitation-themes";
-import { CloudRain, CloudSun, Droplets, Wind } from "lucide-react";
+import { Droplets, Wind } from "lucide-react";
+import Script from "next/script";
 import React from "react";
 
 import type { ThemeVisual } from "@/invitations/presentation";
@@ -16,6 +17,68 @@ type ThemedWeatherProps = {
 };
 
 type WeatherSlot = NonNullable<InvitationWeather["selections"]>[number];
+
+function meteoconsSlugForCode(code: number) {
+  if (code === 0) {
+    return "clear-day";
+  }
+  if (code === 1 || code === 2) {
+    return "partly-cloudy-day";
+  }
+  if (code === 3) {
+    return "overcast-day";
+  }
+  if (code === 45 || code === 48) {
+    return "fog-day";
+  }
+  if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(code)) {
+    return "rain";
+  }
+  if ([71, 73, 75, 77, 85, 86].includes(code)) {
+    return "snow";
+  }
+  if ([95, 96, 99].includes(code)) {
+    return "thunderstorms-day-rain";
+  }
+  return "partly-cloudy-day";
+}
+
+function MeteoconsWeatherIcon({
+  alt,
+  packageCode,
+  weatherCode,
+  sizeClass,
+}: {
+  alt: string;
+  packageCode: PackageCode;
+  weatherCode: number;
+  sizeClass: string;
+}) {
+  const slug = meteoconsSlugForCode(weatherCode);
+  if (packageCode === "couture") {
+    return React.createElement("lottie-player", {
+      "aria-label": alt,
+      autoplay: true,
+      background: "transparent",
+      className: sizeClass,
+      loop: true,
+      speed: "1",
+      src: `https://cdn.meteocons.com/latest/lottie/fill/${slug}.json`,
+    } as Record<string, unknown>);
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- Meteocons static SVG paths are dynamic CDN assets.
+    <img
+      alt={alt}
+      className={sizeClass}
+      height={72}
+      loading="lazy"
+      src={`https://cdn.meteocons.com/latest/svg-static/fill/${slug}.svg`}
+      width={72}
+    />
+  );
+}
 
 function eventLabel(eventType: string | undefined, id: boolean) {
   if (eventType === "ceremony") {
@@ -70,11 +133,16 @@ export function ThemedWeather({
     (weather?.status === "ready" || weather?.status === "stale") &&
     slots.length > 0;
   const rich = packageCode === "couture";
-  const hasRain = slots.some((slot) => slot.selected.precipitation_mm > 0.4);
   const primarySlot = slots[0];
 
   return (
     <section className="px-5 py-24 md:px-12 md:py-36">
+      {packageCode === "couture" ? (
+        <Script
+          src="https://unpkg.com/@lottiefiles/lottie-player@2.0.12/dist/lottie-player.js"
+          strategy="afterInteractive"
+        />
+      ) : null}
       <div
         className={`relative mx-auto max-w-5xl overflow-hidden border p-7 md:p-12 ${design.weather} ${design.glow}`}
       >
@@ -94,15 +162,25 @@ export function ThemedWeather({
                       ? "Akad & Resepsi"
                       : "Ceremony & Reception"
                     : primarySlot?.selected.description[invitation.locale]
-                  : id
-                    ? "Tersedia mendekati hari acara"
-                    : "Available closer to the event"}
-              </h2>
-            </div>
-            {available && hasRain ? (
-              <CloudRain className={design.accent} size={rich ? 48 : 38} />
+                : id
+                  ? "Tersedia mendekati hari acara"
+                  : "Available closer to the event"}
+            </h2>
+          </div>
+            {available && primarySlot ? (
+              <MeteoconsWeatherIcon
+                alt={primarySlot.selected.description[invitation.locale]}
+                packageCode={packageCode}
+                sizeClass={`h-16 w-16 ${rich ? "md:h-20 md:w-20" : "md:h-16 md:w-16"}`}
+                weatherCode={primarySlot.selected.weather_code}
+              />
             ) : (
-              <CloudSun className={design.accent} size={rich ? 48 : 38} />
+              <MeteoconsWeatherIcon
+                alt={id ? "Prakiraan cuaca" : "Weather forecast"}
+                packageCode={packageCode}
+                sizeClass={`h-16 w-16 ${rich ? "md:h-20 md:w-20" : "md:h-16 md:w-16"}`}
+                weatherCode={2}
+              />
             )}
           </div>
 
@@ -128,17 +206,12 @@ export function ThemedWeather({
                         )}
                       </p>
                     </div>
-                    {slot.selected.precipitation_mm > 0.4 ? (
-                      <CloudRain
-                        className={design.accent}
-                        size={rich ? 30 : 24}
-                      />
-                    ) : (
-                      <CloudSun
-                        className={design.accent}
-                        size={rich ? 30 : 24}
-                      />
-                    )}
+                    <MeteoconsWeatherIcon
+                      alt={slot.selected.description[invitation.locale]}
+                      packageCode={packageCode}
+                      sizeClass={`h-12 w-12 ${rich ? "md:h-14 md:w-14" : ""}`}
+                      weatherCode={slot.selected.weather_code}
+                    />
                   </div>
                   <p className="mt-8 font-serif text-3xl">
                     {slot.selected.description[invitation.locale]}
