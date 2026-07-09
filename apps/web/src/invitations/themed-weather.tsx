@@ -15,6 +15,33 @@ type ThemedWeatherProps = {
   weather?: InvitationWeather | null;
 };
 
+type WeatherSlot = NonNullable<InvitationWeather["selections"]>[number];
+
+function eventLabel(eventType: string | undefined, id: boolean) {
+  if (eventType === "ceremony") {
+    return id ? "Akad" : "Ceremony";
+  }
+  if (eventType === "reception") {
+    return id ? "Resepsi" : "Reception";
+  }
+  return id ? "Acara" : "Event";
+}
+
+function formatEventTime(value: string, timezone: string, id: boolean) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return new Intl.DateTimeFormat(id ? "id-ID" : "en-US", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: timezone || undefined,
+  }).format(date);
+}
+
 export function ThemedWeather({
   invitation,
   packageCode,
@@ -26,10 +53,25 @@ export function ThemedWeather({
   }
 
   const id = invitation.locale === "id";
-  const selected = weather?.selected;
+  const slots: WeatherSlot[] =
+    weather?.selections?.length
+      ? weather.selections
+      : weather?.selected && weather.event && weather.location
+        ? [
+            {
+              event: weather.event,
+              location: weather.location,
+              selected: weather.selected,
+              forecast: weather.forecast,
+            },
+          ]
+        : [];
   const available =
-    (weather?.status === "ready" || weather?.status === "stale") && selected;
+    (weather?.status === "ready" || weather?.status === "stale") &&
+    slots.length > 0;
   const rich = packageCode === "couture";
+  const hasRain = slots.some((slot) => slot.selected.precipitation_mm > 0.4);
+  const primarySlot = slots[0];
 
   return (
     <section className="px-5 py-24 md:px-12 md:py-36">
@@ -47,13 +89,17 @@ export function ThemedWeather({
               </p>
               <h2 className="mt-4 font-serif text-4xl md:text-6xl">
                 {available
-                  ? selected.description[invitation.locale]
+                  ? slots.length > 1
+                    ? id
+                      ? "Akad & Resepsi"
+                      : "Ceremony & Reception"
+                    : primarySlot?.selected.description[invitation.locale]
                   : id
                     ? "Tersedia mendekati hari acara"
                     : "Available closer to the event"}
               </h2>
             </div>
-            {available && selected.precipitation_mm > 0.4 ? (
+            {available && hasRain ? (
               <CloudRain className={design.accent} size={rich ? 48 : 38} />
             ) : (
               <CloudSun className={design.accent} size={rich ? 48 : 38} />
@@ -61,27 +107,76 @@ export function ThemedWeather({
           </div>
 
           {available ? (
-            <div className="mt-12 grid gap-px bg-current/15 sm:grid-cols-3">
-              <div className="bg-current/[0.04] p-5">
-                <p className="font-serif text-4xl">{selected.temperature_c}°</p>
-                <p className="mt-3 text-[0.58rem] uppercase tracking-[0.18em] opacity-50">
-                  Celsius
-                </p>
-              </div>
-              <div className="bg-current/[0.04] p-5">
-                <Droplets size={19} />
-                <p className="mt-4 text-xl">{selected.humidity_percent}%</p>
-                <p className="mt-2 text-[0.58rem] uppercase tracking-[0.18em] opacity-50">
-                  {id ? "Kelembapan" : "Humidity"}
-                </p>
-              </div>
-              <div className="bg-current/[0.04] p-5">
-                <Wind size={19} />
-                <p className="mt-4 text-xl">{selected.wind.speed_kmh} km/h</p>
-                <p className="mt-2 text-[0.58rem] uppercase tracking-[0.18em] opacity-50">
-                  {id ? "Angin" : "Wind"}
-                </p>
-              </div>
+            <div
+              className={`mt-12 grid gap-4 ${slots.length > 1 ? "md:grid-cols-2" : ""}`}
+            >
+              {slots.map((slot) => (
+                <div
+                  className="border border-current/15 bg-current/[0.035] p-5"
+                  key={`${slot.event.event_type ?? "event"}-${slot.event.starts_at}`}
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-[0.58rem] uppercase tracking-[0.18em] opacity-50">
+                        {eventLabel(slot.event.event_type, id)}
+                      </p>
+                      <p className="mt-2 text-sm opacity-70">
+                        {formatEventTime(
+                          slot.event.starts_at,
+                          slot.event.timezone,
+                          id,
+                        )}
+                      </p>
+                    </div>
+                    {slot.selected.precipitation_mm > 0.4 ? (
+                      <CloudRain
+                        className={design.accent}
+                        size={rich ? 30 : 24}
+                      />
+                    ) : (
+                      <CloudSun
+                        className={design.accent}
+                        size={rich ? 30 : 24}
+                      />
+                    )}
+                  </div>
+                  <p className="mt-8 font-serif text-3xl">
+                    {slot.selected.description[invitation.locale]}
+                  </p>
+                  <p className={`mt-3 text-sm ${design.muted}`}>
+                    {slot.event.venue}
+                  </p>
+
+                  <div className="mt-7 grid gap-px bg-current/15 sm:grid-cols-3">
+                    <div className="bg-current/[0.04] p-4">
+                      <p className="font-serif text-3xl">
+                        {slot.selected.temperature_c}°
+                      </p>
+                      <p className="mt-3 text-[0.56rem] uppercase tracking-[0.16em] opacity-50">
+                        Celsius
+                      </p>
+                    </div>
+                    <div className="bg-current/[0.04] p-4">
+                      <Droplets size={17} />
+                      <p className="mt-4 text-lg">
+                        {slot.selected.humidity_percent}%
+                      </p>
+                      <p className="mt-2 text-[0.56rem] uppercase tracking-[0.16em] opacity-50">
+                        {id ? "Lembap" : "Humidity"}
+                      </p>
+                    </div>
+                    <div className="bg-current/[0.04] p-4">
+                      <Wind size={17} />
+                      <p className="mt-4 text-lg">
+                        {slot.selected.wind.speed_kmh} km/h
+                      </p>
+                      <p className="mt-2 text-[0.56rem] uppercase tracking-[0.16em] opacity-50">
+                        {id ? "Angin" : "Wind"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
             <p className={`mt-8 max-w-2xl text-sm leading-7 ${design.muted}`}>
@@ -98,10 +193,7 @@ export function ThemedWeather({
           <div className="mt-9 flex flex-wrap justify-between gap-4 border-t border-current/15 pt-5 text-[0.58rem] uppercase tracking-[0.17em] opacity-55">
             <a
               className="underline underline-offset-4"
-              href={
-                weather?.attribution_url ??
-                "https://open-meteo.com/"
-              }
+              href={weather?.attribution_url ?? "https://open-meteo.com/"}
               rel="noopener noreferrer"
               target="_blank"
             >

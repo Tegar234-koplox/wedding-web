@@ -112,38 +112,45 @@ const weatherEntrySchema = z.object({
   visibility_text: z.string(),
 });
 
+const weatherLocationSchema = z.object({
+  provider: z.string().optional(),
+  adm4: z.string().optional(),
+  province: z.string().optional(),
+  regency: z.string().optional(),
+  district: z.string().optional(),
+  village: z.string().optional(),
+  latitude: z.number(),
+  longitude: z.number(),
+  timezone: z.string(),
+  venue: z.string().optional(),
+  address: z.string().optional(),
+});
+
+const weatherEventSchema = z.object({
+  event_type: z.string().optional(),
+  starts_at: z.string(),
+  timezone: z.string(),
+  venue: z.string(),
+});
+
+const weatherSelectionSchema = z.object({
+  event: weatherEventSchema,
+  location: weatherLocationSchema,
+  selected: weatherEntrySchema,
+  forecast: z.array(weatherEntrySchema),
+});
+
 export const invitationWeatherSchema = z.object({
   status: z.enum(["ready", "stale", "unavailable"]),
   reason: z.string().nullable().optional(),
   provider: z.literal("Open-Meteo"),
   attribution_url: z.url(),
   updated_at: z.string().nullable().optional(),
-  location: z
-    .object({
-      provider: z.string().optional(),
-      adm4: z.string().optional(),
-      province: z.string().optional(),
-      regency: z.string().optional(),
-      district: z.string().optional(),
-      village: z.string().optional(),
-      latitude: z.number(),
-      longitude: z.number(),
-      timezone: z.string(),
-      venue: z.string().optional(),
-      address: z.string().optional(),
-    })
-    .nullable()
-    .optional(),
-  event: z
-    .object({
-      starts_at: z.string(),
-      timezone: z.string(),
-      venue: z.string(),
-    })
-    .nullable()
-    .optional(),
+  location: weatherLocationSchema.nullable().optional(),
+  event: weatherEventSchema.nullable().optional(),
   selected: weatherEntrySchema.nullable().optional(),
   forecast: z.array(weatherEntrySchema),
+  selections: z.array(weatherSelectionSchema).optional(),
 });
 
 export type PublicTheme = z.infer<typeof publicThemeSchema>;

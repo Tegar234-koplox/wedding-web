@@ -102,6 +102,7 @@ class InvitationWeatherView(APIView):
                 "event": serializers.JSONField(allow_null=True),
                 "selected": serializers.JSONField(allow_null=True),
                 "forecast": serializers.ListField(child=serializers.JSONField()),
+                "selections": serializers.ListField(child=serializers.JSONField()),
             },
         )
     )
