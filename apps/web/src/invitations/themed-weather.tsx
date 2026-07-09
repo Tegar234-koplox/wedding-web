@@ -236,7 +236,7 @@ export function ThemedWeather({
                   : "Available closer to the event"}
             </h2>
           </div>
-            {available && primarySlot ? (
+            {available && slots.length > 1 ? null : available && primarySlot ? (
               <MeteoconsWeatherIcon
                 alt={primarySlot.selected.description[locale]}
                 packageCode={packageCode}
