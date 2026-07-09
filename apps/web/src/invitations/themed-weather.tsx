@@ -18,6 +18,8 @@ type ThemedWeatherProps = {
 
 type WeatherSlot = NonNullable<InvitationWeather["selections"]>[number];
 
+const METEOCONS_CDN_BASE = "https://cdn.meteocons.com/3.0.0-next.10";
+
 function meteoconsSlugForCode(code: number) {
   if (code === 0) {
     return "clear-day";
@@ -63,7 +65,7 @@ function MeteoconsWeatherIcon({
       className: sizeClass,
       loop: true,
       speed: "1",
-      src: `https://cdn.meteocons.com/latest/lottie/fill/${slug}.json`,
+      src: `${METEOCONS_CDN_BASE}/lottie/fill/${slug}.json`,
     } as Record<string, unknown>);
   }
 
@@ -74,7 +76,7 @@ function MeteoconsWeatherIcon({
       className={sizeClass}
       height={72}
       loading="lazy"
-      src={`https://cdn.meteocons.com/latest/svg-static/fill/${slug}.svg`}
+      src={`${METEOCONS_CDN_BASE}/svg-static/fill/${slug}.svg`}
       width={72}
     />
   );
@@ -179,7 +181,7 @@ export function ThemedWeather({
                 alt={id ? "Prakiraan cuaca" : "Weather forecast"}
                 packageCode={packageCode}
                 sizeClass={`h-16 w-16 ${rich ? "md:h-20 md:w-20" : "md:h-16 md:w-16"}`}
-                weatherCode={2}
+                weatherCode={0}
               />
             )}
           </div>
