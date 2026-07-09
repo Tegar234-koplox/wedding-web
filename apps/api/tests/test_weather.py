@@ -132,6 +132,43 @@ def test_weather_endpoint_returns_selected_forecast(client):
     assert response.json()["status"] == "ready"
     assert response.json()["selected"]["description"]["en"] == "Slight rain"
     assert response.json()["attribution_url"] == "https://open-meteo.com/"
+    assert response.json()["selections"][0]["event"]["event_type"] == "ceremony"
+
+
+@pytest.mark.django_db
+def test_weather_endpoint_returns_ceremony_and_reception_slots(client):
+    cache.clear()
+    ceremony_at = timezone.now() + timedelta(hours=24)
+    reception_at = ceremony_at + timedelta(hours=3)
+    invitation = create_invitation(theme=create_theme(slug="weather-slots-theme"))
+    create_weather_event(invitation=invitation, starts_at=ceremony_at)
+    reception = create_weather_event(
+        invitation=invitation,
+        starts_at=reception_at,
+        adm4="31.71.03.1002",
+    )
+    reception.event_type = "reception"
+    reception.sort_order = 2
+    reception.save(update_fields=["event_type", "sort_order", "updated_at"])
+
+    with patch(
+        "weather.services.fetch_open_meteo_forecast",
+        return_value=open_meteo_payload(ceremony_at),
+    ):
+        response = client.get(
+            reverse(
+                "invitation-weather",
+                kwargs={"public_slug": invitation.public_slug},
+            )
+        )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "ready"
+    assert [slot["event"]["event_type"] for slot in response.json()["selections"]] == [
+        "ceremony",
+        "reception",
+    ]
+    assert response.json()["event"]["event_type"] == "ceremony"
 
 
 @pytest.mark.django_db

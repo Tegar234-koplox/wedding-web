@@ -14,7 +14,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
-from invitations.models import Invitation
+from invitations.models import Invitation, WeddingEvent
 from weather.client import fetch_open_meteo_forecast
 from weather.exceptions import WeatherProviderError
 from weather.models import WeatherFetchLog, WeatherSnapshot
@@ -204,49 +204,38 @@ def _unavailable(reason: str) -> dict[str, Any]:
     }
 
 
-def weather_for_invitation(invitation: Invitation) -> dict[str, Any]:
-    now = timezone.now()
-    weather_events = invitation.events.filter(
-        location__latitude__isnull=False,
-        location__longitude__isnull=False,
-    ).select_related("location")
-    if not weather_events.exists():
-        return _unavailable("location_unconfigured")
-
-    event = (
-        weather_events.filter(starts_at__gte=now - timedelta(hours=6)).order_by("starts_at").first()
-    )
-    if event is None:
-        return _unavailable("event_passed")
-    if event.starts_at > now + timedelta(days=16):
-        return _unavailable("outside_forecast_window")
-
-    key = location_key(event.location.latitude, event.location.longitude)
-    if key is None:
-        return _unavailable("location_unconfigured")
-
-    stale = False
+def _event_timezone(event: WeddingEvent, snapshot: dict[str, Any]) -> ZoneInfo:
     try:
-        snapshot = refresh_forecast(
-            key,
-            latitude=event.location.latitude,
-            longitude=event.location.longitude,
-        )
-    except WeatherProviderError:
-        stored = _latest_snapshot(key)
-        if stored is None:
-            return _unavailable("provider_unavailable")
-        snapshot = _snapshot_payload(stored)
-        stale = True
-
-    try:
-        event_timezone = ZoneInfo(event.timezone)
+        return ZoneInfo(event.timezone)
     except ZoneInfoNotFoundError:
         try:
-            event_timezone = ZoneInfo(snapshot["location"].get("timezone") or "UTC")
+            return ZoneInfo(snapshot["location"].get("timezone") or "UTC")
         except ZoneInfoNotFoundError:
-            event_timezone = ZoneInfo("UTC")
+            return ZoneInfo("UTC")
 
+
+def _event_payload(event: WeddingEvent) -> dict[str, Any]:
+    return {
+        "event_type": event.event_type,
+        "starts_at": event.starts_at.isoformat(),
+        "timezone": event.timezone,
+        "venue": event.venue_name,
+    }
+
+
+def _location_payload(event: WeddingEvent, snapshot: dict[str, Any]) -> dict[str, Any]:
+    return {
+        **snapshot["location"],
+        "venue": event.venue_name,
+        "address": event.address,
+    }
+
+
+def _selected_forecast_for_event(
+    event: WeddingEvent,
+    snapshot: dict[str, Any],
+) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
+    event_timezone = _event_timezone(event, snapshot)
     event_local = event.starts_at.astimezone(event_timezone)
     event_date = event_local.date().isoformat()
     day_forecast = [
@@ -255,7 +244,7 @@ def weather_for_invitation(invitation: Invitation) -> dict[str, Any]:
         if str(item.get("local_at", "")).startswith(event_date)
     ]
     if not day_forecast:
-        return _unavailable("forecast_not_yet_available")
+        return [], None
 
     event_timestamp = event.starts_at.timestamp()
     selected = min(
@@ -264,23 +253,88 @@ def weather_for_invitation(invitation: Invitation) -> dict[str, Any]:
             (parse_datetime(item["at"]) or event.starts_at).timestamp() - event_timestamp
         ),
     )
+    return day_forecast, selected
+
+
+def weather_for_invitation(invitation: Invitation) -> dict[str, Any]:
+    now = timezone.now()
+    weather_events = invitation.events.filter(
+        location__latitude__isnull=False,
+        location__longitude__isnull=False,
+        event_type__in=[
+            WeddingEvent.EventType.CEREMONY,
+            WeddingEvent.EventType.RECEPTION,
+        ],
+    ).select_related("location")
+    if not weather_events.exists():
+        return _unavailable("location_unconfigured")
+
+    events = list(
+        weather_events.filter(starts_at__gte=now - timedelta(hours=6)).order_by(
+            "starts_at",
+            "sort_order",
+        )
+    )
+    if not events:
+        return _unavailable("event_passed")
+
+    selections = []
+    has_stale = False
+    unavailable_reason = "forecast_not_yet_available"
+    for event in events:
+        if event.starts_at > now + timedelta(days=16):
+            unavailable_reason = "outside_forecast_window"
+            continue
+
+        key = location_key(event.location.latitude, event.location.longitude)
+        if key is None:
+            unavailable_reason = "location_unconfigured"
+            continue
+
+        stale = False
+        try:
+            snapshot = refresh_forecast(
+                key,
+                latitude=event.location.latitude,
+                longitude=event.location.longitude,
+            )
+        except WeatherProviderError:
+            stored = _latest_snapshot(key)
+            if stored is None:
+                unavailable_reason = "provider_unavailable"
+                continue
+            snapshot = _snapshot_payload(stored)
+            stale = True
+
+        day_forecast, selected = _selected_forecast_for_event(event, snapshot)
+        if selected is None:
+            unavailable_reason = "forecast_not_yet_available"
+            continue
+
+        has_stale = has_stale or stale
+        selections.append(
+            {
+                "event": _event_payload(event),
+                "location": _location_payload(event, snapshot),
+                "selected": selected,
+                "forecast": day_forecast,
+            }
+        )
+
+    if not selections:
+        return _unavailable(unavailable_reason)
+
+    primary = selections[0]
 
     return {
-        "status": "stale" if stale else "ready",
+        "status": "stale" if has_stale else "ready",
         "reason": None,
         "provider": PROVIDER_NAME,
         "attribution_url": PROVIDER_ATTRIBUTION_URL,
-        "updated_at": snapshot["analysis_at"],
-        "location": {
-            **snapshot["location"],
-            "venue": event.venue_name,
-            "address": event.address,
-        },
-        "event": {
-            "starts_at": event.starts_at.isoformat(),
-            "timezone": event.timezone,
-            "venue": event.venue_name,
-        },
-        "selected": selected,
-        "forecast": day_forecast,
+        "updated_at": max(item["selected"]["analysis_at"] for item in selections),
+        "location": primary["location"],
+        "event": primary["event"],
+        "selected": primary["selected"],
+        "forecast": primary["forecast"],
+        "selections": selections,
     }
