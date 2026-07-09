@@ -16,11 +16,14 @@ import {
 import { env } from "@/lib/env";
 import type { Locale } from "@/lib/locales";
 
-async function apiFetch(path: string): Promise<unknown> {
+async function apiFetch(
+  path: string,
+  options: { timeoutMs?: number } = {},
+): Promise<unknown> {
   const response = await fetch(`${env.NEXT_PUBLIC_API_URL}${path}`, {
     headers: { Accept: "application/json" },
     next: { revalidate: 300 },
-    signal: AbortSignal.timeout(2_000),
+    signal: AbortSignal.timeout(options.timeoutMs ?? 2_000),
   });
 
   if (!response.ok) {
@@ -87,7 +90,9 @@ export async function fetchInvitationWeather(
 ): Promise<InvitationWeather | null> {
   try {
     return invitationWeatherSchema.parse(
-      await apiFetch(`/invitations/${publicSlug}/weather`),
+      await apiFetch(`/invitations/${publicSlug}/weather`, {
+        timeoutMs: 8_000,
+      }),
     );
   } catch {
     return null;
