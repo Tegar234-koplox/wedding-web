@@ -10,6 +10,8 @@ from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
 
+from invitations.models import Invitation
+from invitations.preview import preview_token_for
 from tests.factories import create_invitation, create_theme, create_weather_event
 from weather.exceptions import WeatherProviderError
 from weather.models import WeatherFetchLog, WeatherSnapshot
@@ -130,6 +132,51 @@ def test_weather_endpoint_returns_selected_forecast(client):
     assert response.json()["status"] == "ready"
     assert response.json()["selected"]["description"]["en"] == "Slight rain"
     assert response.json()["attribution_url"] == "https://open-meteo.com/"
+
+
+@pytest.mark.django_db
+def test_weather_endpoint_accepts_valid_preview_token_for_draft(client):
+    cache.clear()
+    event_at = timezone.now() + timedelta(hours=24)
+    invitation = create_invitation(
+        theme=create_theme(slug="preview-weather-theme"),
+        public_slug="preview-weather",
+        status=Invitation.Status.DRAFT,
+    )
+    create_weather_event(invitation=invitation, starts_at=event_at)
+
+    with patch(
+        "weather.services.fetch_open_meteo_forecast",
+        return_value=open_meteo_payload(event_at),
+    ):
+        response = client.get(
+            reverse(
+                "invitation-weather",
+                kwargs={"public_slug": invitation.public_slug},
+            ),
+            {"token": preview_token_for(invitation)},
+        )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "ready"
+
+
+@pytest.mark.django_db
+def test_weather_endpoint_keeps_draft_private_without_preview_token(client):
+    invitation = create_invitation(
+        theme=create_theme(slug="private-weather-theme"),
+        public_slug="private-weather",
+        status=Invitation.Status.DRAFT,
+    )
+
+    response = client.get(
+        reverse(
+            "invitation-weather",
+            kwargs={"public_slug": invitation.public_slug},
+        )
+    )
+
+    assert response.status_code == 404
 
 
 @pytest.mark.django_db

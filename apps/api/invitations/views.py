@@ -106,6 +106,18 @@ class InvitationWeatherView(APIView):
         )
     )
     def get(self, request, public_slug: str) -> Response:
+        token = request.query_params.get("token") or request.query_params.get("preview")
+        if token:
+            invitation = (
+                Invitation.objects.filter(public_slug=public_slug, archived_at__isnull=True)
+                .select_related("theme", "package")
+                .prefetch_related("events__location", "media__asset", "theme__media__asset")
+                .first()
+            )
+            if invitation is None or not preview_token_is_valid(invitation, token):
+                raise Http404
+            return Response(weather_for_invitation(invitation))
+
         invitation = public_invitations().filter(public_slug=public_slug).first()
         if invitation is None:
             raise Http404

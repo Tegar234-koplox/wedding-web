@@ -87,10 +87,16 @@ export async function fetchInvitationWishes(
 
 export async function fetchInvitationWeather(
   publicSlug: string,
+  previewToken?: string,
 ): Promise<InvitationWeather | null> {
   try {
+    const query = new URLSearchParams();
+    if (previewToken) {
+      query.set("token", previewToken);
+    }
+    const suffix = query.size ? `?${query.toString()}` : "";
     return invitationWeatherSchema.parse(
-      await apiFetch(`/invitations/${publicSlug}/weather`, {
+      await apiFetch(`/invitations/${publicSlug}/weather${suffix}`, {
         timeoutMs: 8_000,
       }),
     );
