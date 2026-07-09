@@ -47,7 +47,7 @@ export default async function PublicInvitationPage({
 
   const [invitation, weather] = await Promise.all([
     fetchPublicInvitation(publicSlug, query?.preview, query?.guest),
-    fetchInvitationWeather(publicSlug),
+    fetchInvitationWeather(publicSlug, query?.preview),
   ]);
   if (!invitation) {
     notFound();
