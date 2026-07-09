@@ -217,8 +217,8 @@ export function ThemedWeather({
       >
         <div className={`absolute inset-0 ${design.overlay} opacity-35`} />
         <div className="relative">
-          <div className="flex flex-wrap items-start justify-between gap-6">
-            <div>
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4 md:gap-6">
+            <div className="min-w-0">
               <p className="text-[0.62rem] uppercase tracking-[0.24em] opacity-55">
                 {id
                   ? "Prakiraan Cuaca Lokasi Acara"
@@ -240,14 +240,14 @@ export function ThemedWeather({
               <MeteoconsWeatherIcon
                 alt={primarySlot.selected.description[locale]}
                 packageCode={packageCode}
-                sizeClass={`h-16 w-16 ${rich ? "md:h-20 md:w-20" : "md:h-16 md:w-16"}`}
+                sizeClass={`h-14 w-14 justify-self-end md:h-16 md:w-16 ${rich ? "md:h-20 md:w-20" : ""}`}
                 weatherCode={primarySlot.selected.weather_code}
               />
             ) : (
               <MeteoconsWeatherIcon
                 alt={id ? "Prakiraan cuaca" : "Weather forecast"}
                 packageCode={packageCode}
-                sizeClass={`h-16 w-16 ${rich ? "md:h-20 md:w-20" : "md:h-16 md:w-16"}`}
+                sizeClass={`h-14 w-14 justify-self-end md:h-16 md:w-16 ${rich ? "md:h-20 md:w-20" : ""}`}
                 weatherCode={0}
               />
             )}
