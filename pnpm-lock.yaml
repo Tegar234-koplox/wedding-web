@@ -43,6 +43,9 @@ importers:
       gsap:
         specifier: ^3.13.0
         version: 3.15.0
+      lottie-web:
+        specifier: ^5.13.0
+        version: 5.13.0
       lucide-react:
         specifier: ^0.536.0
         version: 0.536.0(react@19.2.7)
@@ -4402,6 +4405,12 @@ packages:
     peerDependencies:
       react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
+  lottie-web@5.13.0:
+    resolution:
+      {
+        integrity: sha512-+gfBXl6sxXMPe8tKQm7qzLnUy5DUPJPKIyRHwtpCpyUEYjHYRJC/5gjUvdkuO2c3JllrPtHXH5UJJK8LRYl5yQ==,
+      }
+
   lz-string@1.5.0:
     resolution:
       {
@@ -8512,6 +8521,8 @@ snapshots:
   lucide-react@0.536.0(react@19.2.7):
     dependencies:
       react: 19.2.7
+
+  lottie-web@5.13.0: {}
 
   lz-string@1.5.0: {}
 
