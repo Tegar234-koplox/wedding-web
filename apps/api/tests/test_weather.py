@@ -20,24 +20,27 @@ from weather.services import location_key, refresh_forecast, weather_for_invitat
 from weather.tasks import schedule_upcoming_weather_refreshes
 
 
-def open_meteo_payload(event_at=None):
-    event_at = event_at or timezone.now() + timedelta(hours=24)
-    local_at = event_at.astimezone(ZoneInfo("Asia/Jakarta")).strftime("%Y-%m-%dT%H:00")
+def open_meteo_payload(*event_times):
+    event_times = event_times or (timezone.now() + timedelta(hours=24),)
+    local_times = [
+        event_at.astimezone(ZoneInfo("Asia/Jakarta")).strftime("%Y-%m-%dT%H:00")
+        for event_at in event_times
+    ]
     return {
         "latitude": -6.164721,
         "longitude": 106.845384,
         "timezone": "Asia/Jakarta",
         "utc_offset_seconds": 25200,
         "hourly": {
-            "time": [local_at],
-            "temperature_2m": [29],
-            "relative_humidity_2m": [76],
-            "cloud_cover": [55],
-            "precipitation": [0.5],
-            "weather_code": [61],
-            "wind_speed_10m": [5.2],
-            "wind_direction_10m": [90],
-            "visibility": [8000],
+            "time": local_times,
+            "temperature_2m": [29 for _ in local_times],
+            "relative_humidity_2m": [76 for _ in local_times],
+            "cloud_cover": [55 for _ in local_times],
+            "precipitation": [0.5 for _ in local_times],
+            "weather_code": [61 for _ in local_times],
+            "wind_speed_10m": [5.2 for _ in local_times],
+            "wind_direction_10m": [90 for _ in local_times],
+            "visibility": [8000 for _ in local_times],
         },
     }
 
@@ -153,7 +156,7 @@ def test_weather_endpoint_returns_ceremony_and_reception_slots(client):
 
     with patch(
         "weather.services.fetch_open_meteo_forecast",
-        return_value=open_meteo_payload(ceremony_at),
+        return_value=open_meteo_payload(ceremony_at, reception_at),
     ):
         response = client.get(
             reverse(
