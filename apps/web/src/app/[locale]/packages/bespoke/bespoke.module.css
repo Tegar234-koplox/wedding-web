@@ -1,0 +1,117 @@
+.page {
+  position: relative;
+  isolation: isolate;
+  min-height: 100vh;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(5, 4, 3, 0.82), rgba(10, 7, 3, 0.98)), #070604;
+}
+
+.page::before,
+.page::after {
+  position: absolute;
+  z-index: -2;
+  inset: -15%;
+  pointer-events: none;
+  content: "";
+}
+
+.page::before {
+  background-image:
+    radial-gradient(circle, rgba(250, 220, 154, 0.8) 0 1px, transparent 1.8px),
+    radial-gradient(circle, rgba(151, 92, 28, 0.72) 0 1.2px, transparent 2px),
+    radial-gradient(circle, rgba(225, 177, 91, 0.42) 0 0.8px, transparent 1.7px);
+  background-position:
+    0 0,
+    70px 90px,
+    150px 35px;
+  background-size:
+    190px 190px,
+    270px 270px,
+    130px 130px;
+  opacity: 0.58;
+  animation: bespoke-drift 24s linear infinite;
+}
+
+.page::after {
+  z-index: -1;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 0 36%,
+    rgba(3, 2, 1, 0.72) 78%
+  );
+}
+
+.display {
+  font-family: Didot, "Bodoni 72", "Bodoni MT", "Iowan Old Style", serif;
+}
+
+.card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  max-width: 72rem;
+  margin-inline: auto;
+  padding: clamp(2rem, 5vw, 5.5rem);
+  box-shadow: 0 40px 140px rgba(0, 0, 0, 0.62);
+}
+
+.card::before {
+  position: absolute;
+  z-index: -2;
+  inset: -120%;
+  background: conic-gradient(
+    from 90deg,
+    transparent 0 39%,
+    #6f4316 44%,
+    #ffe8ad 49%,
+    #b87924 55%,
+    transparent 62% 100%
+  );
+  content: "";
+  animation: bespoke-card-shimmer 8s linear infinite;
+}
+
+.card::after {
+  position: absolute;
+  z-index: -1;
+  inset: 1px;
+  background:
+    linear-gradient(145deg, rgba(26, 19, 10, 0.42), transparent 42%), #080706;
+  content: "";
+}
+
+.rule {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(216, 173, 88, 0.72),
+    transparent
+  );
+}
+
+@keyframes bespoke-drift {
+  to {
+    background-position:
+      190px 190px,
+      -200px 360px,
+      280px -95px;
+  }
+}
+
+@keyframes bespoke-card-shimmer {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page::before,
+  .card::before {
+    animation: none;
+  }
+
+  .card::before {
+    background: #d8ad58;
+  }
+}

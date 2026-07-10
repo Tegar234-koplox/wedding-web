@@ -193,6 +193,35 @@ export const packages: ServicePackage[] = [
       ],
     },
   },
+  {
+    code: "bespoke",
+    name: "Bespoke",
+    price: "Mulai Rp 849k",
+    description: {
+      id: "Pengalaman undangan full custom yang dibangun dari brief, karakter, dan arah visual perayaan Anda.",
+      en: "A fully custom invitation experience shaped around your brief, character, and visual direction.",
+    },
+    features: {
+      id: [
+        "Semua fitur Couture",
+        "Brief dan art direction khusus",
+        "Struktur section fleksibel",
+        "Warna, tipografi, overlay, dan motion khusus",
+        "1 konsep utama + 1 alternatif ringan",
+        "Revisi 8 kali + Final Check",
+        "Estimasi 10-14 hari kerja setelah data lengkap",
+      ],
+      en: [
+        "Everything in Couture",
+        "Dedicated brief and art direction",
+        "Flexible section structure",
+        "Custom color, typography, overlay, and motion",
+        "1 primary concept + 1 light alternative",
+        "8 revisions + Final Check",
+        "Estimated 10-14 business days after complete materials",
+      ],
+    },
+  },
 ];
 
 export function getTheme(slug: string): Theme | undefined {

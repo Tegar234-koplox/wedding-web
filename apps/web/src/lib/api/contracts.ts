@@ -55,7 +55,7 @@ export const publicPackageSchema = z.object({
 export const publicInvitationSchema = invitationEnvelopeSchema.extend({
   public_slug: z.string(),
   theme_slug: rendererKeySchema,
-  package_code: packageCodeSchema.nullable(),
+  package_code: z.union([packageCodeSchema, z.literal("bespoke")]).nullable(),
   guest: z
     .object({
       displayName: z.string(),

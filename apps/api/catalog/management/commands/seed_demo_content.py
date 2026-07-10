@@ -30,6 +30,7 @@ PACKAGES = [
     ("essential", 99000, False),
     ("signature", 249000, True),
     ("couture", 549000, False),
+    ("bespoke", 849000, False),
 ]
 
 PACKAGE_FEATURES = {
@@ -74,6 +75,39 @@ PACKAGE_FEATURES = {
             "Gallery +4 photos from Signature",
         ),
     ],
+    "bespoke": [
+        ("couture", "Semua fitur Couture", "Everything in Couture"),
+        (
+            "dedicated-direction",
+            "Brief dan art direction khusus",
+            "Dedicated brief and art direction",
+        ),
+        (
+            "flexible-sections",
+            "Struktur section fleksibel",
+            "Flexible section structure",
+        ),
+        (
+            "custom-visual-system",
+            "Warna, tipografi, overlay, dan motion khusus",
+            "Custom color, typography, overlay, and motion",
+        ),
+        (
+            "concept-options",
+            "1 konsep utama + 1 alternatif ringan",
+            "1 primary concept + 1 light alternative",
+        ),
+        (
+            "revisions-final-check",
+            "Revisi 8 kali + Final Check",
+            "8 revisions + Final Check",
+        ),
+        (
+            "production-window",
+            "Estimasi 10-14 hari kerja setelah data lengkap",
+            "Estimated 10-14 business days after complete materials",
+        ),
+    ],
 }
 
 PACKAGE_SUMMARIES = {
@@ -88,6 +122,16 @@ PACKAGE_SUMMARIES = {
     "couture": {
         "id": "Art direction khusus untuk perayaan yang ingin tampil benar-benar berbeda.",
         "en": "Bespoke art direction for celebrations that want to feel truly distinct.",
+    },
+    "bespoke": {
+        "id": (
+            "Pengalaman undangan full custom yang dibangun dari brief, karakter, "
+            "dan arah visual perayaan Anda."
+        ),
+        "en": (
+            "A fully custom invitation experience shaped around your brief, character, "
+            "and visual direction."
+        ),
     },
 }
 

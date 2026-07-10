@@ -598,6 +598,9 @@ export function getPremiumVisualConfig(
 export function resolvePackageCode(
   value: string | null | undefined,
 ): PackageCode {
+  if (value === "bespoke") {
+    return "couture";
+  }
   if (value === "essential" || value === "signature" || value === "couture") {
     return value;
   }
