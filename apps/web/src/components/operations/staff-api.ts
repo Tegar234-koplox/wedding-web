@@ -114,6 +114,16 @@ export type DetailRevision = {
   created_by_email: string | null;
 };
 
+export type DetailTimelineEntry = {
+  description: string;
+  number: string;
+  title: string;
+};
+
+export type DetailTimeline = Partial<
+  Record<"opening" | "middle" | "final" | "conflict" | "intimacy" | "trust", DetailTimelineEntry[]>
+>;
+
 export type GuestDeliveryLink = {
   id: string;
   display_name: string;
@@ -201,6 +211,11 @@ export type StaffOrderDetail = {
     renderer_key: string;
     bank_accounts: Array<Record<string, string>>;
     rsvp_manual: Record<string, number | string>;
+    story: {
+      body?: string;
+      heading?: string;
+    };
+    timeline: DetailTimeline;
   };
   events: DetailEvent[];
   media: DetailMedia[];
