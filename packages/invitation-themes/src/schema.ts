@@ -83,6 +83,12 @@ const safeMediaSrc = z.string().max(500).refine(
   { message: "Only local paths or HTTP(S) URLs are allowed" },
 );
 
+const timelineEntrySchema = z.object({
+  description: safeText.max(700),
+  number: safeText.max(8),
+  title: safeText.max(120),
+});
+
 export const invitationContentSchema = z.object({
   couple: z.object({
     partnerOne: safeText.max(80),
@@ -108,6 +114,16 @@ export const invitationContentSchema = z.object({
     heading: safeText.max(120),
     body: safeText,
   }),
+  timeline: z
+    .object({
+      conflict: z.array(timelineEntrySchema).max(6).optional(),
+      final: z.array(timelineEntrySchema).max(6).optional(),
+      intimacy: z.array(timelineEntrySchema).max(6).optional(),
+      middle: z.array(timelineEntrySchema).max(6).optional(),
+      opening: z.array(timelineEntrySchema).max(6).optional(),
+      trust: z.array(timelineEntrySchema).max(6).optional(),
+    })
+    .optional(),
   quote: z.object({
     text: safeText.max(500),
     attribution: safeText.max(120),

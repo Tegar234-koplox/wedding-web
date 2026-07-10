@@ -79,7 +79,15 @@ type OrderDetailForm = {
   rsvp_invited: string;
   rsvp_confirmed: string;
   status_label: string;
+  story_body: string;
+  story_heading: string;
   theme_slug: string;
+  timeline_conflict: string;
+  timeline_final: string;
+  timeline_intimacy: string;
+  timeline_middle: string;
+  timeline_opening: string;
+  timeline_trust: string;
   total_amount: string;
 };
 
@@ -104,6 +112,21 @@ type MediaSectionPlan = {
 type ChecklistItem = {
   done: boolean;
   label: string;
+};
+
+type TimelineBlock = {
+  description: string;
+  field: keyof Pick<
+    OrderDetailForm,
+    | "timeline_conflict"
+    | "timeline_final"
+    | "timeline_intimacy"
+    | "timeline_middle"
+    | "timeline_opening"
+    | "timeline_trust"
+  >;
+  label: string;
+  mode: "opening" | "middle" | "final" | "conflict" | "intimacy" | "trust";
 };
 
 const emptyForm: OrderDetailForm = {
@@ -143,7 +166,15 @@ const emptyForm: OrderDetailForm = {
   rsvp_invited: "0",
   rsvp_confirmed: "0",
   status_label: "Baru",
+  story_body: "",
+  story_heading: "Cerita kami",
   theme_slug: "",
+  timeline_conflict: "",
+  timeline_final: "",
+  timeline_intimacy: "",
+  timeline_middle: "",
+  timeline_opening: "",
+  timeline_trust: "",
   total_amount: "0",
 };
 
@@ -195,6 +226,68 @@ function mediaPlanFor(packageCode: string): MediaSectionPlan[] {
   return mediaSectionPlans[packageCode] ?? mediaSectionPlans.essential!;
 }
 
+function timelineBlocksFor(packageCode: string): TimelineBlock[] {
+  if (packageCode === "couture") {
+    return [
+      {
+        description: "Section 3, bagian awal cerita.",
+        field: "timeline_opening",
+        label: "Opening 01-03",
+        mode: "opening",
+      },
+      {
+        description: "Section 5, konflik dan penyadaran.",
+        field: "timeline_conflict",
+        label: "Conflict 04-06",
+        mode: "conflict",
+      },
+      {
+        description: "Section 7, detail keintiman.",
+        field: "timeline_intimacy",
+        label: "Intimacy 07-09",
+        mode: "intimacy",
+      },
+      {
+        description: "Section 9, trust dan penguatan.",
+        field: "timeline_trust",
+        label: "Trust 10-12",
+        mode: "trust",
+      },
+      {
+        description: "Section 11, final menuju hari acara.",
+        field: "timeline_final",
+        label: "Final 11-13",
+        mode: "final",
+      },
+    ];
+  }
+
+  if (packageCode === "signature") {
+    return [
+      {
+        description: "Section 3, bagian awal cerita.",
+        field: "timeline_opening",
+        label: "Opening 01-03",
+        mode: "opening",
+      },
+      {
+        description: "Section 5, konflik lembut dan pertumbuhan.",
+        field: "timeline_middle",
+        label: "Middle 04-06",
+        mode: "middle",
+      },
+      {
+        description: "Section 7, final menuju hari acara.",
+        field: "timeline_final",
+        label: "Final 07-09",
+        mode: "final",
+      },
+    ];
+  }
+
+  return [];
+}
+
 function gallerySlots(value: string): string[] {
   return value ? value.split("\n") : [];
 }
@@ -236,6 +329,33 @@ function mediaSectionStatus(
   };
 }
 
+function timelineEntriesToText(
+  entries?: Array<{ description?: string; number?: string; title?: string }>,
+): string {
+  return (entries ?? [])
+    .map((entry) =>
+      [entry.number, entry.title, entry.description]
+        .map((item) => String(item ?? "").trim())
+        .join(" | "),
+    )
+    .filter((line) => line.replace(/\|/g, "").trim())
+    .join("\n");
+}
+
+function timelineTextToEntries(value: string) {
+  return value
+    .split("\n")
+    .map((line) => {
+      const [number = "", title = "", ...descriptionParts] = line.split("|");
+      return {
+        description: descriptionParts.join("|").trim(),
+        number: number.trim(),
+        title: title.trim(),
+      };
+    })
+    .filter((entry) => entry.number && entry.title && entry.description);
+}
+
 function toDatetimeInput(value?: string | null): string {
   if (!value) {
     return "";
@@ -254,6 +374,8 @@ function fromDetail(detail: StaffOrderDetail): OrderDetailForm {
   const gallery = detail.media.filter((item) => item.role === "gallery");
   const backsound = detail.media.find((item) => item.role === "backsound");
   const customChecklist = detail.order.custom_checklist ?? {};
+  const story = detail.invitation?.story ?? {};
+  const timeline = detail.invitation?.timeline ?? {};
 
   return {
     bank_account_bank: account.bank ?? "",
@@ -292,7 +414,15 @@ function fromDetail(detail: StaffOrderDetail): OrderDetailForm {
     rsvp_invited: String(rsvpManual.total_invited ?? detail.rsvp.total_invited ?? 0),
     rsvp_confirmed: String(rsvpManual.total_confirmed ?? detail.rsvp.total_confirmed ?? 0),
     status_label: workflowFor(detail.order),
+    story_body: story.body ?? "",
+    story_heading: story.heading ?? "Cerita kami",
     theme_slug: detail.order.theme_slug ?? detail.invitation?.theme_slug ?? "",
+    timeline_conflict: timelineEntriesToText(timeline.conflict),
+    timeline_final: timelineEntriesToText(timeline.final),
+    timeline_intimacy: timelineEntriesToText(timeline.intimacy),
+    timeline_middle: timelineEntriesToText(timeline.middle),
+    timeline_opening: timelineEntriesToText(timeline.opening),
+    timeline_trust: timelineEntriesToText(timeline.trust),
     total_amount: detail.order.total_amount,
   };
 }
@@ -540,7 +670,17 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
             total_invited: totalInvited,
           },
           status: workflowStatusDefaults[form.status_label] ?? "lead",
+          story: {
+            body: form.story_body.trim(),
+            heading: form.story_heading.trim(),
+          },
           theme_slug: form.theme_slug || null,
+          timeline: Object.fromEntries(
+            timelineBlocks.map((block) => [
+              block.mode,
+              timelineTextToEntries(form[block.field]),
+            ]),
+          ),
           total_amount: totalAmount,
         }),
         method: "PATCH",
@@ -723,6 +863,7 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
   const lifecycleLabel = linkLifecycleLabel(detail);
   const lifecycleDescription = linkLifecycleDescription(detail);
   const mediaSections = mediaPlanFor(form.package_code);
+  const timelineBlocks = timelineBlocksFor(form.package_code);
   const galleryUrlSlots = gallerySlots(form.gallery_urls);
   const expectedGalleryCount = mediaSections.reduce((total, section) => total + section.count, 0);
   const filledGalleryCount = galleryUrlSlots.filter((url) => url.trim()).length;
@@ -737,6 +878,13 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
     { done: !nameWarning, label: "Nama pasangan" },
     { done: Boolean(form.theme_slug), label: "Tema" },
     { done: Boolean(form.package_code), label: "Paket" },
+    { done: Boolean(form.story_body.trim()), label: "Cerita utama" },
+    {
+      done:
+        timelineBlocks.length === 0 ||
+        timelineBlocks.every((block) => timelineTextToEntries(form[block.field]).length > 0),
+      label: "Timeline cerita",
+    },
     { done: Boolean(form.ceremony_starts_at && form.ceremony_venue_name), label: "Data akad" },
     {
       done: Boolean(form.reception_starts_at && form.reception_venue_name),
@@ -1131,6 +1279,55 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
                 </select>
               </Field>
             </div>
+          </Panel>
+
+          <Panel eyebrow="Cerita & Timeline" title="Konten editorial.">
+            <div className="grid gap-4 md:grid-cols-[0.7fr_1.3fr]">
+              <Field label="Judul cerita">
+                <input
+                  className={controlClassName}
+                  onChange={(event) => updateForm("story_heading", event.target.value)}
+                  placeholder="Cerita kami"
+                  value={form.story_heading}
+                />
+              </Field>
+              <Field label="Short love story">
+                <textarea
+                  className="min-h-28 w-full border border-white/12 bg-black/20 p-3 text-sm text-white outline-none transition focus:border-[var(--color-gold)]"
+                  onChange={(event) => updateForm("story_body", event.target.value)}
+                  placeholder="Tulis cerita utama pasangan. Jika dikosongkan, preview memakai copy default tema."
+                  value={form.story_body}
+                />
+              </Field>
+            </div>
+
+            {timelineBlocks.length ? (
+              <div className="mt-5 grid gap-4">
+                <div className="border border-[var(--color-gold)]/35 bg-[var(--color-gold)]/10 p-4 text-sm leading-6 text-white/70">
+                  Isi satu timeline per baris dengan format{" "}
+                  <span className="font-semibold text-white">01 | Judul | Deskripsi</span>.
+                  Kosongkan blok yang ingin memakai timeline default template.
+                </div>
+                {timelineBlocks.map((block) => (
+                  <Field
+                    key={block.mode}
+                    label={`${block.label} - ${block.description}`}
+                  >
+                    <textarea
+                      className="min-h-32 w-full border border-white/12 bg-black/20 p-3 text-sm text-white outline-none transition focus:border-[var(--color-gold)]"
+                      onChange={(event) => updateForm(block.field, event.target.value)}
+                      placeholder={"01 | Bertemu | Sebuah awal yang sederhana...\n02 | Bertumbuh | Cerita itu tumbuh melalui waktu..."}
+                      value={form[block.field]}
+                    />
+                  </Field>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-4 border border-white/10 bg-black/20 p-4 text-sm leading-6 text-white/55">
+                Paket Essential memakai short love story tanpa timeline panjang. Signature dan
+                Couture akan menampilkan blok timeline tambahan sesuai struktur paket.
+              </p>
+            )}
           </Panel>
 
           <Panel eyebrow="Custom Request" title="Brief dan approval.">

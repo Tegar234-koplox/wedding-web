@@ -314,6 +314,41 @@ def _update_event(invitation: Invitation, event_type: str, data: dict) -> None:
 def _update_invitation_content(invitation: Invitation, data: dict) -> None:
     content = invitation.content if isinstance(invitation.content, dict) else {}
     changed = False
+    if "story" in data:
+        story = data.get("story") if isinstance(data.get("story"), dict) else {}
+        heading = str(story.get("heading") or "").strip()
+        body = str(story.get("body") or "").strip()
+        content["story"] = {
+            "heading": heading or "Cerita kami",
+            "body": body or "Kami bertemu dan bertumbuh bersama.",
+        }
+        changed = True
+    if "timeline" in data:
+        raw_timeline = data.get("timeline") if isinstance(data.get("timeline"), dict) else {}
+        allowed_modes = {"opening", "middle", "final", "conflict", "intimacy", "trust"}
+        timeline: dict[str, list[dict[str, str]]] = {}
+        for mode, raw_entries in raw_timeline.items():
+            if mode not in allowed_modes or not isinstance(raw_entries, list):
+                continue
+            entries = []
+            for raw_entry in raw_entries:
+                if not isinstance(raw_entry, dict):
+                    continue
+                number = str(raw_entry.get("number") or "").strip()[:8]
+                title = str(raw_entry.get("title") or "").strip()[:120]
+                description = str(raw_entry.get("description") or "").strip()[:700]
+                if number and title and description:
+                    entries.append(
+                        {
+                            "number": number,
+                            "title": title,
+                            "description": description,
+                        }
+                    )
+            if entries:
+                timeline[mode] = entries[:6]
+        content["timeline"] = timeline
+        changed = True
     if "bank_accounts" in data:
         content["bank_accounts"] = data.get("bank_accounts") or []
         changed = True
@@ -509,7 +544,15 @@ class StaffOrderDetailView(RetrieveUpdateAPIView):
 
     def patch(self, request, *args, **kwargs) -> Response:
         order = self.get_object()
-        nested_keys = {"ceremony", "reception", "bank_accounts", "rsvp_manual", "media_urls"}
+        nested_keys = {
+            "ceremony",
+            "reception",
+            "bank_accounts",
+            "rsvp_manual",
+            "media_urls",
+            "story",
+            "timeline",
+        }
         should_sync_invitation = bool(
             nested_keys.intersection(request.data) or "client_name" in request.data
         )

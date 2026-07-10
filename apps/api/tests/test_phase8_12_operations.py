@@ -346,6 +346,26 @@ def test_staff_can_update_manual_order_detail_payload(client):
                 "total_declined": 5,
                 "response_rate": 85,
             },
+            "story": {
+                "heading": "Cerita kami",
+                "body": "Cerita custom Reno dan Erisa.",
+            },
+            "timeline": {
+                "opening": [
+                    {
+                        "number": "01",
+                        "title": "Bertemu",
+                        "description": "Awal custom dari staff.",
+                    }
+                ],
+                "middle": [
+                    {
+                        "number": "04",
+                        "title": "Bertumbuh",
+                        "description": "Bagian tengah custom dari staff.",
+                    }
+                ],
+            },
             "media_urls": {
                 "photo": "https://res.cloudinary.com/demo/image/upload/photo.jpg",
                 "gallery": [
@@ -375,6 +395,10 @@ def test_staff_can_update_manual_order_detail_payload(client):
     assert order.invitation.media.filter(role=InvitationMedia.Role.BACKSOUND).count() == 1
     assert order.invitation.content["bank_accounts"][0]["bank"] == "BCA"
     assert order.invitation.content["rsvp_manual"]["total_invited"] == 100
+    assert order.invitation.content["story"]["body"] == "Cerita custom Reno dan Erisa."
+    assert order.invitation.content["timeline"]["opening"][0]["title"] == "Bertemu"
+    assert response.json()["invitation"]["story"]["body"] == "Cerita custom Reno dan Erisa."
+    assert response.json()["invitation"]["timeline"]["middle"][0]["number"] == "04"
     assert response.json()["order"]["custom_status"] == Order.CustomStatus.APPROVED
     assert response.json()["order"]["custom_checklist"]["overlay_assets"] is True
     assert response.json()["preview_url"].startswith("http://testserver/id/i/")
@@ -397,6 +421,10 @@ def test_staff_can_update_manual_order_detail_payload(client):
     assert order.invitation.content["couple"]["partnerTwo"] == "Kayla"
     assert preview_response.json()["content"]["couple"]["partnerOne"] == "Tirta"
     assert preview_response.json()["content"]["couple"]["partnerTwo"] == "Kayla"
+    assert preview_response.json()["content"]["story"]["body"] == "Cerita custom Reno dan Erisa."
+    assert preview_response.json()["content"]["timeline"]["opening"][0]["description"] == (
+        "Awal custom dari staff."
+    )
 
 
 @pytest.mark.django_db

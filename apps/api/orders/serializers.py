@@ -280,6 +280,8 @@ class StaffOrderDetailSerializer(serializers.Serializer):
 
     def _invitation_payload(self, invitation: Invitation) -> dict:
         content = invitation.content if isinstance(invitation.content, dict) else {}
+        story = content.get("story") if isinstance(content.get("story"), dict) else {}
+        timeline = content.get("timeline") if isinstance(content.get("timeline"), dict) else {}
         return {
             "id": str(invitation.id),
             "public_slug": invitation.public_slug,
@@ -291,6 +293,8 @@ class StaffOrderDetailSerializer(serializers.Serializer):
             "renderer_key": invitation.renderer_key,
             "bank_accounts": content.get("bank_accounts", []),
             "rsvp_manual": content.get("rsvp_manual", {}),
+            "story": story,
+            "timeline": timeline,
             "partner_one": content.get("couple", {}).get("partner_one")
             or content.get("couple", {}).get("partnerOne", {}),
             "partner_two": content.get("couple", {}).get("partner_two")

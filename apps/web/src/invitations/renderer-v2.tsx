@@ -55,8 +55,28 @@ type BankAccount = {
 
 type TimelineEntry = readonly [string, string, string];
 type TimelineEntries = readonly TimelineEntry[];
+type TimelineMode = "opening" | "middle" | "final" | "conflict" | "intimacy" | "trust";
 
 const textFadeTransition = { duration: 0.85, ease: [0.22, 1, 0.36, 1] } as const;
+
+function timelineOverride(
+  invitation: InvitationEnvelope,
+  mode: TimelineMode,
+): TimelineEntries | null {
+  const timeline = invitation.content.timeline;
+  const entries = timeline?.[mode];
+  if (!entries?.length) {
+    return null;
+  }
+  const normalized = entries
+    .map((entry) => [
+      entry.number.trim(),
+      entry.title.trim(),
+      entry.description.trim(),
+    ] as const)
+    .filter(([number, title, description]) => number && title && description);
+  return normalized.length ? normalized : null;
+}
 
 const essentialSectionFourPhotos = [
   {
@@ -769,6 +789,11 @@ function getTimelineEntries(
   invitation: InvitationEnvelope,
   mode: "opening" | "middle" | "final",
 ) {
+  const override = timelineOverride(invitation, mode);
+  if (override) {
+    return override;
+  }
+
   const id = invitation.locale === "id";
   if (mode === "middle") {
     return id
@@ -863,6 +888,11 @@ function getCoutureTimelineEntries(
   invitation: InvitationEnvelope,
   mode: "opening" | "conflict" | "intimacy" | "trust" | "final",
 ): TimelineEntries {
+  const override = timelineOverride(invitation, mode);
+  if (override) {
+    return override;
+  }
+
   const id = invitation.locale === "id";
   const entries = {
     opening: id
