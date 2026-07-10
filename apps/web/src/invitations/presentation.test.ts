@@ -210,6 +210,7 @@ describe("premium presentation configuration", () => {
     expect(resolvePackageCode("essential")).toBe("essential");
     expect(resolvePackageCode("signature")).toBe("signature");
     expect(resolvePackageCode("couture")).toBe("couture");
+    expect(resolvePackageCode("bespoke")).toBe("couture");
     expect(resolvePackageCode("unknown")).toBe("essential");
     expect(resolvePackageCode(undefined)).toBe("essential");
   });

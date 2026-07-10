@@ -223,11 +223,12 @@ const mediaSectionPlans: Record<string, MediaSectionPlan[]> = {
 };
 
 function mediaPlanFor(packageCode: string): MediaSectionPlan[] {
-  return mediaSectionPlans[packageCode] ?? mediaSectionPlans.essential!;
+  const baselinePackage = packageCode === "bespoke" ? "couture" : packageCode;
+  return mediaSectionPlans[baselinePackage] ?? mediaSectionPlans.essential!;
 }
 
 function timelineBlocksFor(packageCode: string): TimelineBlock[] {
-  if (packageCode === "couture") {
+  if (packageCode === "couture" || packageCode === "bespoke") {
     return [
       {
         description: "Section 3, bagian awal cerita.",
