@@ -112,7 +112,7 @@ export const packages: ServicePackage[] = [
   {
     code: "essential",
     name: "Essential",
-    price: "Rp 99k",
+    price: "Rp 99K",
     description: {
       id: "Untuk pasangan yang membutuhkan undangan digital rapi dan personal.",
       en: "For couples who want a polished, personal digital invitation.",
@@ -141,7 +141,7 @@ export const packages: ServicePackage[] = [
   {
     code: "signature",
     name: "Signature",
-    price: "Rp 249k",
+    price: "Rp 249K",
     featured: true,
     description: {
       id: "Pengalaman lengkap dengan cerita, RSVP, dan sentuhan editorial.",
@@ -169,25 +169,25 @@ export const packages: ServicePackage[] = [
   {
     code: "couture",
     name: "Couture",
-    price: "Rp 549k",
+    price: "Rp 549K",
     description: {
-      id: "Art direction khusus untuk perayaan yang ingin tampil benar-benar berbeda.",
-      en: "Bespoke art direction for celebrations that need a singular presence.",
+      id: "Desain lebih kompleks untuk perayaan yang ingin tampil benar-benar berbeda.",
+      en: "More complex designs for celebrations that want to be truly different.",
     },
     features: {
       id: [
         "Semua fitur Signature",
-        "Art direction khusus",
-        "Penyesuaian warna dan tipografi",
-        "Motion sequence khusus",
+        "Kompleksitas desain dan motion",
+        "Tampilan lebih hidup",
+        "Detail love story dan timeline",
         "Revisi 8 kali",
         "Galeri +4 foto dari paket Signature",
       ],
       en: [
         "Everything in Signature",
-        "Bespoke art direction",
-        "Custom color and typography",
-        "Custom motion sequence",
+        "Complexity of design and motion",
+        "More vivid display",
+        "Love story details and timeline",
         "8 revisions",
         "+4 photos from Signature package",
       ],
@@ -196,7 +196,7 @@ export const packages: ServicePackage[] = [
   {
     code: "bespoke",
     name: "Bespoke",
-    price: "Mulai Rp 849k",
+    price: "Rp 849K",
     description: {
       id: "Pengalaman undangan full custom yang dibangun dari brief, karakter, dan arah visual perayaan Anda.",
       en: "A fully custom invitation experience shaped around your brief, character, and visual direction.",
