@@ -120,8 +120,8 @@ PACKAGE_SUMMARIES = {
         "en": "A complete experience with story, RSVP, and editorial touches.",
     },
     "couture": {
-        "id": "Art direction khusus untuk perayaan yang ingin tampil benar-benar berbeda.",
-        "en": "Bespoke art direction for celebrations that want to feel truly distinct.",
+        "id": "Desain lebih kompleks untuk perayaan yang ingin tampil benar-benar berbeda.",
+        "en": "More complex designs for celebrations that want to be truly different.",
     },
     "bespoke": {
         "id": (
