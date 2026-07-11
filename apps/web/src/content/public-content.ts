@@ -47,10 +47,8 @@ function packageFromApi(item: PublicPackage, locale: Locale): ServicePackage {
   return {
     code: item.code,
     name: item.name,
-    price: fallback?.price ?? {
-      id: compactPackagePrice(item.price, item.currency, locale),
-      en: compactPackagePrice(item.price, item.currency, locale),
-    },
+    price:
+      fallback?.price ?? compactPackagePrice(item.price, item.currency, locale),
     featured: item.is_featured,
     description: fallback?.description ?? {
       id: item.summary,
