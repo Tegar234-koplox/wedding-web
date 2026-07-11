@@ -35,6 +35,25 @@ def test_package_list_returns_public_features(client):
 
 
 @pytest.mark.django_db
+def test_couture_package_uses_latest_catalog_copy(client):
+    response = client.get(reverse("package-list"), {"locale": "id"})
+
+    assert response.status_code == 200
+    couture = next(item for item in response.json() if item["code"] == "couture")
+    assert couture["summary"] == (
+        "Desain lebih kompleks untuk perayaan yang ingin tampil benar-benar berbeda."
+    )
+    assert [feature["label"] for feature in couture["features"]] == [
+        "Semua fitur Signature",
+        "Kompleksitas desain dan motion",
+        "Tampilan lebih hidup",
+        "Detail love story dan timeline",
+        "Revisi 8 kali",
+        "Galeri +4 foto dari paket Signature",
+    ]
+
+
+@pytest.mark.django_db
 def test_published_invitation_does_not_leak_guests_or_internal_ids(client):
     theme = create_theme()
     invitation = create_invitation(theme=theme)
