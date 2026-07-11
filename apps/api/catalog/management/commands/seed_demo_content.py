@@ -61,13 +61,13 @@ PACKAGE_FEATURES = {
     ],
     "couture": [
         ("signature", "Semua fitur Signature", "Everything in Signature"),
-        ("art-direction", "Art direction khusus", "Bespoke art direction"),
+        ("complexity-design", "Kompleksitas desain dan motion", "Complexity of design and motion"),
         (
-            "color-typography",
-            "Penyesuaian warna dan tipografi",
-            "Custom color and typography",
+            "vivid-display",
+            "Tampilan lebih hidup",
+            "More vivid display",
         ),
-        ("motion-sequence", "Motion sequence khusus", "Custom motion sequence"),
+        ("story-details", "Detail love story dan timeline", "Love story details and timeline"),
         ("revisions-8", "Revisi 8 kali", "8 revisions"),
         (
             "gallery-plus-4",

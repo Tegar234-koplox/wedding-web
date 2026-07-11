@@ -22,7 +22,11 @@ function themeFromApi(theme: PublicTheme): Theme {
   };
 }
 
-function compactPackagePrice(value: string, currency: string, locale: Locale): string {
+function compactPackagePrice(
+  value: string,
+  currency: string,
+  locale: Locale,
+): string {
   const amount = Number(value);
   if (!Number.isFinite(amount)) {
     return value;
@@ -43,9 +47,15 @@ function packageFromApi(item: PublicPackage, locale: Locale): ServicePackage {
   return {
     code: item.code,
     name: item.name,
-    price: fallback?.price ?? compactPackagePrice(item.price, item.currency, locale),
+    price: fallback?.price ?? {
+      id: compactPackagePrice(item.price, item.currency, locale),
+      en: compactPackagePrice(item.price, item.currency, locale),
+    },
     featured: item.is_featured,
-    description: fallback?.description ?? { id: item.summary, en: item.summary },
+    description: fallback?.description ?? {
+      id: item.summary,
+      en: item.summary,
+    },
     features: {
       id:
         fallback?.features.id ??

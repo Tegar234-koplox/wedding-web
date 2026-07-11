@@ -48,18 +48,22 @@ PACKAGES = {
         "price": Decimal("549000.00"),
         "featured": False,
         "summary": {
-            "id": "Art direction khusus untuk perayaan yang ingin tampil benar-benar berbeda.",
-            "en": "Bespoke art direction for celebrations that want to feel truly distinct.",
+            "id": "Desain lebih kompleks untuk perayaan yang ingin tampil benar-benar berbeda.",
+            "en": "More complex designs for celebrations that want to be truly different.",
         },
         "features": [
             ("signature", "Semua fitur Signature", "Everything in Signature"),
-            ("art-direction", "Art direction khusus", "Bespoke art direction"),
             (
-                "color-typography",
-                "Penyesuaian warna dan tipografi",
-                "Custom color and typography",
+                "complexity-design",
+                "Kompleksitas desain dan motion",
+                "Complexity of design and motion",
             ),
-            ("motion-sequence", "Motion sequence khusus", "Custom motion sequence"),
+            (
+                "vivid-display",
+                "Tampilan lebih hidup",
+                "More vivid display",
+            ),
+            ("story-details", "Love story details and timeline", "Love story details and timeline"),
             ("revisions-8", "Revisi 8 kali", "8 revisions"),
             (
                 "gallery-plus-4",
