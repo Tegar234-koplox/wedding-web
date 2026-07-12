@@ -10,7 +10,6 @@ import {
   AnimatePresence,
   MotionConfig,
   motion,
-  useInView,
   useReducedMotion,
 } from "framer-motion";
 import {
@@ -31,6 +30,7 @@ import {
   type PremiumVisualConfig,
   type ThemeVisual,
 } from "@/invitations/presentation";
+import { InvitationCard } from "@/invitations/invitation-card";
 import {
   CoverTextContrastLayer,
   ThemeCoverDecoration,
@@ -38,8 +38,6 @@ import {
 } from "@/invitations/theme-ornament";
 import { ThemedWeather } from "@/invitations/themed-weather";
 import type { InvitationAudio, InvitationWeather } from "@/lib/api/contracts";
-
-import cardStyles from "./invitation-card.module.css";
 
 export type RendererV2Props = {
   invitation: InvitationEnvelope;
@@ -299,54 +297,6 @@ function FadeText({
     >
       {children}
     </motion.div>
-  );
-}
-
-function InvitationCard({
-  children,
-  className = "",
-  contentClassName = "",
-  design,
-  packageCode,
-  photo = false,
-}: {
-  children: React.ReactNode;
-  className?: string;
-  contentClassName?: string;
-  design: ThemeVisual;
-  packageCode: PackageCode;
-  photo?: boolean;
-}) {
-  const cardRef = useRef<HTMLDivElement>(null);
-  const isNearViewport = useInView(cardRef, {
-    amount: 0.05,
-    margin: "180px 0px",
-  });
-  const tierClass =
-    packageCode === "couture"
-      ? cardStyles.couture
-      : packageCode === "signature"
-        ? cardStyles.signature
-        : cardStyles.essential;
-  const style = {
-    "--card-border": design.cardBorderColor,
-    "--card-glow": design.cardGlowColor,
-    "--card-shine": design.cardShineColor,
-  } as React.CSSProperties;
-
-  return (
-    <div
-      className={`${cardStyles.frame} ${tierClass} ${photo && packageCode === "couture" ? cardStyles.couturePhoto : ""} ${className}`}
-      data-card-active={isNearViewport}
-      data-invitation-card={packageCode}
-      data-photo-card={photo || undefined}
-      ref={cardRef}
-      style={style}
-    >
-      <div className={`${cardStyles.content} ${design.surface} ${contentClassName}`}>
-        {children}
-      </div>
-    </div>
   );
 }
 
@@ -1329,16 +1279,24 @@ function CoutureGiftSection({
       </FadeText>
 
       <div className="relative z-30 mt-12 flex flex-col items-center">
-        <GiftIconButton
-          afterAlt="Gift opened"
-          afterSrc={`/images/invitation-couture/gift/${folder}/after-tap.webp`}
-          beforeAlt="Gift"
-          beforeSrc={`/images/invitation-couture/gift/${folder}/before-tap.webp`}
-          borderClass={design.border}
-          glowClass={design.glow}
-          onOpen={openGift}
-          opened={opened}
-        />
+        <InvitationCard
+          className="rounded-full"
+          contentClassName="rounded-full"
+          context="gift"
+          design={design}
+          packageCode="couture"
+        >
+          <GiftIconButton
+            afterAlt="Gift opened"
+            afterSrc={`/images/invitation-couture/gift/${folder}/after-tap.webp`}
+            beforeAlt="Gift"
+            beforeSrc={`/images/invitation-couture/gift/${folder}/before-tap.webp`}
+            borderClass={design.border}
+            glowClass={design.glow}
+            onOpen={openGift}
+            opened={opened}
+          />
+        </InvitationCard>
 
         <AnimatePresence>
           {opened ? (
