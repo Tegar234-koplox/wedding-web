@@ -10,6 +10,7 @@ import {
   AnimatePresence,
   MotionConfig,
   motion,
+  useInView,
   useReducedMotion,
 } from "framer-motion";
 import {
@@ -37,6 +38,8 @@ import {
 } from "@/invitations/theme-ornament";
 import { ThemedWeather } from "@/invitations/themed-weather";
 import type { InvitationAudio, InvitationWeather } from "@/lib/api/contracts";
+
+import cardStyles from "./invitation-card.module.css";
 
 export type RendererV2Props = {
   invitation: InvitationEnvelope;
@@ -296,6 +299,54 @@ function FadeText({
     >
       {children}
     </motion.div>
+  );
+}
+
+function InvitationCard({
+  children,
+  className = "",
+  contentClassName = "",
+  design,
+  packageCode,
+  photo = false,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  contentClassName?: string;
+  design: ThemeVisual;
+  packageCode: PackageCode;
+  photo?: boolean;
+}) {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const isNearViewport = useInView(cardRef, {
+    amount: 0.05,
+    margin: "180px 0px",
+  });
+  const tierClass =
+    packageCode === "couture"
+      ? cardStyles.couture
+      : packageCode === "signature"
+        ? cardStyles.signature
+        : cardStyles.essential;
+  const style = {
+    "--card-border": design.cardBorderColor,
+    "--card-glow": design.cardGlowColor,
+    "--card-shine": design.cardShineColor,
+  } as React.CSSProperties;
+
+  return (
+    <div
+      className={`${cardStyles.frame} ${tierClass} ${photo && packageCode === "couture" ? cardStyles.couturePhoto : ""} ${className}`}
+      data-card-active={isNearViewport}
+      data-invitation-card={packageCode}
+      data-photo-card={photo || undefined}
+      ref={cardRef}
+      style={style}
+    >
+      <div className={`${cardStyles.content} ${design.surface} ${contentClassName}`}>
+        {children}
+      </div>
+    </div>
   );
 }
 
@@ -572,25 +623,32 @@ function EssentialPhotoSection({
       >
         {photos.map((image, index) => (
           <motion.div
-            className={`relative min-h-[56svh] overflow-hidden ${design.surface} ${
-              variant === "three" && index === 1 ? "md:min-h-[68svh]" : ""
-            }`}
             initial={{ opacity: 0, scale: 1.015 }}
             key={image.src}
             viewport={{ once: true, amount: 0.18 }}
             whileInView={{ opacity: 1, scale: 1 }}
           >
-            <Image
-              alt={image.alt}
-              className="object-cover"
-              fill
-              sizes={
-                variant === "three"
-                  ? "(max-width: 767px) 100vw, 33vw"
-                  : "(max-width: 767px) 100vw, 50vw"
-              }
-              src={image.src}
-            />
+            <InvitationCard
+              className="h-full"
+              contentClassName={`relative min-h-[56svh] ${
+                variant === "three" && index === 1 ? "md:min-h-[68svh]" : ""
+              }`}
+              design={design}
+              packageCode="essential"
+              photo
+            >
+              <Image
+                alt={image.alt}
+                className="object-cover"
+                fill
+                sizes={
+                  variant === "three"
+                    ? "(max-width: 767px) 100vw, 33vw"
+                    : "(max-width: 767px) 100vw, 50vw"
+                }
+                src={image.src}
+              />
+            </InvitationCard>
           </motion.div>
         ))}
       </div>
@@ -610,21 +668,28 @@ function EssentialGallerySection({
       <div className="grid gap-2 md:grid-cols-3">
         {gallery.slice(0, 3).map((image, index) => (
           <motion.div
-            className={`relative min-h-[58svh] overflow-hidden ${design.surface} ${
-              index === 1 ? "md:min-h-[70svh]" : ""
-            }`}
             initial={{ opacity: 0, scale: 1.015 }}
             key={`${image.src}-${index}`}
             viewport={{ once: true, amount: 0.18 }}
             whileInView={{ opacity: 1, scale: 1 }}
           >
-            <Image
-              alt={image.alt}
-              className="object-cover"
-              fill
-              sizes="(max-width: 767px) 100vw, 33vw"
-              src={image.src}
-            />
+            <InvitationCard
+              className="h-full"
+              contentClassName={`relative min-h-[58svh] ${
+                index === 1 ? "md:min-h-[70svh]" : ""
+              }`}
+              design={design}
+              packageCode="essential"
+              photo
+            >
+              <Image
+                alt={image.alt}
+                className="object-cover"
+                fill
+                sizes="(max-width: 767px) 100vw, 33vw"
+                src={image.src}
+              />
+            </InvitationCard>
           </motion.div>
         ))}
       </div>
@@ -699,12 +764,14 @@ function EssentialGiftSection({
 
 function SignaturePhotoSection({
   design,
+  packageCode,
   photos,
   premium,
   showOverlay = false,
   variant,
 }: {
   design: ThemeVisual;
+  packageCode: "signature" | "couture";
   photos: readonly { alt: string; src: string }[];
   premium: PremiumVisualConfig;
   showOverlay?: boolean;
@@ -720,25 +787,32 @@ function SignaturePhotoSection({
       >
         {photos.map((image, index) => (
           <motion.div
-            className={`relative min-h-[58svh] overflow-hidden ${design.surface} ${
-              variant === "three" && index === 1 ? "md:min-h-[70svh]" : ""
-            }`}
             initial={{ opacity: 0, scale: 1.015 }}
             key={image.src}
             viewport={{ once: true, amount: 0.18 }}
             whileInView={{ opacity: 1, scale: 1 }}
           >
-            <Image
-              alt={image.alt}
-              className="object-cover"
-              fill
-              sizes={
-                variant === "three"
-                  ? "(max-width: 767px) 100vw, 33vw"
-                  : "(max-width: 767px) 100vw, 50vw"
-              }
-              src={image.src}
-            />
+            <InvitationCard
+              className="h-full"
+              contentClassName={`relative min-h-[58svh] ${
+                variant === "three" && index === 1 ? "md:min-h-[70svh]" : ""
+              }`}
+              design={design}
+              packageCode={packageCode}
+              photo
+            >
+              <Image
+                alt={image.alt}
+                className="object-cover"
+                fill
+                sizes={
+                  variant === "three"
+                    ? "(max-width: 767px) 100vw, 33vw"
+                    : "(max-width: 767px) 100vw, 50vw"
+                }
+                src={image.src}
+              />
+            </InvitationCard>
           </motion.div>
         ))}
       </div>
@@ -749,11 +823,13 @@ function SignaturePhotoSection({
 function SignatureGallerySection({
   design,
   gallery,
+  packageCode,
   premium,
   showOverlay = false,
 }: {
   design: ThemeVisual;
   gallery: InvitationEnvelope["content"]["gallery"];
+  packageCode: "signature" | "couture";
   premium: PremiumVisualConfig;
   showOverlay?: boolean;
 }) {
@@ -763,21 +839,28 @@ function SignatureGallerySection({
       <div className="relative z-10 grid gap-2 md:grid-cols-3">
         {gallery.slice(0, 3).map((image, index) => (
           <motion.div
-            className={`relative min-h-[58svh] overflow-hidden ${design.surface} ${
-              index === 1 ? "md:min-h-[70svh]" : ""
-            }`}
             initial={{ opacity: 0, scale: 1.015 }}
             key={`${image.src}-${index}`}
             viewport={{ once: true, amount: 0.18 }}
             whileInView={{ opacity: 1, scale: 1 }}
           >
-            <Image
-              alt={image.alt}
-              className="object-cover"
-              fill
-              sizes="(max-width: 767px) 100vw, 33vw"
-              src={image.src}
-            />
+            <InvitationCard
+              className="h-full"
+              contentClassName={`relative min-h-[58svh] ${
+                index === 1 ? "md:min-h-[70svh]" : ""
+              }`}
+              design={design}
+              packageCode={packageCode}
+              photo
+            >
+              <Image
+                alt={image.alt}
+                className="object-cover"
+                fill
+                sizes="(max-width: 767px) 100vw, 33vw"
+                src={image.src}
+              />
+            </InvitationCard>
           </motion.div>
         ))}
       </div>
@@ -964,6 +1047,7 @@ function SignatureStoryTimelineSection({
   includeQuote,
   invitation,
   mode,
+  packageCode,
   premium,
   showOverlay = false,
   timeline,
@@ -973,6 +1057,7 @@ function SignatureStoryTimelineSection({
   includeQuote: boolean;
   invitation: InvitationEnvelope;
   mode: "opening" | "middle" | "final";
+  packageCode: "signature" | "couture";
   premium: PremiumVisualConfig;
   showOverlay?: boolean;
   timeline?: TimelineEntries;
@@ -1023,9 +1108,14 @@ function SignatureStoryTimelineSection({
           whileInView={{ opacity: 1, y: 0 }}
         >
           <p className={`text-lg leading-9 ${design.muted}`}>{copy}</p>
-          <div className="mt-12 grid gap-px bg-current/15 md:grid-cols-3">
+          <div className="mt-12 grid gap-3 md:grid-cols-3">
             {timelineEntries.map(([number, title, description]) => (
-              <div className={`${design.surface} p-6`} key={number}>
+              <InvitationCard
+                contentClassName="p-6"
+                design={design}
+                key={number}
+                packageCode={packageCode}
+              >
                 <p className={`text-[0.58rem] uppercase tracking-[0.2em] ${design.accent}`}>
                   {number}
                 </p>
@@ -1033,7 +1123,7 @@ function SignatureStoryTimelineSection({
                 <p className={`mt-4 text-sm leading-7 ${design.muted}`}>
                   {description}
                 </p>
-              </div>
+              </InvitationCard>
             ))}
           </div>
 
@@ -1056,12 +1146,14 @@ function SignatureStoryTimelineSection({
 function SignatureRsvpPreviewSection({
   design,
   invitation,
+  packageCode,
   premium,
   rsvpSlot,
   showOverlay = false,
 }: {
   design: ThemeVisual;
   invitation: InvitationEnvelope;
+  packageCode: "signature" | "couture";
   premium: PremiumVisualConfig;
   rsvpSlot?: React.ReactNode;
   showOverlay?: boolean;
@@ -1072,7 +1164,15 @@ function SignatureRsvpPreviewSection({
     return (
       <section className={`${design.surface} relative overflow-hidden px-5 py-20 md:px-12 md:py-32`}>
         <ThemeSectionDecoration config={premium} showOverlay={showOverlay} />
-        <div className="relative z-30">{rsvpSlot}</div>
+        <div className="relative z-30 mx-auto max-w-4xl">
+          <InvitationCard
+            contentClassName="p-1 md:p-2"
+            design={design}
+            packageCode={packageCode}
+          >
+            {rsvpSlot}
+          </InvitationCard>
+        </div>
       </section>
     );
   }
@@ -1080,7 +1180,12 @@ function SignatureRsvpPreviewSection({
   return (
     <section className={`${design.surface} relative overflow-hidden px-6 py-24 md:px-12 md:py-36`}>
       <ThemeSectionDecoration config={premium} showOverlay={showOverlay} />
-      <div className="relative z-30 mx-auto grid max-w-4xl gap-7 border border-current/20 p-6 md:p-10">
+      <InvitationCard
+        className="relative z-30 mx-auto max-w-4xl"
+        contentClassName="grid gap-7 p-6 md:p-10"
+        design={design}
+        packageCode={packageCode}
+      >
         <div>
           <p className={`text-[0.6rem] uppercase tracking-[0.25em] ${design.accent}`}>
             RSVP
@@ -1103,7 +1208,7 @@ function SignatureRsvpPreviewSection({
           <Send size={15} />
           {id ? "Kirim RSVP" : "Send RSVP"}
         </button>
-      </div>
+      </InvitationCard>
     </section>
   );
 }
@@ -1263,10 +1368,12 @@ function EventDetailsGrid({
   event,
   design,
   id,
+  packageCode,
 }: {
   event: InvitationEnvelope["content"]["event"];
   design: ThemeVisual;
   id: boolean;
+  packageCode: PackageCode;
 }) {
   const eventDetails = [
     {
@@ -1288,37 +1395,38 @@ function EventDetailsGrid({
   ];
 
   return (
-    <div className="mt-16 grid gap-px bg-current/15 md:grid-cols-2">
+    <div className="mt-16 grid gap-3 md:grid-cols-2">
       {eventDetails.map((detail, index) => (
         <FadeText
-          className={`${design.surface} p-7`}
           delay={index * 0.08}
           key={detail.key}
         >
-          <CalendarDays size={19} />
-          <p className="mt-9 text-[0.6rem] uppercase tracking-[0.18em] opacity-55">
-            {detail.label}
-          </p>
-          <p className="mt-3 font-serif text-2xl leading-8">{detail.time}</p>
-          <div className={`mt-7 border-t pt-6 ${design.border}`}>
-            <MapPin size={18} />
-            <p className="mt-4 text-[0.6rem] uppercase tracking-[0.18em] opacity-55">
-              {detail.venue}
+          <InvitationCard contentClassName="p-7" design={design} packageCode={packageCode}>
+            <CalendarDays size={19} />
+            <p className="mt-9 text-[0.6rem] uppercase tracking-[0.18em] opacity-55">
+              {detail.label}
             </p>
-            <p className={`mt-3 text-sm leading-7 ${design.muted}`}>
-              {detail.address}
-            </p>
-            <a
-              aria-label={`${id ? "Buka peta" : "Open map"} ${detail.label}`}
-              className={`mt-6 flex w-fit items-center gap-2 border-b pb-1 text-[0.62rem] uppercase tracking-[0.18em] ${design.border}`}
-              href={detail.mapUrl}
-              rel="noopener noreferrer"
-              target="_blank"
-            >
-              <MapPin size={14} />
-              {id ? `Peta ${detail.label}` : `${detail.label} map`}
-            </a>
-          </div>
+            <p className="mt-3 font-serif text-2xl leading-8">{detail.time}</p>
+            <div className={`mt-7 border-t pt-6 ${design.border}`}>
+              <MapPin size={18} />
+              <p className="mt-4 text-[0.6rem] uppercase tracking-[0.18em] opacity-55">
+                {detail.venue}
+              </p>
+              <p className={`mt-3 text-sm leading-7 ${design.muted}`}>
+                {detail.address}
+              </p>
+              <a
+                aria-label={`${id ? "Buka peta" : "Open map"} ${detail.label}`}
+                className={`mt-6 flex w-fit items-center gap-2 border-b pb-1 text-[0.62rem] uppercase tracking-[0.18em] ${design.border}`}
+                href={detail.mapUrl}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                <MapPin size={14} />
+                {id ? `Peta ${detail.label}` : `${detail.label} map`}
+              </a>
+            </div>
+          </InvitationCard>
         </FadeText>
       ))}
     </div>
@@ -1363,13 +1471,19 @@ function EventStory({
                 {event.dateLabel}
               </h2>
             </FadeText>
-            <EventDetailsGrid design={design} event={event} id={id} />
+            <EventDetailsGrid
+              design={design}
+              event={event}
+              id={id}
+              packageCode="signature"
+            />
           </div>
         </motion.section>
 
         <SignatureGallerySection
           design={design}
           gallery={gallery}
+          packageCode="signature"
           premium={premium}
         />
         <SignatureStoryTimelineSection
@@ -1378,10 +1492,12 @@ function EventStory({
           includeQuote={false}
           invitation={invitation}
           mode="opening"
+          packageCode="signature"
           premium={premium}
         />
         <SignaturePhotoSection
           design={design}
+          packageCode="signature"
           photos={sectionPhotosFromGallery(gallery, 3, 3, signatureSectionPhotos[4])}
           premium={premium}
           variant="three"
@@ -1392,10 +1508,12 @@ function EventStory({
           includeQuote={false}
           invitation={invitation}
           mode="middle"
+          packageCode="signature"
           premium={premium}
         />
         <SignaturePhotoSection
           design={design}
+          packageCode="signature"
           photos={sectionPhotosFromGallery(gallery, 6, 3, signatureSectionPhotos[6])}
           premium={premium}
           variant="three"
@@ -1406,10 +1524,12 @@ function EventStory({
           includeQuote
           invitation={invitation}
           mode="final"
+          packageCode="signature"
           premium={premium}
         />
         <SignaturePhotoSection
           design={design}
+          packageCode="signature"
           photos={sectionPhotosFromGallery(gallery, 9, 3, signatureSectionPhotos[8])}
           premium={premium}
           variant="three"
@@ -1417,11 +1537,13 @@ function EventStory({
         <SignatureRsvpPreviewSection
           design={design}
           invitation={invitation}
+          packageCode="signature"
           premium={premium}
           rsvpSlot={rsvpSlot}
         />
         <SignaturePhotoSection
           design={design}
+          packageCode="signature"
           photos={sectionPhotosFromGallery(gallery, 12, 2, signatureSectionPhotos[10])}
           premium={premium}
           variant="two"
@@ -1450,13 +1572,19 @@ function EventStory({
                 {event.dateLabel}
               </h2>
             </FadeText>
-            <EventDetailsGrid design={design} event={event} id={id} />
+            <EventDetailsGrid
+              design={design}
+              event={event}
+              id={id}
+              packageCode="couture"
+            />
           </div>
         </motion.section>
 
         <SignatureGallerySection
           design={design}
           gallery={gallery}
+          packageCode="couture"
           premium={premium}
           showOverlay
         />
@@ -1466,12 +1594,14 @@ function EventStory({
           includeQuote={false}
           invitation={invitation}
           mode="opening"
+          packageCode="couture"
           premium={premium}
           showOverlay
           timeline={getCoutureTimelineEntries(invitation, "opening")}
         />
         <SignaturePhotoSection
           design={design}
+          packageCode="couture"
           photos={sectionPhotosFromGallery(gallery, 3, 3, coutureSectionPhotos[4])}
           premium={premium}
           showOverlay
@@ -1483,12 +1613,14 @@ function EventStory({
           includeQuote={false}
           invitation={invitation}
           mode="middle"
+          packageCode="couture"
           premium={premium}
           showOverlay
           timeline={getCoutureTimelineEntries(invitation, "conflict")}
         />
         <SignaturePhotoSection
           design={design}
+          packageCode="couture"
           photos={sectionPhotosFromGallery(gallery, 6, 3, coutureSectionPhotos[6])}
           premium={premium}
           showOverlay
@@ -1500,12 +1632,14 @@ function EventStory({
           includeQuote={false}
           invitation={invitation}
           mode="middle"
+          packageCode="couture"
           premium={premium}
           showOverlay
           timeline={getCoutureTimelineEntries(invitation, "intimacy")}
         />
         <SignaturePhotoSection
           design={design}
+          packageCode="couture"
           photos={sectionPhotosFromGallery(gallery, 9, 3, coutureSectionPhotos[8])}
           premium={premium}
           showOverlay
@@ -1517,12 +1651,14 @@ function EventStory({
           includeQuote={false}
           invitation={invitation}
           mode="middle"
+          packageCode="couture"
           premium={premium}
           showOverlay
           timeline={getCoutureTimelineEntries(invitation, "trust")}
         />
         <SignaturePhotoSection
           design={design}
+          packageCode="couture"
           photos={sectionPhotosFromGallery(gallery, 12, 3, coutureSectionPhotos[10])}
           premium={premium}
           showOverlay
@@ -1534,12 +1670,14 @@ function EventStory({
           includeQuote
           invitation={invitation}
           mode="final"
+          packageCode="couture"
           premium={premium}
           showOverlay
           timeline={getCoutureTimelineEntries(invitation, "final")}
         />
         <SignaturePhotoSection
           design={design}
+          packageCode="couture"
           photos={sectionPhotosFromGallery(gallery, 15, 3, coutureSectionPhotos[12])}
           premium={premium}
           showOverlay
@@ -1568,14 +1706,24 @@ function EventStory({
                 {event.dateLabel}
               </h2>
             </FadeText>
-            <EventDetailsGrid design={design} event={event} id={id} />
+            <EventDetailsGrid
+              design={design}
+              event={event}
+              id={id}
+              packageCode="essential"
+            />
           </div>
         </motion.section>
 
         <EssentialGallerySection design={design} gallery={gallery} />
 
         <section className="relative overflow-hidden px-6 py-24 md:px-12 md:py-36">
-          <div className="relative z-30 mx-auto grid max-w-6xl gap-14 lg:grid-cols-[0.85fr_1.15fr]">
+          <InvitationCard
+            className="relative z-30 mx-auto max-w-6xl"
+            contentClassName="grid gap-14 p-7 md:p-12 lg:grid-cols-[0.85fr_1.15fr]"
+            design={design}
+            packageCode="essential"
+          >
             <motion.div
               initial={{ opacity: 0, x: -revealDistance }}
               transition={textFadeTransition}
@@ -1606,7 +1754,7 @@ function EventStory({
                 </footer>
               </blockquote>
             </motion.div>
-          </div>
+          </InvitationCard>
         </section>
 
         <EssentialPhotoSection
@@ -1648,7 +1796,12 @@ function EventStory({
               {event.dateLabel}
             </h2>
           </FadeText>
-          <EventDetailsGrid design={design} event={event} id={id} />
+          <EventDetailsGrid
+            design={design}
+            event={event}
+            id={id}
+            packageCode={packageCode}
+          />
         </div>
       </motion.section>
 
@@ -1906,6 +2059,7 @@ export function RendererV2({
                 <SignatureRsvpPreviewSection
                   design={design}
                   invitation={invitation}
+                  packageCode="couture"
                   premium={premium}
                   rsvpSlot={rsvpSlot}
                   showOverlay

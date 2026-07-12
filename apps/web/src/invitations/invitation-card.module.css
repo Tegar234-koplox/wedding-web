@@ -1,0 +1,137 @@
+.frame {
+  --card-border: currentColor;
+  --card-shine: currentColor;
+  --card-glow: transparent;
+  position: relative;
+  isolation: isolate;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.content {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  overflow: hidden;
+}
+
+.essential {
+  border: 1px solid var(--card-border);
+  box-shadow: 0 18px 65px color-mix(in srgb, var(--card-glow) 13%, transparent);
+}
+
+.signature,
+.couture {
+  padding: 1px;
+  box-shadow: 0 22px 80px color-mix(in srgb, var(--card-glow) 20%, transparent);
+}
+
+.signature::before,
+.couture::before {
+  position: absolute;
+  z-index: 0;
+  inset: -145%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0 36%,
+    var(--card-border) 42%,
+    var(--card-shine) 49%,
+    var(--card-border) 56%,
+    transparent 63% 100%
+  );
+  content: "";
+  animation: invitation-card-spin 9s linear infinite;
+  animation-play-state: paused;
+}
+
+.signature::after,
+.couture::after {
+  position: absolute;
+  z-index: 2;
+  inset: 1px;
+  pointer-events: none;
+  border: 1px solid color-mix(in srgb, var(--card-shine) 28%, transparent);
+  content: "";
+  opacity: 0.52;
+}
+
+.couture {
+  box-shadow:
+    0 28px 100px color-mix(in srgb, var(--card-glow) 30%, transparent),
+    inset 0 0 28px color-mix(in srgb, var(--card-shine) 8%, transparent);
+}
+
+.couture::before {
+  background: conic-gradient(
+    from 0deg,
+    transparent 0 23%,
+    var(--card-border) 29%,
+    var(--card-shine) 35%,
+    var(--card-border) 41%,
+    transparent 47% 67%,
+    var(--card-border) 73%,
+    var(--card-shine) 79%,
+    transparent 86% 100%
+  );
+  animation-duration: 6.5s;
+}
+
+.couture::after {
+  opacity: 0.75;
+  animation: invitation-card-breathe 3.6s ease-in-out infinite;
+  animation-play-state: paused;
+}
+
+.couturePhoto img {
+  animation: invitation-photo-orbit 16s ease-in-out infinite alternate;
+  animation-play-state: paused;
+  transform-origin: center;
+  will-change: transform;
+}
+
+.frame[data-card-active="true"]::before,
+.frame[data-card-active="true"]::after,
+.couturePhoto[data-card-active="true"] img {
+  animation-play-state: running;
+}
+
+@keyframes invitation-card-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+@keyframes invitation-card-breathe {
+  50% {
+    opacity: 0.38;
+  }
+}
+
+@keyframes invitation-photo-orbit {
+  0% {
+    transform: scale(1.025) rotate(-0.6deg);
+  }
+
+  50% {
+    transform: scale(1.065) rotate(0.75deg);
+  }
+
+  100% {
+    transform: scale(1.04) rotate(-0.25deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .signature::before,
+  .couture::before,
+  .couture::after,
+  .couturePhoto img {
+    animation: none;
+  }
+
+  .signature::before,
+  .couture::before {
+    inset: 0;
+    background: var(--card-border);
+  }
+}
