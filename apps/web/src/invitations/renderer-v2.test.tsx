@@ -199,6 +199,49 @@ describe("renderer v2 invitation experience", () => {
     ).toBeNull();
   });
 
+  it("applies the package card treatment to Essential, Signature, and Couture", () => {
+    const essential = render(
+      <RendererV2
+        invitation={getSampleInvitation("elegant-classic", "id")}
+        packageCode="essential"
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Buka Undangan" }));
+    expect(
+      essential.container.querySelectorAll(
+        '[data-invitation-card="essential"]',
+      ).length,
+    ).toBeGreaterThan(0);
+    essential.unmount();
+
+    const signature = render(
+      <RendererV2
+        invitation={getSampleInvitation("islamic-soft", "id")}
+        packageCode="signature"
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Buka Undangan" }));
+    expect(
+      signature.container.querySelectorAll(
+        '[data-invitation-card="signature"]',
+      ).length,
+    ).toBeGreaterThan(0);
+    signature.unmount();
+
+    const couture = render(
+      <RendererV2
+        invitation={getSampleInvitation("luxury-gold", "id")}
+        packageCode="couture"
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Buka Undangan" }));
+    expect(
+      couture.container.querySelector(
+        '[data-invitation-card="couture"][data-photo-card="true"]',
+      ),
+    ).not.toBeNull();
+  });
+
   it("renders the Essential gift section after opening and reveals account details on tap", () => {
     render(
       <RendererV2

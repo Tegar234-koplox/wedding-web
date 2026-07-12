@@ -15,6 +15,9 @@ export type ThemeVisual = {
   muted: string;
   accent: string;
   border: string;
+  cardBorderColor: string;
+  cardGlowColor: string;
+  cardShineColor: string;
   coverImage: string;
   coverLayout: "split" | "arch" | "editorial" | "minimal";
   ornament:
@@ -98,6 +101,9 @@ export const themeVisualConfig: Record<RendererKey, ThemeVisual> = {
     muted: "text-[#746a5b]",
     accent: "text-[#9a7135]",
     border: "border-[#a9854c]/45",
+    cardBorderColor: "rgba(169, 133, 76, 0.58)",
+    cardGlowColor: "#785827",
+    cardShineColor: "#f4d995",
     coverImage: "/images/themes/elegant-classic.webp",
     coverLayout: "split",
     ornament: "filigree",
@@ -114,6 +120,9 @@ export const themeVisualConfig: Record<RendererKey, ThemeVisual> = {
     muted: "text-[#687369]",
     accent: "text-[#8f794b]",
     border: "border-[#8f794b]/35",
+    cardBorderColor: "rgba(143, 121, 75, 0.52)",
+    cardGlowColor: "#53644f",
+    cardShineColor: "#e2d39e",
     coverImage: "/images/themes/islamic-soft.webp",
     coverLayout: "arch",
     ornament: "islamic",
@@ -130,6 +139,9 @@ export const themeVisualConfig: Record<RendererKey, ThemeVisual> = {
     muted: "text-[#a79b80]",
     accent: "text-[#d2ad55]",
     border: "border-[#d2ad55]/50",
+    cardBorderColor: "rgba(210, 173, 85, 0.68)",
+    cardGlowColor: "#cc9d3e",
+    cardShineColor: "#ffe7a0",
     coverImage: "/images/themes/luxury-gold.webp",
     coverLayout: "split",
     ornament: "foil",
@@ -146,6 +158,9 @@ export const themeVisualConfig: Record<RendererKey, ThemeVisual> = {
     muted: "text-[#70706b]",
     accent: "text-[#343434]",
     border: "border-black/20",
+    cardBorderColor: "rgba(52, 52, 52, 0.28)",
+    cardGlowColor: "#a7adb5",
+    cardShineColor: "#ffffff",
     coverImage: "/images/themes/minimalist-white.webp",
     coverLayout: "minimal",
     ornament: "minimal",
@@ -162,6 +177,9 @@ export const themeVisualConfig: Record<RendererKey, ThemeVisual> = {
     muted: "text-[#aaa19a]",
     accent: "text-[#bd4851]",
     border: "border-[#a73a42]/55",
+    cardBorderColor: "rgba(167, 58, 66, 0.72)",
+    cardGlowColor: "#7e131d",
+    cardShineColor: "#f08a91",
     coverImage: "/images/hero-editorial.webp",
     coverLayout: "editorial",
     ornament: "cinematic",
@@ -178,6 +196,9 @@ export const themeVisualConfig: Record<RendererKey, ThemeVisual> = {
     muted: "text-[#7d5b60]",
     accent: "text-[#9a5964]",
     border: "border-[#a96f77]/40",
+    cardBorderColor: "rgba(169, 111, 119, 0.56)",
+    cardGlowColor: "#975b67",
+    cardShineColor: "#f6cbd2",
     coverImage: "/images/themes/floral-romantic.webp",
     coverLayout: "arch",
     ornament: "floral",
@@ -194,6 +215,9 @@ export const themeVisualConfig: Record<RendererKey, ThemeVisual> = {
     muted: "text-[#b8a98d]",
     accent: "text-[#d2aa6b]",
     border: "border-[#c99a58]/45",
+    cardBorderColor: "rgba(201, 154, 88, 0.62)",
+    cardGlowColor: "#92632c",
+    cardShineColor: "#f0cb8b",
     coverImage: "/images/themes/javanese-traditional.webp",
     coverLayout: "arch",
     ornament: "batik",

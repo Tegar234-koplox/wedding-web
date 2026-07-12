@@ -9,7 +9,7 @@ type HomePageProps = {
 };
 
 export const metadata: Metadata = {
-  title: "Premium Digital Wedding Invitations",
+  title: "Niskala",
   description:
     "Editorial digital wedding invitations with curated themes, graceful motion, and thoughtful guest information.",
 };

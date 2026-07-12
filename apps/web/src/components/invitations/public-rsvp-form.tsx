@@ -82,7 +82,7 @@ export function PublicRSVPForm({
   }
 
   const shellClassName = embedded
-    ? "mx-auto grid max-w-3xl gap-5 border border-current/20 bg-black/10 p-5 text-current backdrop-blur-[1px] md:p-8"
+    ? "mx-auto grid max-w-3xl gap-5 p-5 text-current md:p-8"
     : "mx-auto grid max-w-3xl gap-5 border border-white/12 bg-[#181815] p-5";
   const mutedLabelClassName = embedded
     ? "text-[0.6rem] uppercase tracking-[0.16em] opacity-55"
