@@ -8,6 +8,7 @@ import type {
 import { Droplets, Wind } from "lucide-react";
 import React from "react";
 
+import { InvitationCard } from "@/invitations/invitation-card";
 import type { ThemeVisual } from "@/invitations/presentation";
 import type { InvitationWeather } from "@/lib/api/contracts";
 
@@ -212,8 +213,13 @@ export function ThemedWeather({
 
   return (
     <section className="px-5 py-24 md:px-12 md:py-36">
-      <div
-        className={`relative mx-auto max-w-5xl overflow-hidden border p-7 md:p-12 ${design.weather} ${design.glow}`}
+      <InvitationCard
+        className="mx-auto max-w-5xl"
+        contentClassName={`relative overflow-hidden p-7 md:p-12 ${design.glow}`}
+        context="weather"
+        design={design}
+        packageCode={packageCode}
+        surfaceClassName={design.weather}
       >
         <div className={`absolute inset-0 ${design.overlay} opacity-35`} />
         <div className="relative">
@@ -353,7 +359,7 @@ export function ThemedWeather({
             </span>
           </div>
         </div>
-      </div>
+      </InvitationCard>
     </section>
   );
 }

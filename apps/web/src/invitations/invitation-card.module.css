@@ -22,8 +22,10 @@
 
 .signature,
 .couture {
-  padding: 1px;
-  box-shadow: 0 22px 80px color-mix(in srgb, var(--card-glow) 20%, transparent);
+  padding: 2px;
+  box-shadow:
+    0 22px 80px color-mix(in srgb, var(--card-glow) 28%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--card-border) 38%, transparent);
 }
 
 .signature::before,
@@ -48,11 +50,11 @@
 .couture::after {
   position: absolute;
   z-index: 2;
-  inset: 1px;
+  inset: 2px;
   pointer-events: none;
   border: 1px solid color-mix(in srgb, var(--card-shine) 28%, transparent);
   content: "";
-  opacity: 0.52;
+  opacity: 0.72;
 }
 
 .couture {
@@ -77,7 +79,7 @@
 }
 
 .couture::after {
-  opacity: 0.75;
+  opacity: 0.9;
   animation: invitation-card-breathe 3.6s ease-in-out infinite;
   animation-play-state: paused;
 }
