@@ -212,6 +212,9 @@ describe("renderer v2 invitation experience", () => {
         '[data-invitation-card="essential"]',
       ).length,
     ).toBeGreaterThan(0);
+    expect(
+      essential.container.querySelector('[data-ambient-dots="essential"]'),
+    ).not.toBeNull();
     essential.unmount();
 
     const signature = render(
@@ -230,6 +233,9 @@ describe("renderer v2 invitation experience", () => {
       signature.container.querySelector(
         '[data-card-context="weather"][data-invitation-card="signature"]',
       ),
+    ).not.toBeNull();
+    expect(
+      signature.container.querySelector('[data-ambient-dots="signature"]'),
     ).not.toBeNull();
     signature.unmount();
 
@@ -254,6 +260,9 @@ describe("renderer v2 invitation experience", () => {
       couture.container.querySelector(
         '[data-card-context="gift"][data-invitation-card="couture"]',
       ),
+    ).not.toBeNull();
+    expect(
+      couture.container.querySelector('[data-ambient-dots="couture"]'),
     ).not.toBeNull();
   });
 

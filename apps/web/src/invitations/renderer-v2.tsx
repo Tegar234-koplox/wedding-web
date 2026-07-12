@@ -39,6 +39,8 @@ import {
 import { ThemedWeather } from "@/invitations/themed-weather";
 import type { InvitationAudio, InvitationWeather } from "@/lib/api/contracts";
 
+import ambientStyles from "./invitation-ambient.module.css";
+
 export type RendererV2Props = {
   invitation: InvitationEnvelope;
   packageCode?: PackageCode;
@@ -1854,6 +1856,10 @@ export function RendererV2({
   const essential = packageCode === "essential";
   const signature = packageCode === "signature";
   const couture = packageCode === "couture";
+  const ambientStyle = {
+    "--ambient-dot-color": design.cardBorderColor,
+    "--ambient-dot-highlight": design.cardGlowColor,
+  } as React.CSSProperties;
 
   useEffect(() => {
     const element = audioRef.current;
@@ -1981,7 +1987,12 @@ export function RendererV2({
           className={`relative ${opened ? "" : "h-svh overflow-hidden"}`}
           inert={!opened}
         >
-          <div>
+          <div
+            className={opened ? ambientStyles.scope : undefined}
+            data-ambient-dots={opened ? packageCode : undefined}
+            data-dot-tier={opened ? packageCode : undefined}
+            style={opened ? ambientStyle : undefined}
+          >
             <EventStory
               design={design}
               invitation={invitation}

@@ -1,0 +1,65 @@
+.scope {
+  --ambient-dot-opacity: 0.48;
+}
+
+.scope[data-dot-tier="signature"] {
+  --ambient-dot-opacity: 0.58;
+}
+
+.scope[data-dot-tier="couture"] {
+  --ambient-dot-opacity: 0.58;
+}
+
+.scope section {
+  position: relative;
+  isolation: isolate;
+}
+
+.scope section::before {
+  position: absolute;
+  z-index: -1;
+  inset: -15%;
+  pointer-events: none;
+  background-image:
+    radial-gradient(
+      circle,
+      color-mix(in srgb, var(--ambient-dot-highlight) 80%, transparent) 0 1px,
+      transparent 1.8px
+    ),
+    radial-gradient(
+      circle,
+      color-mix(in srgb, var(--ambient-dot-color) 72%, transparent) 0 1.2px,
+      transparent 2px
+    ),
+    radial-gradient(
+      circle,
+      color-mix(in srgb, var(--ambient-dot-highlight) 42%, transparent) 0 0.8px,
+      transparent 1.7px
+    );
+  background-position:
+    0 0,
+    70px 90px,
+    150px 35px;
+  background-size:
+    190px 190px,
+    270px 270px,
+    130px 130px;
+  content: "";
+  opacity: var(--ambient-dot-opacity);
+  animation: invitation-dot-drift 24s linear infinite;
+}
+
+@keyframes invitation-dot-drift {
+  to {
+    background-position:
+      190px 190px,
+      -200px 360px,
+      280px -95px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scope section::before {
+    animation: none;
+  }
+}
