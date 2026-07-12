@@ -213,14 +213,31 @@ function OverlayArtwork({
     : undefined;
 
   if (asset.mode === "frame") {
+    const frameTransition = {
+      duration: 13,
+      ease: [0.45, 0, 0.55, 1] as const,
+      repeat: Infinity,
+      times: [0, 0.24, 0.52, 0.76, 1],
+    };
+
     return (
       <>
         {asset.mobileBlend === "side-pair" ? (
           <div className="absolute inset-0 md:hidden" style={mask}>
             <motion.div
-              animate={animated ? { scale: [1, 1.02, 1], x: [0, 4, 0] } : undefined}
+              animate={
+                animated
+                  ? {
+                      opacity: [0.86, 1, 0.9, 0.98, 0.86],
+                      rotate: [-0.35, 0.45, -0.2, 0.3, -0.35],
+                      scale: [1.03, 1.075, 1.045, 1.085, 1.03],
+                      x: ["-1.5%", "1.8%", "-0.6%", "1.1%", "-1.5%"],
+                      y: ["1%", "-2%", "1.4%", "-0.5%", "1%"],
+                    }
+                  : undefined
+              }
               className="absolute inset-0 opacity-85"
-              transition={{ duration: 10, ease: "easeInOut", repeat: Infinity }}
+              transition={frameTransition}
             >
               <AssetImage
                 objectFit={asset.objectFit}
@@ -229,13 +246,21 @@ function OverlayArtwork({
               />
             </motion.div>
             <motion.div
-              animate={animated ? { scale: [1, 1.02, 1], x: [0, -4, 0] } : undefined}
+              animate={
+                animated
+                  ? {
+                      opacity: [0.86, 0.98, 0.9, 1, 0.86],
+                      rotate: [0.35, -0.45, 0.2, -0.3, 0.35],
+                      scale: [1.03, 1.075, 1.045, 1.085, 1.03],
+                      x: ["1.5%", "-1.8%", "0.6%", "-1.1%", "1.5%"],
+                      y: ["-1%", "2%", "-1.4%", "0.5%", "-1%"],
+                    }
+                  : undefined
+              }
               className="absolute inset-0 opacity-85"
               transition={{
+                ...frameTransition,
                 delay: 0.7,
-                duration: 10,
-                ease: "easeInOut",
-                repeat: Infinity,
               }}
             >
               <AssetImage
@@ -247,10 +272,20 @@ function OverlayArtwork({
           </div>
         ) : null}
         <motion.div
-          animate={animated ? { scale: [1, 1.018, 1], y: [0, -4, 0] } : undefined}
+          animate={
+            animated
+              ? {
+                  opacity: [0.88, 1, 0.91, 0.98, 0.88],
+                  rotate: [-0.4, 0.5, -0.25, 0.35, -0.4],
+                  scale: [1.025, 1.07, 1.04, 1.08, 1.025],
+                  x: ["-1.4%", "1.6%", "-0.5%", "1%", "-1.4%"],
+                  y: ["1%", "-2.1%", "1.3%", "-0.6%", "1%"],
+                }
+              : undefined
+          }
           className={`absolute inset-0 ${asset.mobileBlend === "side-pair" ? "hidden md:block" : ""}`}
           style={mask}
-          transition={{ duration: 10, ease: "easeInOut", repeat: Infinity }}
+          transition={frameTransition}
         >
           <AssetImage objectFit={asset.objectFit} src={asset.src} />
         </motion.div>
