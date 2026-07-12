@@ -329,6 +329,36 @@ class PublicInvitationSerializer(serializers.ModelSerializer[Invitation]):
             getattr(primary_event, "map_url", "") or "https://maps.google.com",
             {"https://maps.google.com", "https://maps.google.com/"},
         )
+        ceremony_venue = _content_or_fallback(
+            event.get("ceremonyVenue"),
+            getattr(ceremony, "venue_name", "") or venue,
+            {"Nama Venue", "Nama venue"},
+        )
+        ceremony_address = _content_or_fallback(
+            event.get("ceremonyAddress"),
+            getattr(ceremony, "address", "") or address,
+            {"Alamat Venue", "Alamat venue"},
+        )
+        ceremony_map_url = _content_or_fallback(
+            event.get("ceremonyMapUrl"),
+            getattr(ceremony, "map_url", "") or map_url,
+            {"https://maps.google.com", "https://maps.google.com/"},
+        )
+        reception_venue = _content_or_fallback(
+            event.get("receptionVenue"),
+            getattr(reception, "venue_name", "") or venue,
+            {"Nama Venue", "Nama venue"},
+        )
+        reception_address = _content_or_fallback(
+            event.get("receptionAddress"),
+            getattr(reception, "address", "") or address,
+            {"Alamat Venue", "Alamat venue"},
+        )
+        reception_map_url = _content_or_fallback(
+            event.get("receptionMapUrl"),
+            getattr(reception, "map_url", "") or map_url,
+            {"https://maps.google.com", "https://maps.google.com/"},
+        )
         gallery = content.get("gallery")
         if not isinstance(gallery, list) or not 3 <= len(gallery) <= 18:
             gallery = [
@@ -369,6 +399,12 @@ class PublicInvitationSerializer(serializers.ModelSerializer[Invitation]):
                 "venue": venue,
                 "address": address,
                 "mapUrl": map_url,
+                "ceremonyVenue": ceremony_venue,
+                "ceremonyAddress": ceremony_address,
+                "ceremonyMapUrl": ceremony_map_url,
+                "receptionVenue": reception_venue,
+                "receptionAddress": reception_address,
+                "receptionMapUrl": reception_map_url,
             },
             "story": {
                 "heading": story.get("heading") or "Cerita kami",

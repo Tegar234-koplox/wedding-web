@@ -109,6 +109,12 @@ export const invitationContentSchema = z.object({
     venue: safeText.max(180),
     address: safeText.max(300),
     mapUrl: safeUrl,
+    ceremonyVenue: safeText.max(180).optional(),
+    ceremonyAddress: safeText.max(300).optional(),
+    ceremonyMapUrl: safeUrl.optional(),
+    receptionVenue: safeText.max(180).optional(),
+    receptionAddress: safeText.max(300).optional(),
+    receptionMapUrl: safeUrl.optional(),
   }),
   story: z.object({
     heading: safeText.max(120),

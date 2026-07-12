@@ -87,6 +87,12 @@ describe("invitation envelope", () => {
           venue: "Venue",
           address: "Jakarta",
           mapUrl: "https://maps.google.com",
+          ceremonyVenue: "Ceremony Venue",
+          ceremonyAddress: "Ceremony Address",
+          ceremonyMapUrl: "https://maps.google.com/?q=ceremony",
+          receptionVenue: "Reception Venue",
+          receptionAddress: "Reception Address",
+          receptionMapUrl: "https://maps.google.com/?q=reception",
         },
         story: { heading: "Our story", body: "A long story." },
         quote: { text: "A quote.", attribution: "Us" },
@@ -99,6 +105,8 @@ describe("invitation envelope", () => {
     });
 
     expect(result.success).toBe(true);
+    expect(result.data?.content.event.ceremonyVenue).toBe("Ceremony Venue");
+    expect(result.data?.content.event.receptionVenue).toBe("Reception Venue");
   });
 
   it("keeps optional bank account details for gift sections", () => {

@@ -1259,6 +1259,72 @@ function CoutureGiftSection({
   );
 }
 
+function EventDetailsGrid({
+  event,
+  design,
+  id,
+}: {
+  event: InvitationEnvelope["content"]["event"];
+  design: ThemeVisual;
+  id: boolean;
+}) {
+  const eventDetails = [
+    {
+      key: "ceremony",
+      label: event.ceremonyLabel,
+      time: event.ceremonyTime,
+      venue: event.ceremonyVenue || event.venue,
+      address: event.ceremonyAddress || event.address,
+      mapUrl: event.ceremonyMapUrl || event.mapUrl,
+    },
+    {
+      key: "reception",
+      label: event.receptionLabel,
+      time: event.receptionTime,
+      venue: event.receptionVenue || event.venue,
+      address: event.receptionAddress || event.address,
+      mapUrl: event.receptionMapUrl || event.mapUrl,
+    },
+  ];
+
+  return (
+    <div className="mt-16 grid gap-px bg-current/15 md:grid-cols-2">
+      {eventDetails.map((detail, index) => (
+        <FadeText
+          className={`${design.surface} p-7`}
+          delay={index * 0.08}
+          key={detail.key}
+        >
+          <CalendarDays size={19} />
+          <p className="mt-9 text-[0.6rem] uppercase tracking-[0.18em] opacity-55">
+            {detail.label}
+          </p>
+          <p className="mt-3 font-serif text-2xl leading-8">{detail.time}</p>
+          <div className={`mt-7 border-t pt-6 ${design.border}`}>
+            <MapPin size={18} />
+            <p className="mt-4 text-[0.6rem] uppercase tracking-[0.18em] opacity-55">
+              {detail.venue}
+            </p>
+            <p className={`mt-3 text-sm leading-7 ${design.muted}`}>
+              {detail.address}
+            </p>
+            <a
+              aria-label={`${id ? "Buka peta" : "Open map"} ${detail.label}`}
+              className={`mt-6 flex w-fit items-center gap-2 border-b pb-1 text-[0.62rem] uppercase tracking-[0.18em] ${design.border}`}
+              href={detail.mapUrl}
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              <MapPin size={14} />
+              {id ? `Peta ${detail.label}` : `${detail.label} map`}
+            </a>
+          </div>
+        </FadeText>
+      ))}
+    </div>
+  );
+}
+
 function EventStory({
   invitation,
   packageCode,
@@ -1297,44 +1363,7 @@ function EventStory({
                 {event.dateLabel}
               </h2>
             </FadeText>
-            <div className="mt-16 grid gap-px bg-current/15 md:grid-cols-3">
-              {[
-                {
-                  label: event.ceremonyLabel,
-                  value: event.ceremonyTime,
-                  Icon: CalendarDays,
-                },
-                {
-                  label: event.receptionLabel,
-                  value: event.receptionTime,
-                  Icon: CalendarDays,
-                },
-                { label: event.venue, value: event.address, Icon: MapPin },
-              ].map(({ label, value, Icon }, index) => (
-                <FadeText
-                  className={`${design.surface} p-7`}
-                  delay={index * 0.08}
-                  key={label}
-                >
-                  <Icon size={19} />
-                  <p className="mt-9 text-[0.6rem] uppercase tracking-[0.18em] opacity-55">
-                    {label}
-                  </p>
-                  <p className="mt-3 font-serif text-2xl leading-8">{value}</p>
-                </FadeText>
-              ))}
-            </div>
-            <FadeText delay={0.18}>
-              <a
-                className={`mx-auto mt-9 flex w-fit items-center gap-2 border-b pb-1 text-[0.62rem] uppercase tracking-[0.18em] ${design.border}`}
-                href={event.mapUrl}
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                <MapPin size={14} />
-                {id ? "Buka peta" : "Open map"}
-              </a>
-            </FadeText>
+            <EventDetailsGrid design={design} event={event} id={id} />
           </div>
         </motion.section>
 
@@ -1421,44 +1450,7 @@ function EventStory({
                 {event.dateLabel}
               </h2>
             </FadeText>
-            <div className="mt-16 grid gap-px bg-current/15 md:grid-cols-3">
-              {[
-                {
-                  label: event.ceremonyLabel,
-                  value: event.ceremonyTime,
-                  Icon: CalendarDays,
-                },
-                {
-                  label: event.receptionLabel,
-                  value: event.receptionTime,
-                  Icon: CalendarDays,
-                },
-                { label: event.venue, value: event.address, Icon: MapPin },
-              ].map(({ label, value, Icon }, index) => (
-                <FadeText
-                  className={`${design.surface} p-7`}
-                  delay={index * 0.08}
-                  key={label}
-                >
-                  <Icon size={19} />
-                  <p className="mt-9 text-[0.6rem] uppercase tracking-[0.18em] opacity-55">
-                    {label}
-                  </p>
-                  <p className="mt-3 font-serif text-2xl leading-8">{value}</p>
-                </FadeText>
-              ))}
-            </div>
-            <FadeText delay={0.18}>
-              <a
-                className={`mx-auto mt-9 flex w-fit items-center gap-2 border-b pb-1 text-[0.62rem] uppercase tracking-[0.18em] ${design.border}`}
-                href={event.mapUrl}
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                <MapPin size={14} />
-                {id ? "Buka peta" : "Open map"}
-              </a>
-            </FadeText>
+            <EventDetailsGrid design={design} event={event} id={id} />
           </div>
         </motion.section>
 
@@ -1576,44 +1568,7 @@ function EventStory({
                 {event.dateLabel}
               </h2>
             </FadeText>
-            <div className="mt-16 grid gap-px bg-current/15 md:grid-cols-3">
-              {[
-                {
-                  label: event.ceremonyLabel,
-                  value: event.ceremonyTime,
-                  Icon: CalendarDays,
-                },
-                {
-                  label: event.receptionLabel,
-                  value: event.receptionTime,
-                  Icon: CalendarDays,
-                },
-                { label: event.venue, value: event.address, Icon: MapPin },
-              ].map(({ label, value, Icon }, index) => (
-                <FadeText
-                  className={`${design.surface} p-7`}
-                  delay={index * 0.08}
-                  key={label}
-                >
-                  <Icon size={19} />
-                  <p className="mt-9 text-[0.6rem] uppercase tracking-[0.18em] opacity-55">
-                    {label}
-                  </p>
-                  <p className="mt-3 font-serif text-2xl leading-8">{value}</p>
-                </FadeText>
-              ))}
-            </div>
-            <FadeText delay={0.18}>
-              <a
-                className={`mx-auto mt-9 flex w-fit items-center gap-2 border-b pb-1 text-[0.62rem] uppercase tracking-[0.18em] ${design.border}`}
-                href={event.mapUrl}
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                <MapPin size={14} />
-                {id ? "Buka peta" : "Open map"}
-              </a>
-            </FadeText>
+            <EventDetailsGrid design={design} event={event} id={id} />
           </div>
         </motion.section>
 
@@ -1693,44 +1648,7 @@ function EventStory({
               {event.dateLabel}
             </h2>
           </FadeText>
-          <div className="mt-16 grid gap-px bg-current/15 md:grid-cols-3">
-            {[
-              {
-                label: event.ceremonyLabel,
-                value: event.ceremonyTime,
-                Icon: CalendarDays,
-              },
-              {
-                label: event.receptionLabel,
-                value: event.receptionTime,
-                Icon: CalendarDays,
-              },
-              { label: event.venue, value: event.address, Icon: MapPin },
-            ].map(({ label, value, Icon }, index) => (
-              <FadeText
-                className={`${design.surface} p-7`}
-                delay={index * 0.08}
-                key={label}
-              >
-                <Icon size={19} />
-                <p className="mt-9 text-[0.6rem] uppercase tracking-[0.18em] opacity-55">
-                  {label}
-                </p>
-                <p className="mt-3 font-serif text-2xl leading-8">{value}</p>
-              </FadeText>
-            ))}
-          </div>
-          <FadeText delay={0.18}>
-            <a
-              className={`mx-auto mt-9 flex w-fit items-center gap-2 border-b pb-1 text-[0.62rem] uppercase tracking-[0.18em] ${design.border}`}
-              href={event.mapUrl}
-              rel="noopener noreferrer"
-              target="_blank"
-            >
-              <MapPin size={14} />
-              {id ? "Buka peta" : "Open map"}
-            </a>
-          </FadeText>
+          <EventDetailsGrid design={design} event={event} id={id} />
         </div>
       </motion.section>
 
