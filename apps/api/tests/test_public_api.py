@@ -1,8 +1,11 @@
+from datetime import timedelta
+
 import pytest
 from django.urls import reverse
+from django.utils import timezone
 
 from catalog.models import Theme, ThemeMedia
-from invitations.models import Invitation, InvitationMedia
+from invitations.models import Invitation, InvitationMedia, WeddingEvent
 from invitations.preview import preview_token_for
 from media_library.models import MediaAsset
 from tests.factories import create_invitation, create_package, create_theme
@@ -68,6 +71,42 @@ def test_published_invitation_does_not_leak_guests_or_internal_ids(client):
     assert "id" not in payload
     assert "guests" not in payload
     assert "access_token_hash" not in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_public_invitation_keeps_event_locations_separate(client):
+    theme = create_theme()
+    invitation = create_invitation(theme=theme)
+    starts_at = timezone.now() + timedelta(days=7)
+    WeddingEvent.objects.create(
+        invitation=invitation,
+        event_type=WeddingEvent.EventType.CEREMONY,
+        starts_at=starts_at,
+        venue_name="Masjid Akad",
+        address="Jalan Akad 1",
+        map_url="https://maps.google.com/?q=ceremony",
+    )
+    WeddingEvent.objects.create(
+        invitation=invitation,
+        event_type=WeddingEvent.EventType.RECEPTION,
+        starts_at=starts_at + timedelta(hours=3),
+        venue_name="Gedung Resepsi",
+        address="Jalan Resepsi 2",
+        map_url="https://maps.google.com/?q=reception",
+    )
+
+    response = client.get(
+        reverse("invitation-detail", kwargs={"public_slug": invitation.public_slug})
+    )
+
+    assert response.status_code == 200
+    event = response.json()["content"]["event"]
+    assert event["ceremonyVenue"] == "Masjid Akad"
+    assert event["ceremonyAddress"] == "Jalan Akad 1"
+    assert event["ceremonyMapUrl"] == "https://maps.google.com/?q=ceremony"
+    assert event["receptionVenue"] == "Gedung Resepsi"
+    assert event["receptionAddress"] == "Jalan Resepsi 2"
+    assert event["receptionMapUrl"] == "https://maps.google.com/?q=reception"
 
 
 @pytest.mark.django_db

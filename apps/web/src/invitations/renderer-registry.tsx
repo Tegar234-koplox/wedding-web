@@ -267,6 +267,24 @@ function EventSection({
 }: RendererProps & { design: Design }) {
   const { event } = invitation.content;
   const id = invitation.locale === "id";
+  const eventDetails = [
+    {
+      key: "ceremony",
+      label: event.ceremonyLabel,
+      time: event.ceremonyTime,
+      venue: event.ceremonyVenue || event.venue,
+      address: event.ceremonyAddress || event.address,
+      mapUrl: event.ceremonyMapUrl || event.mapUrl,
+    },
+    {
+      key: "reception",
+      label: event.receptionLabel,
+      time: event.receptionTime,
+      venue: event.receptionVenue || event.venue,
+      address: event.receptionAddress || event.address,
+      mapUrl: event.receptionMapUrl || event.mapUrl,
+    },
+  ];
 
   return (
     <section className={`${design.surface} px-6 py-24 md:px-12 md:py-36`}>
@@ -279,40 +297,33 @@ function EventSection({
         >
           {event.dateLabel}
         </h2>
-        <div className="mt-20 grid gap-px bg-current/20 md:grid-cols-3">
-          <div className={`${design.surface} p-7`}>
-            <CalendarDays size={20} />
-            <p className="mt-10 text-xs uppercase tracking-[0.18em] opacity-55">
-              {event.ceremonyLabel}
-            </p>
-            <p className={`${design.display} mt-3 text-3xl`}>
-              {event.ceremonyTime}
-            </p>
-          </div>
-          <div className={`${design.surface} p-7`}>
-            <CalendarDays size={20} />
-            <p className="mt-10 text-xs uppercase tracking-[0.18em] opacity-55">
-              {event.receptionLabel}
-            </p>
-            <p className={`${design.display} mt-3 text-3xl`}>
-              {event.receptionTime}
-            </p>
-          </div>
-          <div className={`${design.surface} p-7`}>
-            <MapPin size={20} />
-            <p className="mt-10 text-xs uppercase tracking-[0.18em] opacity-55">
-              {event.venue}
-            </p>
-            <p className="mt-3 text-sm leading-6 opacity-75">{event.address}</p>
-            <a
-              className="mt-6 inline-block border-b border-current pb-1 text-[0.62rem] uppercase tracking-[0.18em]"
-              href={event.mapUrl}
-              rel="noreferrer"
-              target="_blank"
-            >
-              {id ? "Buka peta" : "Open map"}
-            </a>
-          </div>
+        <div className="mt-20 grid gap-px bg-current/20 md:grid-cols-2">
+          {eventDetails.map((detail) => (
+            <div className={`${design.surface} p-7`} key={detail.key}>
+              <CalendarDays size={20} />
+              <p className="mt-10 text-xs uppercase tracking-[0.18em] opacity-55">
+                {detail.label}
+              </p>
+              <p className={`${design.display} mt-3 text-3xl`}>{detail.time}</p>
+              <div className="mt-7 border-t border-current/20 pt-6">
+                <MapPin size={20} />
+                <p className="mt-5 text-xs uppercase tracking-[0.18em] opacity-55">
+                  {detail.venue}
+                </p>
+                <p className="mt-3 text-sm leading-6 opacity-75">
+                  {detail.address}
+                </p>
+                <a
+                  className="mt-6 inline-block border-b border-current pb-1 text-[0.62rem] uppercase tracking-[0.18em]"
+                  href={detail.mapUrl}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  {id ? `Peta ${detail.label}` : `${detail.label} map`}
+                </a>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </section>
