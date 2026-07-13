@@ -1,6 +1,6 @@
-import { motion, useReducedMotion } from "framer-motion";
+import { motion, useInView, useReducedMotion } from "framer-motion";
 import Image from "next/image";
-import React from "react";
+import React, { useRef } from "react";
 
 import type {
   CornerAssets,
@@ -171,12 +171,14 @@ export function shouldAnimatePremium(
 
 function AssetImage({
   className,
+  eager = false,
   objectFit,
   objectPosition,
   src,
   sizes = "100vw",
 }: {
   className?: string;
+  eager?: boolean;
   objectFit: "contain" | "cover" | "fill";
   objectPosition?: string;
   src: string;
@@ -188,6 +190,7 @@ function AssetImage({
       aria-hidden
       className={`${objectFit === "fill" ? "object-fill" : objectFit === "cover" ? "object-cover" : "object-contain"} ${className ?? ""}`}
       fill
+      loading={eager ? "eager" : "lazy"}
       sizes={sizes}
       src={src}
       style={{ objectPosition }}
@@ -199,9 +202,11 @@ function AssetImage({
 function OverlayArtwork({
   animated,
   asset,
+  eager = false,
 }: {
   animated: boolean;
   asset: OverlayAsset;
+  eager?: boolean;
 }) {
   const mask = asset.perimeterMask
     ? {
@@ -240,6 +245,7 @@ function OverlayArtwork({
               transition={frameTransition}
             >
               <AssetImage
+                eager={eager}
                 objectFit={asset.objectFit}
                 objectPosition="left center"
                 src={asset.src}
@@ -264,6 +270,7 @@ function OverlayArtwork({
               }}
             >
               <AssetImage
+                eager={eager}
                 objectFit={asset.objectFit}
                 objectPosition="right center"
                 src={asset.src}
@@ -287,7 +294,11 @@ function OverlayArtwork({
           style={mask}
           transition={frameTransition}
         >
-          <AssetImage objectFit={asset.objectFit} src={asset.src} />
+          <AssetImage
+            eager={eager}
+            objectFit={asset.objectFit}
+            src={asset.src}
+          />
         </motion.div>
       </>
     );
@@ -325,6 +336,7 @@ function OverlayArtwork({
           }}
         >
           <AssetImage
+            eager={eager}
             objectFit={asset.objectFit}
             src={asset.src}
             sizes="32vw"
@@ -409,11 +421,7 @@ function CornerArtwork({ corners }: { corners: CornerAssets }) {
             className={`absolute aspect-square w-[clamp(7rem,22vw,20rem)] md:w-[clamp(6rem,13vw,12rem)] ${position}`}
             key={key}
           >
-            <AssetImage
-              objectFit="contain"
-              sizes="22vw"
-              src={src}
-            />
+            <AssetImage objectFit="contain" sizes="22vw" src={src} />
           </div>
         ) : null;
       })}
@@ -441,7 +449,11 @@ function OverlayLayer({
       data-decoration-layer={`${scope}-overlay`}
       style={{ opacity: config.opacity }}
     >
-      <OverlayArtwork animated={animated} asset={config.overlay} />
+      <OverlayArtwork
+        animated={animated}
+        asset={config.overlay}
+        eager={scope === "cover"}
+      />
     </div>
   );
 }
@@ -493,8 +505,14 @@ export function ThemeSectionDecoration({
   config,
   showOverlay,
 }: DecorationProps & { showOverlay: boolean }) {
+  const layerRef = useRef<HTMLDivElement>(null);
   const reducedMotion = useReducedMotion();
-  const animated = shouldAnimatePremium(config, reducedMotion, "content");
+  const isNearViewport = useInView(layerRef, {
+    amount: 0.01,
+    margin: "180px 0px",
+  });
+  const animated =
+    isNearViewport && shouldAnimatePremium(config, reducedMotion, "content");
 
   if (!config.corners && (!showOverlay || !config.overlay)) {
     return null;
@@ -505,6 +523,7 @@ export function ThemeSectionDecoration({
       aria-hidden="true"
       className="pointer-events-none absolute inset-0 z-20 overflow-hidden"
       data-decoration-layer="section"
+      ref={layerRef}
     >
       {showOverlay ? (
         <OverlayLayer animated={animated} config={config} scope="section" />

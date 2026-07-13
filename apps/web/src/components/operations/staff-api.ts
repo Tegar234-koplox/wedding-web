@@ -7,6 +7,7 @@ export type StaffSessionUser = {
   email: string;
   role: string;
   display_name: string;
+  mfa_enrolled: boolean;
 };
 
 export type StaffSession = {

@@ -7,6 +7,11 @@ from common.views import (
     StaffAuditEventListView,
     StaffLoginView,
     StaffLogoutView,
+    StaffMFAConfirmView,
+    StaffMFAEnrollView,
+    StaffMFALoginView,
+    StaffMFAReauthView,
+    StaffMFAResetView,
     StaffSessionMeView,
 )
 
@@ -20,6 +25,11 @@ urlpatterns = [
     path("", api_root, name="api-root"),
     path("auth/csrf", CsrfTokenView.as_view(), name="api-csrf-token"),
     path("auth/login", StaffLoginView.as_view(), name="api-staff-login"),
+    path("auth/login/mfa", StaffMFALoginView.as_view(), name="api-staff-login-mfa"),
+    path("auth/mfa/enroll", StaffMFAEnrollView.as_view(), name="api-staff-mfa-enroll"),
+    path("auth/mfa/confirm", StaffMFAConfirmView.as_view(), name="api-staff-mfa-confirm"),
+    path("auth/mfa/reset", StaffMFAResetView.as_view(), name="api-staff-mfa-reset"),
+    path("auth/reauth", StaffMFAReauthView.as_view(), name="api-staff-reauth"),
     path("auth/me", StaffSessionMeView.as_view(), name="api-staff-session-me"),
     path("auth/logout", StaffLogoutView.as_view(), name="api-staff-logout"),
     path("", include("site_settings.urls")),

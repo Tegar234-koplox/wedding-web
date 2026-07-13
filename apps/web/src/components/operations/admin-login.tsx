@@ -1,6 +1,6 @@
 "use client";
 
-import { LogIn } from "lucide-react";
+import { LogIn, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
 import { useState } from "react";
@@ -12,7 +12,16 @@ type StaffSessionUser = {
   email: string;
   role: string;
   display_name: string;
+  mfa_enrolled: boolean;
 };
+
+type StaffLoginResult =
+  | { user: StaffSessionUser; mfa_required?: false }
+  | {
+      challenge: string;
+      enrollment_required: boolean;
+      mfa_required: true;
+    };
 
 const requestTimeoutMs = 15_000;
 const staffGateCookie = "niskala_staff_gate";
@@ -23,7 +32,7 @@ function staffGateCookieAttributes(maxAge: number) {
 }
 
 function setStaffGateCookie() {
-  document.cookie = `${staffGateCookie}=1; ${staffGateCookieAttributes(86400)}`;
+  document.cookie = `${staffGateCookie}=1; ${staffGateCookieAttributes(43200)}`;
 }
 
 async function fetchWithTimeout(
@@ -59,7 +68,7 @@ async function csrfToken(): Promise<string> {
   return payload.csrfToken;
 }
 
-async function staffLogin(username: string, password: string): Promise<StaffSessionUser> {
+async function staffLogin(username: string, password: string): Promise<StaffLoginResult> {
   const token = await csrfToken();
   const response = await fetchWithTimeout(`${env.NEXT_PUBLIC_API_URL}/auth/login`, {
     body: JSON.stringify({ password, username }),
@@ -83,6 +92,31 @@ async function staffLogin(username: string, password: string): Promise<StaffSess
     throw new Error(`Login ditolak (${response.status}): ${detail}`);
   }
 
+  return (await response.json()) as StaffLoginResult;
+}
+
+async function staffMfaLogin(challenge: string, code: string): Promise<StaffSessionUser> {
+  const token = await csrfToken();
+  const response = await fetchWithTimeout(`${env.NEXT_PUBLIC_API_URL}/auth/login/mfa`, {
+    body: JSON.stringify({ challenge, code }),
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "X-CSRFToken": token,
+    },
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => ({}))) as {
+      detail?: string;
+    };
+    throw new Error(
+      `Verifikasi ditolak (${response.status}): ${payload.detail ?? response.statusText}`,
+    );
+  }
+
   const payload = (await response.json()) as { user: StaffSessionUser };
   return payload.user;
 }
@@ -91,6 +125,8 @@ export function AdminLogin() {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [mfaChallenge, setMfaChallenge] = useState("");
+  const [mfaCode, setMfaCode] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
@@ -101,8 +137,24 @@ export function AdminLogin() {
     setError("");
     let navigating = false;
     try {
-      setStatus("Memverifikasi akun staff...");
-      await staffLogin(username, password);
+      if (mfaChallenge) {
+        setStatus("Memverifikasi kode keamanan...");
+        await staffMfaLogin(mfaChallenge, mfaCode);
+      } else {
+        setStatus("Memverifikasi akun staff...");
+        const result = await staffLogin(username, password);
+        if (result.mfa_required) {
+          if (result.enrollment_required) {
+            throw new Error(
+              "MFA wajib tetapi akun belum terdaftar. Nonaktifkan flag sementara dan lakukan enrollment staff.",
+            );
+          }
+          setMfaChallenge(result.challenge);
+          setPassword("");
+          setStatus("Masukkan kode authenticator atau recovery code.");
+          return;
+        }
+      }
       setStaffGateCookie();
       setStatus("Login berhasil. Membuka dashboard...");
       navigating = true;
@@ -129,7 +181,9 @@ export function AdminLogin() {
       </p>
       <h2 className="mt-5 font-serif text-4xl">Login staff.</h2>
       <p className="mt-4 text-sm leading-6 text-white/55">
-        Masuk dengan akun staff untuk membuka dashboard operasional.
+        {mfaChallenge
+          ? "Selesaikan verifikasi kedua untuk membuat session staff."
+          : "Masuk dengan akun staff untuk membuka dashboard operasional."}
       </p>
 
       {error ? (
@@ -144,39 +198,71 @@ export function AdminLogin() {
       ) : null}
 
       <form className="mt-7 grid gap-4" onSubmit={submitLogin}>
-        <label className="grid gap-2">
-          <span className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">
-            Username atau email
-          </span>
-          <input
-            autoComplete="username"
-            className="min-h-12 border border-white/15 bg-black/30 px-3 text-sm outline-none transition focus:border-[var(--color-gold)]"
-            onChange={(event) => setUsername(event.target.value)}
-            required
-            value={username}
-          />
-        </label>
-        <label className="grid gap-2">
-          <span className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">
-            Password
-          </span>
-          <input
-            autoComplete="current-password"
-            className="min-h-12 border border-white/15 bg-black/30 px-3 text-sm outline-none transition focus:border-[var(--color-gold)]"
-            onChange={(event) => setPassword(event.target.value)}
-            required
-            type="password"
-            value={password}
-          />
-        </label>
+        {mfaChallenge ? (
+          <label className="grid gap-2">
+            <span className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">
+              Kode authenticator atau recovery
+            </span>
+            <input
+              autoComplete="one-time-code"
+              autoFocus
+              className="min-h-12 border border-white/15 bg-black/30 px-3 text-sm outline-none transition focus:border-[var(--color-gold)]"
+              inputMode="numeric"
+              onChange={(event) => setMfaCode(event.target.value)}
+              required
+              value={mfaCode}
+            />
+          </label>
+        ) : (
+          <>
+            <label className="grid gap-2">
+              <span className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">
+                Username atau email
+              </span>
+              <input
+                autoComplete="username"
+                className="min-h-12 border border-white/15 bg-black/30 px-3 text-sm outline-none transition focus:border-[var(--color-gold)]"
+                onChange={(event) => setUsername(event.target.value)}
+                required
+                value={username}
+              />
+            </label>
+            <label className="grid gap-2">
+              <span className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">
+                Password
+              </span>
+              <input
+                autoComplete="current-password"
+                className="min-h-12 border border-white/15 bg-black/30 px-3 text-sm outline-none transition focus:border-[var(--color-gold)]"
+                onChange={(event) => setPassword(event.target.value)}
+                required
+                type="password"
+                value={password}
+              />
+            </label>
+          </>
+        )}
         <button
           className="inline-flex min-h-12 items-center justify-center gap-3 bg-[var(--color-gold)] px-4 text-[0.65rem] font-bold uppercase tracking-[0.16em] text-[#17140d] transition hover:brightness-110 disabled:opacity-50"
           disabled={submitting}
           type="submit"
         >
-          <LogIn size={16} />
-          {submitting ? "Memproses" : "Masuk"}
+          {mfaChallenge ? <ShieldCheck size={16} /> : <LogIn size={16} />}
+          {submitting ? "Memproses" : mfaChallenge ? "Verifikasi" : "Masuk"}
         </button>
+        {mfaChallenge ? (
+          <button
+            className="min-h-11 border border-white/12 px-4 text-[0.62rem] font-bold uppercase tracking-[0.14em] text-white/55"
+            onClick={() => {
+              setMfaChallenge("");
+              setMfaCode("");
+              setStatus("");
+            }}
+            type="button"
+          >
+            Kembali ke password
+          </button>
+        ) : null}
       </form>
     </div>
   );

@@ -1,52 +1,7 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
-const apiOrigin = (() => {
-  try {
-    return new URL(
-      process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1",
-    ).origin;
-  } catch {
-    return "http://localhost:8000";
-  }
-})();
-
-const sentryOrigin = (() => {
-  try {
-    return process.env.NEXT_PUBLIC_SENTRY_DSN
-      ? new URL(process.env.NEXT_PUBLIC_SENTRY_DSN).origin
-      : "";
-  } catch {
-    return "";
-  }
-})();
-
-const scriptSources = [
-  "'self'",
-  "'unsafe-inline'",
-  ...(process.env.NODE_ENV === "development" ? ["'unsafe-eval'"] : []),
-].join(" ");
-
-const contentSecurityPolicy = [
-  "default-src 'self'",
-  "base-uri 'self'",
-  ["connect-src 'self'", apiOrigin, sentryOrigin].filter(Boolean).join(" "),
-  "font-src 'self' data:",
-  "form-action 'self'",
-  "frame-ancestors 'self'",
-  "frame-src 'self'",
-  "img-src 'self' data: blob: https://res.cloudinary.com",
-  "media-src 'self' https://res.cloudinary.com",
-  "object-src 'none'",
-  `script-src ${scriptSources}`,
-  "style-src 'self' 'unsafe-inline'",
-  ...(process.env.NODE_ENV === "production"
-    ? ["upgrade-insecure-requests"]
-    : []),
-].join("; ");
-
 const securityHeaders = [
-  { key: "Content-Security-Policy", value: contentSecurityPolicy },
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
   {
     key: "Permissions-Policy",

@@ -20,8 +20,8 @@ type AdminDashboardGateProps = {
 };
 
 const nav: Array<{ href: Route; label: string }> = [
-  { href: "/admin", label: "Overview" },
   { href: "/admin", label: "Orders" },
+  { href: "/admin/security" as Route, label: "Security" },
 ];
 
 async function verifyStaffSession(): Promise<StaffSession> {

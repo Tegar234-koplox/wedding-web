@@ -13,6 +13,10 @@ Gunakan checklist ini setelah deploy backend Railway dan frontend Vercel. Jalank
 
 - Buka `/admin`; user tanpa session harus diarahkan ke `/admin/login`.
 - Login staff dengan akun produksi yang memiliki `role=staff` dan `is_staff=True`.
+- Selesaikan TOTP; password benar tanpa faktor kedua tidak boleh membuat session.
+- Buka `/admin/security`, lakukan step-up, lalu pastikan publish/archive dapat berjalan.
+- Tunggu atau manipulasi session staging melewati TTL step-up; aksi sensitif harus ditolak
+  sampai re-auth dilakukan kembali.
 - Buka dashboard order dan tekan `Refresh`; user harus tetap berada di dashboard.
 - Tekan `Export CSV`; file harus terunduh dan hanya berisi order aktif, bukan order archived.
 
@@ -36,8 +40,21 @@ Gunakan checklist ini setelah deploy backend Railway dan frontend Vercel. Jalank
 - Buka `/id/packages` dan satu live preview setiap paket.
 - Cek tombol `BUKA UNDANGAN`, backsound, overlay tema, section gift, dan RSVP.
 - Buka satu public invitation tanpa token preview dan pastikan tidak 404.
+- Jalankan matriks 7 tema x Essential/Signature/Couture pada mobile dan desktop.
+- Untuk setiap kombinasi, periksa cover, open transition, corner/overlay, card border,
+  dot animation, foto, timeline, gift, weather bila tersedia, RSVP, dan closing.
+- Uji `prefers-reduced-motion`, tab hidden, serta pause audio/animasi di luar viewport.
 
-## 6. Post-check cleanup
+## 6. Security negative checks
+
+- Cookie `niskala_staff_gate=1` tanpa session Django tidak boleh mengembalikan data order.
+- Akun non-staff tidak boleh membuka endpoint `/api/v1/admin/*`.
+- Token tamu A tidak boleh membaca atau mengubah data invitation B.
+- Swagger/schema production harus 404.
+- CSV lebih dari 2 MB, lebih dari 1.000 row, MIME non-CSV, atau header asing harus ditolak.
+- Lima percobaan login gagal memicu cooldown; respons tidak boleh membedakan akun yang ada.
+
+## 7. Post-check cleanup
 
 - Arsipkan order test yang tidak dipakai.
 - Simpan satu order demo rapi untuk regression manual berikutnya.

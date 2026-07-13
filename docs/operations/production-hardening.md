@@ -7,13 +7,20 @@
 - Keep CORS and CSRF origin lists restricted to the production frontend domains.
 - Review the frontend and backend Content Security Policies whenever a new third-party origin is introduced.
 - Keep public DRF serializers separate from staff serializers and preserve deny-by-default permissions.
-- Rate limits are defense-in-depth. Configure matching limits at Vercel/Railway or an upstream WAF for distributed abuse.
+- DRF scoped limits use Redis for login, CSRF, RSVP, and guest CSV import. They are defense-in-depth, not DDoS protection. Configure matching limits in Cloudflare.
+- Staff sessions are absolute, non-rolling, expire after 12 hours, and end when the browser closes.
+- Production schema and Swagger routes are disabled unless `DJANGO_API_DOCS_ENABLED=true` is set deliberately.
 - Rotate secrets after staff changes, suspected exposure, or provider incidents.
 
 ## Monitoring and alerting
 
+- Initial SLO: 99.5% monthly availability and API p95 below 500 ms, excluding
+  explicitly measured third-party provider latency.
 - Configure `SENTRY_DSN`, `SENTRY_ENVIRONMENT`, `SENTRY_RELEASE`, and a conservative trace sample rate.
-- Alert on sustained 5xx responses, readiness failures, Celery task failures, BMKG stale-cache use, and elevated request latency.
+- Page the operator for 5xx above 2% for 5 minutes, readiness failure, PostgreSQL
+  or Redis unavailability, deployment failure, or login failures above 20 in 5 minutes.
+- Alert without paging on Celery task failures, Open-Meteo stale-cache use, API p95
+  above 500 ms, and unusual 401/403/429 volume; escalate when sustained.
 - Logs are JSON and include request IDs. Do not add message bodies, guest data, tokens, or full query strings to logs.
 - Monitor `/health/live` for process availability and `/health/ready` for PostgreSQL and Redis readiness.
 - After every deploy, run the production smoke checklist in `docs/operations/production-smoke-test.md`.
@@ -28,6 +35,9 @@
 6. Point a non-production API instance at the restored database before approving production recovery.
 
 Run a documented restore rehearsal at least quarterly. A backup is not considered operational until restoration has been tested.
+
+Review production access monthly, test MFA recovery every six months, and record
+restore rehearsal evidence every quarter.
 
 ## Rollback
 

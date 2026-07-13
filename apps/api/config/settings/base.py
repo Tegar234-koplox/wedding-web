@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from datetime import timedelta
 from pathlib import Path
 
 import dj_database_url
@@ -47,7 +48,10 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "axes",
     "corsheaders",
+    "django_otp",
+    "django_otp.plugins.otp_totp",
     "rest_framework",
     "drf_spectacular",
     "csp",
@@ -73,11 +77,13 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django_otp.middleware.OTPMiddleware",
     "common.middleware.DatabaseAccessContextMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "common.middleware.RequestIdMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "csp.middleware.CSPMiddleware",
+    "axes.middleware.AxesMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -123,12 +129,29 @@ BILLING_CRON_SECRET = env("BILLING_CRON_SECRET", "")
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
-    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+        "OPTIONS": {"min_length": 12},
+    },
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
 AUTH_USER_MODEL = "users.User"
+AUTHENTICATION_BACKENDS = [
+    "axes.backends.AxesStandaloneBackend",
+    "django.contrib.auth.backends.ModelBackend",
+]
+
+AXES_FAILURE_LIMIT = 5
+AXES_COOLOFF_TIME = timedelta(minutes=15)
+AXES_LOCKOUT_PARAMETERS = ["username"]
+AXES_RESET_ON_SUCCESS = True
+AXES_HTTP_RESPONSE_CODE = 429
+
+STAFF_MFA_REQUIRED = env_bool("STAFF_MFA_REQUIRED", False)
+STAFF_MFA_CHALLENGE_TTL_SECONDS = env_int("STAFF_MFA_CHALLENGE_TTL_SECONDS", 300)
+STAFF_MFA_REAUTH_TTL_SECONDS = env_int("STAFF_MFA_REAUTH_TTL_SECONDS", 1_800)
 
 LANGUAGE_CODE = "id"
 LANGUAGES = [("id", "Bahasa Indonesia"), ("en", "English")]
@@ -155,6 +178,9 @@ CORS_ALLOWED_ORIGINS = env_list("DJANGO_CORS_ALLOWED_ORIGINS", "http://localhost
 CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS", "http://localhost:3000")
 CORS_ALLOW_CREDENTIALS = True
 
+DATA_UPLOAD_MAX_MEMORY_SIZE = env_int("DJANGO_MAX_REQUEST_BYTES", 2 * 1024 * 1024)
+FILE_UPLOAD_MAX_MEMORY_SIZE = DATA_UPLOAD_MAX_MEMORY_SIZE
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.SessionAuthentication",
@@ -165,6 +191,7 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.AnonRateThrottle",
         "rest_framework.throttling.UserRateThrottle",
+        "common.throttles.NiskalaScopedRateThrottle",
     ],
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",
@@ -172,11 +199,18 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "EXCEPTION_HANDLER": "common.exceptions.api_exception_handler",
     "DEFAULT_THROTTLE_RATES": {
-        "anon": "60/minute",
+        "anon": "120/minute",
         "user": "300/minute",
         "conversion": "20/minute",
+        "csrf": "30/min",
+        "guest_import": "5/min",
+        "login": "5/5min",
+        "mfa": "10/5min",
+        "rsvp": "10/min",
     },
 }
+
+API_DOCS_ENABLED = env_bool("DJANGO_API_DOCS_ENABLED", True)
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "Wedding Invitation API",
@@ -250,6 +284,9 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True
+SESSION_COOKIE_AGE = env_int("DJANGO_SESSION_COOKIE_AGE", 43_200)
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+SESSION_SAVE_EVERY_REQUEST = False
 SESSION_COOKIE_SAMESITE = env("DJANGO_SESSION_COOKIE_SAMESITE", "Lax")
 CSRF_COOKIE_SAMESITE = env("DJANGO_CSRF_COOKIE_SAMESITE", "Lax")
 SESSION_COOKIE_DOMAIN = env_optional("DJANGO_SESSION_COOKIE_DOMAIN")
