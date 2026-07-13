@@ -16,6 +16,10 @@ export default defineConfig({
     timeout: 10_000,
     toHaveScreenshot: {
       animations: "disabled",
+      // Linux Chromium rasterizes text and translucent overlays differently
+      // from local Windows Chrome. Keep the strict area cap below while
+      // tolerating those per-pixel anti-aliasing differences in CI.
+      threshold: process.env.CI ? 0.32 : 0.2,
       maxDiffPixelRatio: 0.015,
       timeout: 30_000,
     },
