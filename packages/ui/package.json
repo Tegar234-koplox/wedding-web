@@ -16,6 +16,6 @@
     "@wedding/eslint-config": "workspace:*",
     "@wedding/typescript-config": "workspace:*",
     "eslint": "^9.31.0",
-    "typescript": "^5.9.2"
+    "typescript": "^7.0.2"
   }
 }
