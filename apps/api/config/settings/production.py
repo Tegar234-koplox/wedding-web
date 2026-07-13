@@ -2,6 +2,7 @@ from config.settings.base import *  # noqa: F403
 from config.settings.base import env_bool
 
 DEBUG = False
+API_DOCS_ENABLED = env_bool("DJANGO_API_DOCS_ENABLED", False)
 MIDDLEWARE.insert(1, "whitenoise.middleware.WhiteNoiseMiddleware")  # noqa: F405
 
 required_environment = (
@@ -30,6 +31,8 @@ CSRF_COOKIE_SECURE = True
 SECURE_HSTS_SECONDS = 31_536_000
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin"
 
 if SECRET_KEY == "unsafe-local-development-key":  # noqa: F405
     raise RuntimeError("DJANGO_SECRET_KEY must be configured in production")

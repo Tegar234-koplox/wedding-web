@@ -84,26 +84,26 @@ function timelineOverride(
 const essentialSectionFourPhotos = [
   {
     alt: "Essential wedding portrait top composition",
-    src: "/images/invitation-essential/section-4/top.png",
+    src: "/images/invitation-essential/section-4/top.webp",
   },
   {
     alt: "Essential wedding portrait middle composition",
-    src: "/images/invitation-essential/section-4/middle.png",
+    src: "/images/invitation-essential/section-4/middle.webp",
   },
   {
     alt: "Essential wedding portrait bottom composition",
-    src: "/images/invitation-essential/section-4/bottom.png",
+    src: "/images/invitation-essential/section-4/bottom.webp",
   },
 ] as const;
 
 const essentialSectionSixPhotos = [
   {
     alt: "Essential wedding portrait top closing composition",
-    src: "/images/invitation-essential/section-6/top.png",
+    src: "/images/invitation-essential/section-6/top.webp",
   },
   {
     alt: "Essential wedding portrait bottom closing composition",
-    src: "/images/invitation-essential/section-6/bottom.png",
+    src: "/images/invitation-essential/section-6/bottom.webp",
   },
 ] as const;
 
@@ -139,25 +139,25 @@ const signatureSectionPhotos = {
   8: [
     {
       alt: "Signature blessing photo top",
-      src: "/images/invitation-signature/section-8/top.png",
+      src: "/images/invitation-signature/section-8/top.webp",
     },
     {
       alt: "Signature blessing photo middle",
-      src: "/images/invitation-signature/section-8/middle.png",
+      src: "/images/invitation-signature/section-8/middle.webp",
     },
     {
       alt: "Signature blessing photo bottom",
-      src: "/images/invitation-signature/section-8/bottom.png",
+      src: "/images/invitation-signature/section-8/bottom.webp",
     },
   ],
   10: [
     {
       alt: "Signature RSVP closing photo top",
-      src: "/images/invitation-signature/section-10/top.png",
+      src: "/images/invitation-signature/section-10/top.webp",
     },
     {
       alt: "Signature RSVP closing photo bottom",
-      src: "/images/invitation-signature/section-10/bottom.png",
+      src: "/images/invitation-signature/section-10/bottom.webp",
     },
   ],
 } as const;
@@ -194,43 +194,43 @@ const coutureSectionPhotos = {
   8: [
     {
       alt: "Couture intimacy photo top",
-      src: "/images/invitation-couture/photos/section-8/top.png",
+      src: "/images/invitation-couture/photos/section-8/top.webp",
     },
     {
       alt: "Couture intimacy photo middle",
-      src: "/images/invitation-couture/photos/section-8/middle.png",
+      src: "/images/invitation-couture/photos/section-8/middle.webp",
     },
     {
       alt: "Couture intimacy photo bottom",
-      src: "/images/invitation-couture/photos/section-8/bottom.png",
+      src: "/images/invitation-couture/photos/section-8/bottom.webp",
     },
   ],
   10: [
     {
       alt: "Couture trust photo top",
-      src: "/images/invitation-couture/photos/section-10/top.png",
+      src: "/images/invitation-couture/photos/section-10/top.webp",
     },
     {
       alt: "Couture trust photo middle",
-      src: "/images/invitation-couture/photos/section-10/middle.png",
+      src: "/images/invitation-couture/photos/section-10/middle.webp",
     },
     {
       alt: "Couture trust photo bottom",
-      src: "/images/invitation-couture/photos/section-10/bottom.png",
+      src: "/images/invitation-couture/photos/section-10/bottom.webp",
     },
   ],
   12: [
     {
       alt: "Couture final story photo top",
-      src: "/images/invitation-couture/photos/section-12/top.png",
+      src: "/images/invitation-couture/photos/section-12/top.webp",
     },
     {
       alt: "Couture final story photo middle",
-      src: "/images/invitation-couture/photos/section-12/middle.png",
+      src: "/images/invitation-couture/photos/section-12/middle.webp",
     },
     {
       alt: "Couture final story photo bottom",
-      src: "/images/invitation-couture/photos/section-12/bottom.png",
+      src: "/images/invitation-couture/photos/section-12/bottom.webp",
     },
   ],
 } as const;
@@ -1852,6 +1852,7 @@ export function RendererV2({
   const [opened, setOpened] = useState(false);
   const [playing, setPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const ambientRef = useRef<HTMLDivElement>(null);
   const { closing, couple } = invitation.content;
   const essential = packageCode === "essential";
   const signature = packageCode === "signature";
@@ -1899,6 +1900,45 @@ export function RendererV2({
       pauseAudio();
     };
   }, []);
+
+  useEffect(() => {
+    const root = ambientRef.current;
+    if (!opened || !root || reducedMotion) {
+      return;
+    }
+
+    const visibility = new Map<Element, boolean>();
+    const syncState = (element: Element) => {
+      const active =
+        document.visibilityState === "visible" &&
+        visibility.get(element) === true;
+      (element as HTMLElement).dataset.ambientActive = String(active);
+    };
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          visibility.set(entry.target, entry.isIntersecting);
+          syncState(entry.target);
+        });
+      },
+      { rootMargin: "180px 0px", threshold: 0.01 },
+    );
+    const sections = Array.from(root.querySelectorAll("section"));
+    sections.forEach((section) => {
+      visibility.set(section, false);
+      observer.observe(section);
+    });
+    const syncVisibility = () => sections.forEach(syncState);
+    document.addEventListener("visibilitychange", syncVisibility);
+
+    return () => {
+      document.removeEventListener("visibilitychange", syncVisibility);
+      observer.disconnect();
+      sections.forEach((section) => {
+        delete (section as HTMLElement).dataset.ambientActive;
+      });
+    };
+  }, [opened, reducedMotion]);
 
   async function playAudio() {
     if (!audioRef.current || !audio) {
@@ -1991,6 +2031,7 @@ export function RendererV2({
             className={opened ? ambientStyles.scope : undefined}
             data-ambient-dots={opened ? packageCode : undefined}
             data-dot-tier={opened ? packageCode : undefined}
+            ref={ambientRef}
             style={opened ? ambientStyle : undefined}
           >
             <EventStory

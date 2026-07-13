@@ -24,6 +24,7 @@ from rest_framework.views import APIView
 from analytics.models import AnalyticsEvent
 from common.models import AuditEvent
 from common.notifications import enqueue_client_notification
+from common.permissions import require_recent_staff_mfa
 from invitations.models import Guest, Invitation, InvitationMedia
 from invitations.preview import (
     guest_management_token_payload,
@@ -342,6 +343,32 @@ def _generate_guest_delivery_token() -> str:
 
 GUEST_IMPORT_TEMPLATE_HEADERS = ["name", "phone", "email", "party_size", "group", "note"]
 GUEST_IMPORT_MAX_ROWS = 1000
+GUEST_IMPORT_MAX_BYTES = 2 * 1024 * 1024
+GUEST_IMPORT_ALLOWED_CONTENT_TYPES = {
+    "application/csv",
+    "application/vnd.ms-excel",
+    "text/csv",
+    "text/plain",
+}
+GUEST_IMPORT_ALLOWED_HEADERS = {
+    "attendance",
+    "catatan",
+    "display_name",
+    "e-mail",
+    "email",
+    "group",
+    "grup",
+    "jumlah",
+    "kategori",
+    "kuota",
+    "name",
+    "nama",
+    "note",
+    "party_size",
+    "phone",
+    "wa",
+    "whatsapp",
+}
 
 
 def _csv_safe(value: object) -> str:
@@ -431,6 +458,11 @@ def _match_guest_from_maps(
 
 
 def _parse_guest_import_upload(uploaded_file) -> list[dict[str, object]]:
+    if uploaded_file.size > GUEST_IMPORT_MAX_BYTES:
+        raise ValidationError({"file": "Ukuran CSV maksimal 2 MB."})
+    content_type = str(getattr(uploaded_file, "content_type", "") or "").lower()
+    if content_type and content_type not in GUEST_IMPORT_ALLOWED_CONTENT_TYPES:
+        raise ValidationError({"file": "Tipe file tidak dikenali sebagai CSV."})
     try:
         raw = uploaded_file.read().decode("utf-8-sig")
     except UnicodeDecodeError as exc:
@@ -439,6 +471,10 @@ def _parse_guest_import_upload(uploaded_file) -> list[dict[str, object]]:
     reader = csv.DictReader(io.StringIO(raw))
     if not reader.fieldnames:
         raise ValidationError({"file": "CSV kosong atau header tidak ditemukan."})
+    normalized_headers = {str(header).strip().lower() for header in reader.fieldnames if header}
+    unknown_headers = sorted(normalized_headers - GUEST_IMPORT_ALLOWED_HEADERS)
+    if unknown_headers:
+        raise ValidationError({"file": f"Kolom CSV tidak didukung: {', '.join(unknown_headers)}."})
 
     rows: list[dict[str, object]] = []
     seen_keys: set[str] = set()
@@ -800,6 +836,7 @@ def _asset_from_music_payload(data) -> MediaAsset | None:
 
 class InvitationRSVPView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = "rsvp"
 
     def post(self, request, public_slug: str) -> Response:
         invitation = _rsvp_invitation_for_request(request, public_slug)
@@ -861,6 +898,7 @@ class InvitationRSVPView(APIView):
 
 class PublicGuestRSVPCreateView(APIView):
     permission_classes = [AllowAny]
+    throttle_scope = "rsvp"
 
     def post(self, request, public_slug: str) -> Response:
         invitation = public_invitations().filter(public_slug=public_slug).first()
@@ -938,6 +976,7 @@ class StaffInvitationPublishView(APIView):
     permission_classes = [IsStaffRole]
 
     def post(self, request, public_slug: str) -> Response:
+        require_recent_staff_mfa(request)
         invitation = Invitation.objects.filter(public_slug=public_slug).first()
         if invitation is None:
             raise Http404
@@ -1064,6 +1103,7 @@ class StaffInvitationGuestLinkImportTemplateView(APIView):
 class StaffInvitationGuestLinkImportView(APIView):
     permission_classes = [IsStaffRole]
     parser_classes = [MultiPartParser, FormParser]
+    throttle_scope = "guest_import"
 
     def post(self, request, public_slug: str) -> Response:
         invitation = Invitation.objects.filter(public_slug=public_slug).first()
@@ -1238,6 +1278,7 @@ class GuestManagementGuestLinkImportTemplateView(APIView):
 class GuestManagementGuestLinkImportView(APIView):
     permission_classes = [AllowAny]
     parser_classes = [MultiPartParser, FormParser]
+    throttle_scope = "guest_import"
 
     def post(self, request, token: str) -> Response:
         invitation = _guest_management_invitation(token)

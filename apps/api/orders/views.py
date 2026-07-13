@@ -20,6 +20,7 @@ from rest_framework.views import APIView
 
 from common.models import AuditEvent
 from common.notifications import enqueue_client_notification
+from common.permissions import require_recent_staff_mfa
 from invitations.models import (
     EventLocation,
     Invitation,
@@ -543,7 +544,16 @@ class StaffOrderDetailView(RetrieveUpdateAPIView):
         return Response(serializer.data)
 
     def patch(self, request, *args, **kwargs) -> Response:
+        require_recent_staff_mfa(request)
         order = self.get_object()
+        previous_theme = order.theme.slug if order.theme_id else None
+        previous_package = order.package.code if order.package_id else None
+        previous_custom_status = order.custom_status
+        previous_custom_fields = {
+            "custom_approval_notes": order.custom_approval_notes,
+            "custom_brief": order.custom_brief,
+            "custom_checklist": dict(order.custom_checklist or {}),
+        }
         nested_keys = {
             "ceremony",
             "reception",
@@ -611,11 +621,60 @@ class StaffOrderDetailView(RetrieveUpdateAPIView):
                     resource_reference=updated.reference,
                     metadata={"nested_fields": sorted(nested_keys.intersection(request.data))},
                 )
+            current_theme = updated.theme.slug if updated.theme_id else None
+            current_package = updated.package.code if updated.package_id else None
+            if previous_theme != current_theme:
+                AuditEvent.objects.create(
+                    actor=request.user,
+                    action="order.theme_changed",
+                    resource_type="order",
+                    resource_reference=updated.reference,
+                    metadata={"from": previous_theme, "to": current_theme},
+                )
+            if previous_package != current_package:
+                AuditEvent.objects.create(
+                    actor=request.user,
+                    action="order.package_changed",
+                    resource_type="order",
+                    resource_reference=updated.reference,
+                    metadata={"from": previous_package, "to": current_package},
+                )
+            if "bank_accounts" in request.data:
+                accounts = request.data.get("bank_accounts")
+                AuditEvent.objects.create(
+                    actor=request.user,
+                    action="invitation.bank_accounts_changed",
+                    resource_type="order",
+                    resource_reference=updated.reference,
+                    metadata={
+                        "account_count": len(accounts) if isinstance(accounts, list) else 0,
+                    },
+                )
+            custom_fields = {
+                key
+                for key in previous_custom_fields
+                if key in request.data and previous_custom_fields[key] != getattr(updated, key)
+            }
+            if "custom_status" in request.data and previous_custom_status != updated.custom_status:
+                custom_fields.add("custom_status")
+            if custom_fields:
+                AuditEvent.objects.create(
+                    actor=request.user,
+                    action="order.custom_request_changed",
+                    resource_type="order",
+                    resource_reference=updated.reference,
+                    metadata={
+                        "changed_fields": sorted(custom_fields),
+                        "status_from": previous_custom_status,
+                        "status_to": updated.custom_status,
+                    },
+                )
         updated = _detail_queryset().get(pk=updated.pk)
         detail = StaffOrderDetailSerializer(updated, context={"request": request})
         return Response(detail.data)
 
     def delete(self, request, *args, **kwargs) -> Response:
+        require_recent_staff_mfa(request)
         order = self.get_object()
         order.archived_at = timezone.now()
         order.save(update_fields=["archived_at", "updated_at"])
@@ -723,6 +782,7 @@ class StaffConfirmOrderView(APIView):
     permission_classes = [IsStaffRole]
 
     def post(self, request, reference: str) -> Response:
+        require_recent_staff_mfa(request)
         order = (
             Order.objects.select_related("invitation", "client_user")
             .filter(reference=reference)
@@ -746,6 +806,7 @@ class StaffRejectOrderView(APIView):
     permission_classes = [IsStaffRole]
 
     def post(self, request, reference: str) -> Response:
+        require_recent_staff_mfa(request)
         order = (
             Order.objects.select_related("invitation", "client_user")
             .filter(reference=reference)
@@ -782,6 +843,7 @@ class StaffArchiveWeddingView(APIView):
     permission_classes = [IsStaffRole]
 
     def post(self, request, public_slug: str) -> Response:
+        require_recent_staff_mfa(request)
         invitation = Invitation.objects.filter(public_slug=public_slug).first()
         if invitation is None:
             from django.http import Http404

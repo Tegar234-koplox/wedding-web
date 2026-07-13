@@ -5,6 +5,7 @@ import type {
   InvitationEnvelope,
   PackageCode,
 } from "@wedding/invitation-themes";
+import { useInView, useReducedMotion } from "framer-motion";
 import { Droplets, Wind } from "lucide-react";
 import React from "react";
 
@@ -60,11 +61,24 @@ function MeteoconsLottieIcon({
   src: string;
 }) {
   const containerRef = React.useRef<HTMLDivElement | null>(null);
+  const animationRef = React.useRef<{
+    destroy: () => void;
+    pause: () => void;
+    play: () => void;
+  } | null>(null);
   const [failedSrc, setFailedSrc] = React.useState<string | null>(null);
+  const isNearViewport = useInView(containerRef, {
+    amount: 0.01,
+    margin: "180px 0px",
+  });
+  const reducedMotion = useReducedMotion();
 
   React.useEffect(() => {
+    if (!isNearViewport || reducedMotion) {
+      return;
+    }
+
     let destroyed = false;
-    let animation: { destroy: () => void } | null = null;
 
     async function loadAnimation() {
       try {
@@ -73,13 +87,17 @@ function MeteoconsLottieIcon({
           return;
         }
 
-        animation = lottie.loadAnimation({
-          autoplay: true,
+        const animation = lottie.loadAnimation({
+          autoplay: false,
           container: containerRef.current,
           loop: true,
           path: src,
           renderer: "svg",
         });
+        animationRef.current = animation;
+        if (document.visibilityState === "visible") {
+          animation.play();
+        }
       } catch {
         if (!destroyed) {
           setFailedSrc(src);
@@ -91,11 +109,25 @@ function MeteoconsLottieIcon({
 
     return () => {
       destroyed = true;
-      animation?.destroy();
+      animationRef.current?.destroy();
+      animationRef.current = null;
     };
-  }, [src]);
+  }, [isNearViewport, reducedMotion, src]);
 
-  if (failedSrc === src) {
+  React.useEffect(() => {
+    const syncPlayback = () => {
+      if (isNearViewport && document.visibilityState === "visible") {
+        animationRef.current?.play();
+      } else {
+        animationRef.current?.pause();
+      }
+    };
+    syncPlayback();
+    document.addEventListener("visibilitychange", syncPlayback);
+    return () => document.removeEventListener("visibilitychange", syncPlayback);
+  }, [isNearViewport]);
+
+  if (failedSrc === src || reducedMotion) {
     return (
       <img
         alt={alt}
@@ -109,12 +141,7 @@ function MeteoconsLottieIcon({
   }
 
   return (
-    <div
-      ref={containerRef}
-      aria-label={alt}
-      className={sizeClass}
-      role="img"
-    />
+    <div ref={containerRef} aria-label={alt} className={sizeClass} role="img" />
   );
 }
 
@@ -192,19 +219,18 @@ export function ThemedWeather({
 
   const id = invitation.locale === "id";
   const locale = id ? "id" : "en";
-  const slots: WeatherSlot[] =
-    weather?.selections?.length
-      ? weather.selections
-      : weather?.selected && weather.event && weather.location
-        ? [
-            {
-              event: weather.event,
-              location: weather.location,
-              selected: weather.selected,
-              forecast: weather.forecast,
-            },
-          ]
-        : [];
+  const slots: WeatherSlot[] = weather?.selections?.length
+    ? weather.selections
+    : weather?.selected && weather.event && weather.location
+      ? [
+          {
+            event: weather.event,
+            location: weather.location,
+            selected: weather.selected,
+            forecast: weather.forecast,
+          },
+        ]
+      : [];
   const available =
     (weather?.status === "ready" || weather?.status === "stale") &&
     slots.length > 0;
@@ -237,11 +263,11 @@ export function ThemedWeather({
                       ? "Akad & Resepsi"
                       : "Ceremony & Reception"
                     : primarySlot?.selected.description[locale]
-                : id
-                  ? "Tersedia mendekati hari acara"
-                  : "Available closer to the event"}
-            </h2>
-          </div>
+                  : id
+                    ? "Tersedia mendekati hari acara"
+                    : "Available closer to the event"}
+              </h2>
+            </div>
             {available && slots.length > 1 ? null : available && primarySlot ? (
               <MeteoconsWeatherIcon
                 alt={primarySlot.selected.description[locale]}

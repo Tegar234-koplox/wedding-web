@@ -1,0 +1,30 @@
+name: Production performance gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: Public page URL to audit
+        required: true
+        type: string
+  schedule:
+    - cron: "11 4 * * 2"
+
+permissions:
+  contents: read
+
+jobs:
+  lighthouse:
+    runs-on: ubuntu-latest
+    env:
+      AUDIT_URL: ${{ inputs.url || secrets.PERFORMANCE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require an audit URL
+        run: test -n "$AUDIT_URL"
+      - uses: treosh/lighthouse-ci-action@v12
+        with:
+          urls: ${{ env.AUDIT_URL }}
+          configPath: ./lighthouserc.cjs
+          uploadArtifacts: true
+          temporaryPublicStorage: false

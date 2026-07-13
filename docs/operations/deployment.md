@@ -68,15 +68,21 @@ DJANGO_ALLOWED_HOSTS=<railway-host>,healthcheck.railway.app,api.<domain>
 DJANGO_CORS_ALLOWED_ORIGINS=https://<vercel-host>,https://<domain>
 DJANGO_CSRF_TRUSTED_ORIGINS=https://<vercel-host>,https://<domain>
 DJANGO_SECURE_SSL_REDIRECT=true
+DJANGO_API_DOCS_ENABLED=false
+DJANGO_MAX_REQUEST_BYTES=2097152
+DJANGO_SESSION_COOKIE_AGE=43200
+STAFF_MFA_REQUIRED=false
+STAFF_MFA_CHALLENGE_TTL_SECONDS=300
+STAFF_MFA_REAUTH_TTL_SECONDS=1800
 DATABASE_URL=<neon-pooled-url>
 DATABASE_DIRECT_URL=<neon-direct-url>
 DATABASE_DISABLE_SERVER_SIDE_CURSORS=true
 REDIS_URL=<railway-redis-url>
 CELERY_BROKER_URL=<railway-redis-url>
 CELERY_RESULT_BACKEND=<railway-redis-url>
-BMKG_API_BASE_URL=https://api.bmkg.go.id
-BMKG_REQUEST_TIMEOUT_SECONDS=5
-BMKG_CACHE_TTL_SECONDS=21600
+OPEN_METEO_API_BASE_URL=https://api.open-meteo.com
+OPEN_METEO_REQUEST_TIMEOUT_SECONDS=5
+OPEN_METEO_CACHE_TTL_SECONDS=21600
 WHATSAPP_BUSINESS_NUMBER=<digits-only>
 WHATSAPP_MESSAGE_TEMPLATE_ID=<localized-template>
 WHATSAPP_MESSAGE_TEMPLATE_EN=<localized-template>
@@ -91,6 +97,10 @@ WEB_CONCURRENCY=2
 GUNICORN_THREADS=2
 GUNICORN_TIMEOUT_SECONDS=60
 ```
+
+Keep `STAFF_MFA_REQUIRED=false` for the first hardened deployment. Enroll and
+verify every active account using [`staff-mfa.md`](staff-mfa.md), then switch it
+to `true`. Enabling enforcement before enrollment locks those staff accounts out.
 
 Cloudinary and WhatsApp values are required for their respective media/CTA
 features, but an empty integration value must not prevent the API from booting.
@@ -163,12 +173,17 @@ Preview deployments should use a non-production API or a deliberately
 read-only production API policy. Do not place production backend secrets in
 Vercel.
 
-## 7. Domains and CORS
+## 7. Domains, Cloudflare, and CORS
 
 Recommended routing:
 
 - `https://<domain>` and `https://www.<domain>` → Vercel
-- `https://api.<domain>` → Railway web service
+- `https://api.<domain>` -> Cloudflare Tunnel -> Railway private web service
+
+Follow [`cloudflare-api.md`](cloudflare-api.md). Do not remove Railway public
+networking until the tunnel, health checks, frontend login, and rollback path
+have all been verified. Once verified, remove the public Railway origin so the
+WAF cannot be bypassed.
 
 After DNS and certificates are active:
 
@@ -204,7 +219,7 @@ through manual dispatch.
 - Readiness reports PostgreSQL and Redis as healthy.
 - Theme and package APIs return public data without private fields.
 - One sample invitation renders on mobile and desktop.
-- BMKG attribution appears and stale/unavailable behavior is graceful.
+- Open-Meteo attribution appears and stale/unavailable behavior is graceful.
 - WhatsApp CTA redirects to the configured number.
 - Sentry receives a controlled test event from frontend and backend.
 - Celery worker receives tasks and only one Beat instance schedules them.

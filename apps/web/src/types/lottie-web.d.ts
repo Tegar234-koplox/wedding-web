@@ -9,6 +9,8 @@ declare module "lottie-web" {
 
   type AnimationItem = {
     destroy: () => void;
+    pause: () => void;
+    play: () => void;
   };
 
   const lottie: {

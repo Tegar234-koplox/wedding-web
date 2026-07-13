@@ -302,6 +302,8 @@ def test_staff_can_update_manual_order_detail_payload(client):
     )
     theme = create_theme(slug="manual-theme")
     package = create_package(code="manual-package")
+    updated_theme = create_theme(slug="manual-theme-updated")
+    updated_package = create_package(code="manual-package-updated")
     order = Order.objects.create(
         reference="manual-detail-001",
         client_name="Fahri",
@@ -315,6 +317,8 @@ def test_staff_can_update_manual_order_detail_payload(client):
         reverse("admin-order-detail", kwargs={"reference": order.reference}),
         {
             "client_name": "Reno dan Erisa",
+            "theme_slug": updated_theme.slug,
+            "package_code": updated_package.code,
             "custom_approval_notes": "Scope custom disetujui via WhatsApp.",
             "custom_brief": "Custom love story, parallax lembut, dan overlay motion.",
             "custom_checklist": {
@@ -385,6 +389,8 @@ def test_staff_can_update_manual_order_detail_payload(client):
     assert order.custom_brief.startswith("Custom love story")
     assert order.custom_approval_notes == "Scope custom disetujui via WhatsApp."
     assert order.custom_checklist["motion_brief"] is True
+    assert order.theme == updated_theme
+    assert order.package == updated_package
     assert order.payment_status == Order.PaymentStatus.PAID
     assert order.invitation is not None
     assert order.invitation.content["couple"]["partnerOne"] == "Reno"
@@ -403,6 +409,25 @@ def test_staff_can_update_manual_order_detail_payload(client):
     assert response.json()["order"]["custom_checklist"]["overlay_assets"] is True
     assert response.json()["preview_url"].startswith("http://testserver/id/i/")
     assert "preview=" in response.json()["preview_url"]
+    assert AuditEvent.objects.filter(
+        action="order.theme_changed",
+        resource_reference=order.reference,
+    ).exists()
+    assert AuditEvent.objects.filter(
+        action="order.package_changed",
+        resource_reference=order.reference,
+    ).exists()
+    bank_audit = AuditEvent.objects.get(
+        action="invitation.bank_accounts_changed",
+        resource_reference=order.reference,
+    )
+    assert bank_audit.metadata == {"account_count": 1}
+    custom_audit = AuditEvent.objects.get(
+        action="order.custom_request_changed",
+        resource_reference=order.reference,
+    )
+    assert "custom_brief" in custom_audit.metadata["changed_fields"]
+    assert "Custom love story" not in str(custom_audit.metadata)
 
     rename_response = client.patch(
         reverse("admin-order-detail", kwargs={"reference": order.reference}),
@@ -481,7 +506,8 @@ def test_client_user_cannot_login_to_staff_dashboard(client):
         content_type="application/json",
     )
 
-    assert response.status_code == 403
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Kredensial staff tidak valid."}
 
 
 def test_postgres_access_sql_keeps_staff_off_guest_rows():
