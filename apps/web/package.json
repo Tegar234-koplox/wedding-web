@@ -36,7 +36,7 @@
     "@wedding/eslint-config": "workspace:*",
     "@wedding/typescript-config": "workspace:*",
     "eslint": "^9.31.0",
-    "jsdom": "^26.1.0",
+    "jsdom": "^29.1.1",
     "tailwindcss": "^4.1.11",
     "typescript": "^5.9.2",
     "vitest": "^3.2.4"
