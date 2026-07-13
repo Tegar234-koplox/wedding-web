@@ -109,16 +109,46 @@ test("staff login requires and completes the second factor", async ({
   await expect(page).toHaveURL(/\/admin$/);
 });
 
-test("responses use nonce CSP without unsafe inline scripts", async ({
+test("public responses use a static-compatible CSP", async ({ request }) => {
+  const response = await request.get("/id");
+  const csp = response.headers()["content-security-policy"] ?? "";
+
+  expect(response.ok()).toBeTruthy();
+  expect(csp).toContain("script-src 'self' 'unsafe-inline'");
+  expect(csp).not.toContain("'strict-dynamic'");
+  expect(csp).not.toContain("'nonce-");
+});
+
+test("admin responses retain nonce CSP without unsafe inline scripts", async ({
   request,
 }) => {
-  const response = await request.get("/id");
+  const response = await request.get("/admin/login");
   const csp = response.headers()["content-security-policy"] ?? "";
 
   expect(response.ok()).toBeTruthy();
   expect(csp).toContain("script-src 'self' 'nonce-");
   expect(csp).toContain("'strict-dynamic'");
   expect(csp).not.toContain("script-src 'self' 'unsafe-inline'");
+});
+
+test("landing page hydrates and runs its entrance motion", async ({ page }) => {
+  const cspErrors: string[] = [];
+  page.on("console", (message) => {
+    if (
+      message.type() === "error" &&
+      message.text().includes("Content Security Policy")
+    ) {
+      cspErrors.push(message.text());
+    }
+  });
+
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto("/id");
+
+  const heroLine = page.locator("[data-hero-line]").first();
+  await expect(heroLine).toBeVisible();
+  await expect.poll(() => heroLine.getAttribute("style")).toContain("opacity");
+  expect(cspErrors).toEqual([]);
 });
 
 test("invitation preview remains behind its cover until opened", async ({
