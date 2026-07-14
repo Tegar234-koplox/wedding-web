@@ -4,9 +4,20 @@ from django.db import migrations, models
 def grant_staff_custom_domain_update(apps, schema_editor):
     if schema_editor.connection.vendor != "postgresql":
         return
+
     with schema_editor.connection.cursor() as cursor:
         cursor.execute(
             """
+            CREATE SCHEMA IF NOT EXISTS app;
+
+            CREATE OR REPLACE FUNCTION app.current_user_role()
+            RETURNS text
+            LANGUAGE sql
+            STABLE
+            AS $$
+                SELECT NULLIF(current_setting('request.user_role', true), '')
+            $$;
+
             DROP POLICY IF EXISTS staff_update_invitation_custom_domain
             ON invitations_invitation;
 
