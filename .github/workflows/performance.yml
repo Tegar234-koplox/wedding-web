@@ -20,7 +20,7 @@ jobs:
     env:
       AUDIT_URL: ${{ inputs.url || vars.PERFORMANCE_URL || secrets.PERFORMANCE_URL || 'https://www.niskalastudio.site/id' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Validate production audit URL
         shell: bash
         run: |

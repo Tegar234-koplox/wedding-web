@@ -15,7 +15,7 @@ jobs:
       STAGING_FRONTEND_URL: ${{ secrets.STAGING_FRONTEND_URL }}
       STAGING_API_URL: ${{ secrets.STAGING_API_URL }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Require isolated staging targets
         run: test -n "$STAGING_FRONTEND_URL" && test -n "$STAGING_API_URL"
       - name: Scan frontend
@@ -47,7 +47,7 @@ jobs:
       K6_PREVIEW_TOKEN: ${{ secrets.STAGING_DEMO_PREVIEW_TOKEN }}
       K6_GUEST_TOKEN: ${{ secrets.STAGING_DEMO_GUEST_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Require isolated staging targets
         run: test -n "$K6_FRONTEND_URL" && test -n "$K6_API_URL"
       - uses: grafana/setup-k6-action@v1
