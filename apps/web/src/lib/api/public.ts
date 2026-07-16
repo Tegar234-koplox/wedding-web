@@ -16,21 +16,87 @@ import {
 import { env } from "@/lib/env";
 import type { Locale } from "@/lib/locales";
 
-async function apiFetch(
-  path: string,
-  options: { timeoutMs?: number } = {},
-): Promise<unknown> {
-  const response = await fetch(`${env.NEXT_PUBLIC_API_URL}${path}`, {
-    headers: { Accept: "application/json" },
-    next: { revalidate: 300 },
-    signal: AbortSignal.timeout(options.timeoutMs ?? 2_000),
-  });
+const PUBLIC_API_RETRY_DELAY_MS = 250;
+const PUBLIC_INVITATION_TIMEOUT_MS = 8_000;
 
-  if (!response.ok) {
-    throw new Error(`Public API request failed with ${response.status}`);
+function cloudflareAccessHeaders(): Record<string, string> {
+  const clientId = process.env.CF_ACCESS_CLIENT_ID?.trim();
+  const clientSecret = process.env.CF_ACCESS_CLIENT_SECRET?.trim();
+
+  if (Boolean(clientId) !== Boolean(clientSecret)) {
+    throw new Error(
+      "CF_ACCESS_CLIENT_ID and CF_ACCESS_CLIENT_SECRET must be configured together",
+    );
   }
 
-  return response.json();
+  if (!clientId || !clientSecret) {
+    return {};
+  }
+
+  return {
+    "CF-Access-Client-Id": clientId,
+    "CF-Access-Client-Secret": clientSecret,
+  };
+}
+
+class PublicApiResponseError extends Error {
+  constructor(readonly status: number) {
+    super(`Public API request failed with ${status}`);
+    this.name = "PublicApiResponseError";
+  }
+}
+
+function isTransientPublicApiError(error: unknown): boolean {
+  if (error instanceof PublicApiResponseError) {
+    return error.status >= 500;
+  }
+  if (error instanceof TypeError) {
+    return true;
+  }
+  return (
+    error instanceof DOMException &&
+    (error.name === "AbortError" || error.name === "TimeoutError")
+  );
+}
+
+function waitBeforeRetry(): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, PUBLIC_API_RETRY_DELAY_MS);
+  });
+}
+
+async function apiFetch(
+  path: string,
+  options: { noStore?: boolean; timeoutMs?: number } = {},
+): Promise<unknown> {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const response = await fetch(`${env.NEXT_PUBLIC_API_URL}${path}`, {
+        ...(options.noStore
+          ? { cache: "no-store" as const }
+          : { next: { revalidate: 300 } }),
+        headers: {
+          Accept: "application/json",
+          ...cloudflareAccessHeaders(),
+        },
+        signal: AbortSignal.timeout(options.timeoutMs ?? 2_000),
+      });
+
+      if (!response.ok) {
+        throw new PublicApiResponseError(response.status);
+      }
+
+      return response.json();
+    } catch (error) {
+      const shouldRetry = attempt === 0 && isTransientPublicApiError(error);
+      if (!shouldRetry) {
+        throw error;
+      }
+      await waitBeforeRetry();
+    }
+  }
+
+  throw new Error("Public API retry loop ended unexpectedly");
 }
 
 export async function fetchPublicInvitation(
@@ -51,10 +117,16 @@ export async function fetchPublicInvitation(
       ? `/invitations/${publicSlug}/preview${suffix}`
       : `/invitations/${publicSlug}${suffix}`;
     return publicInvitationSchema.parse(
-      await apiFetch(path),
+      await apiFetch(path, {
+        noStore: Boolean(previewToken || guestToken),
+        timeoutMs: PUBLIC_INVITATION_TIMEOUT_MS,
+      }),
     );
-  } catch {
-    return null;
+  } catch (error) {
+    if (error instanceof PublicApiResponseError && error.status === 404) {
+      return null;
+    }
+    throw error;
   }
 }
 
@@ -72,7 +144,10 @@ export async function fetchInvitationWishes(
       )}`,
       {
         cache: "no-store",
-        headers: { Accept: "application/json" },
+        headers: {
+          Accept: "application/json",
+          ...cloudflareAccessHeaders(),
+        },
         signal: AbortSignal.timeout(2_000),
       },
     );

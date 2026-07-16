@@ -1,16 +1,22 @@
+import logging
+
 from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.http import HttpResponseRedirect
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
+from rest_framework.exceptions import ValidationError as APIValidationError
 from rest_framework.generics import ListAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from analytics.models import AnalyticsEvent
+from common.exceptions import ServiceUnavailable
 from leads.models import WhatsAppIntent
 from leads.serializers import StaffWhatsAppIntentSerializer
 from leads.services import whatsapp_redirect_url
 from orders.permissions import IsStaffRole
+
+logger = logging.getLogger("wedding.api")
 
 
 class WhatsAppRedirectView(APIView):
@@ -38,10 +44,11 @@ class WhatsAppRedirectView(APIView):
                 theme_slug=theme_slug,
                 package_code=package_code,
             )
-        except (ValidationError, ImproperlyConfigured) as exc:
-            from rest_framework.exceptions import ValidationError as APIValidationError
-
-            raise APIValidationError({"cta": str(exc)}) from exc
+        except ValidationError as exc:
+            raise APIValidationError({"cta": "Theme, package, or locale is not valid."}) from exc
+        except ImproperlyConfigured as exc:
+            logger.exception("leads.whatsapp_redirect_unavailable")
+            raise ServiceUnavailable("WhatsApp redirect is temporarily unavailable.") from exc
 
         try:
             intent = WhatsAppIntent.objects.create(

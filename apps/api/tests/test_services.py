@@ -1,7 +1,7 @@
 from unittest.mock import patch
 
 import pytest
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.test import override_settings
 from django.urls import reverse
 
@@ -60,6 +60,19 @@ def test_whatsapp_service_rejects_unknown_theme():
         whatsapp_redirect_url(locale="id", theme_slug="unknown-theme")
 
 
+@pytest.mark.django_db
+def test_whatsapp_redirect_does_not_expose_configuration_exception(client):
+    with patch(
+        "leads.views.whatsapp_redirect_url",
+        side_effect=ImproperlyConfigured("sensitive WhatsApp configuration"),
+    ):
+        response = client.get(reverse("whatsapp-redirect"), {"locale": "id"})
+
+    assert response.status_code == 503
+    assert "sensitive WhatsApp configuration" not in response.content.decode()
+    assert response.json()["error"]["code"] == "service_unavailable"
+
+
 @override_settings(
     CLOUDINARY_CLOUD_NAME="demo",
     CLOUDINARY_API_KEY="public-key",
@@ -111,3 +124,28 @@ def test_upload_signature_requires_staff(client):
         )
     assert response.status_code == 200
     assert response.json()["signature"] == "signed"
+
+
+@pytest.mark.django_db
+def test_upload_signature_does_not_expose_configuration_exception(client):
+    user = User.objects.create_user(
+        username="upload-staff",
+        email="upload-staff@example.com",
+        password="safe-test-password",
+        is_staff=True,
+    )
+    client.force_login(user)
+
+    with patch(
+        "media_library.views.create_upload_signature",
+        side_effect=ImproperlyConfigured("sensitive Cloudinary configuration"),
+    ):
+        response = client.post(
+            reverse("upload-signature"),
+            {"namespace": "themes"},
+            content_type="application/json",
+        )
+
+    assert response.status_code == 503
+    assert "sensitive Cloudinary configuration" not in response.content.decode()
+    assert response.json()["error"]["code"] == "service_unavailable"
