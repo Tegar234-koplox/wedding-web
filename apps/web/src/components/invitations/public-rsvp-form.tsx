@@ -3,8 +3,6 @@
 import { Send } from "lucide-react";
 import { useState } from "react";
 
-import { env } from "@/lib/env";
-
 type PublicRSVPFormProps = {
   embedded?: boolean;
   initialToken?: string;
@@ -44,7 +42,7 @@ export function PublicRSVPForm({
     setMessage("");
     try {
       const response = await fetch(
-        `${env.NEXT_PUBLIC_API_URL}/invitations/${publicSlug}/rsvp`,
+        `/api/invitations/${encodeURIComponent(publicSlug)}/rsvp`,
         {
           body: JSON.stringify({
             attendance_count: Number(attendanceCount),

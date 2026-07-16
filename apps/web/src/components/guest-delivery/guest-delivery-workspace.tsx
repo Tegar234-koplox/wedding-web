@@ -14,7 +14,6 @@ import type { Route } from "next";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { env } from "@/lib/env";
 import { cn } from "@/lib/utils";
 
 type GuestDeliveryMode = "import" | "list" | "wishes";
@@ -122,8 +121,12 @@ const outlineButtonClassName =
 const primaryButtonClassName =
   "inline-flex min-h-11 items-center justify-center gap-3 bg-[var(--color-gold)] px-4 text-xs font-semibold uppercase tracking-[0.14em] text-black transition hover:bg-[#f4ddb0] disabled:cursor-not-allowed disabled:opacity-45";
 
+function guestManagementUrl(token: string, path = ""): string {
+  return `/api/guest-management/${encodeURIComponent(token)}${path}`;
+}
+
 async function guestFetch<T>(token: string, path = "", init?: RequestInit): Promise<T> {
-  const response = await fetch(`${env.NEXT_PUBLIC_API_URL}/guest-management/${token}${path}`, {
+  const response = await fetch(guestManagementUrl(token, path), {
     ...init,
     cache: "no-store",
     headers: {
@@ -148,7 +151,7 @@ async function guestFetch<T>(token: string, path = "", init?: RequestInit): Prom
 }
 
 async function guestDownload(token: string, path: string): Promise<Blob> {
-  const response = await fetch(`${env.NEXT_PUBLIC_API_URL}/guest-management/${token}${path}`, {
+  const response = await fetch(guestManagementUrl(token, path), {
     cache: "no-store",
     headers: { Accept: "*/*" },
   });
@@ -161,7 +164,7 @@ async function guestDownload(token: string, path: string): Promise<Blob> {
 async function guestUpload<T>(token: string, path: string, file: File): Promise<T> {
   const formData = new FormData();
   formData.append("file", file);
-  const response = await fetch(`${env.NEXT_PUBLIC_API_URL}/guest-management/${token}${path}`, {
+  const response = await fetch(guestManagementUrl(token, path), {
     body: formData,
     cache: "no-store",
     headers: { Accept: "application/json" },
