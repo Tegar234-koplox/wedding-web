@@ -45,14 +45,10 @@ class WhatsAppRedirectView(APIView):
                 package_code=package_code,
             )
         except ValidationError as exc:
-            raise APIValidationError(
-                {"cta": "Theme, package, or locale is not valid."}
-            ) from exc
+            raise APIValidationError({"cta": "Theme, package, or locale is not valid."}) from exc
         except ImproperlyConfigured as exc:
             logger.exception("leads.whatsapp_redirect_unavailable")
-            raise ServiceUnavailable(
-                "WhatsApp redirect is temporarily unavailable."
-            ) from exc
+            raise ServiceUnavailable("WhatsApp redirect is temporarily unavailable.") from exc
 
         try:
             intent = WhatsAppIntent.objects.create(

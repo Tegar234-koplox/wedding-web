@@ -53,7 +53,5 @@ class UploadSignatureView(APIView):
             raise APIValidationError({"upload": "Upload parameters are not valid."}) from exc
         except ImproperlyConfigured as exc:
             logger.exception("media_library.upload_signature_unavailable")
-            raise ServiceUnavailable(
-                "Media upload is temporarily unavailable."
-            ) from exc
+            raise ServiceUnavailable("Media upload is temporarily unavailable.") from exc
         return Response(payload)
