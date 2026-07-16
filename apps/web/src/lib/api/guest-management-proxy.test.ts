@@ -52,6 +52,26 @@ describe("proxyGuestManagementRequest", () => {
     expect(response.headers.get("cache-control")).toBe("no-store");
   });
 
+  it("normalizes complete Access header lines copied from Cloudflare", async () => {
+    process.env.CF_ACCESS_CLIENT_ID =
+      "CF-Access-Client-Id: vercel-staging.access";
+    process.env.CF_ACCESS_CLIENT_SECRET =
+      "CF-Access-Client-Secret: server-only-secret";
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(Response.json({ public_slug: "n001" }));
+    const request = new Request(
+      "https://staging.example.test/api/guest-management/token",
+    );
+
+    const response = await proxyGuestManagementRequest(request, "invite-token");
+
+    const headers = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
+    expect(response.status).toBe(200);
+    expect(headers.get("cf-access-client-id")).toBe("vercel-staging.access");
+    expect(headers.get("cf-access-client-secret")).toBe("server-only-secret");
+  });
+
   it("forwards JSON write bodies without forwarding browser credentials", async () => {
     configureAccessToken();
     const fetchMock = vi

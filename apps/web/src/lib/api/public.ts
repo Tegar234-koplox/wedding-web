@@ -13,6 +13,7 @@ import {
   type InvitationWeather,
   type PublicInvitationWishes,
 } from "@/lib/api/contracts";
+import { getCloudflareAccessHeaders } from "@/lib/api/cloudflare-access";
 import { env } from "@/lib/env";
 import type { Locale } from "@/lib/locales";
 
@@ -20,23 +21,13 @@ const PUBLIC_API_RETRY_DELAY_MS = 250;
 const PUBLIC_INVITATION_TIMEOUT_MS = 8_000;
 
 function cloudflareAccessHeaders(): Record<string, string> {
-  const clientId = process.env.CF_ACCESS_CLIENT_ID?.trim();
-  const clientSecret = process.env.CF_ACCESS_CLIENT_SECRET?.trim();
-
-  if (Boolean(clientId) !== Boolean(clientSecret)) {
+  const headers = getCloudflareAccessHeaders();
+  if (!headers) {
     throw new Error(
       "CF_ACCESS_CLIENT_ID and CF_ACCESS_CLIENT_SECRET must be configured together",
     );
   }
-
-  if (!clientId || !clientSecret) {
-    return {};
-  }
-
-  return {
-    "CF-Access-Client-Id": clientId,
-    "CF-Access-Client-Secret": clientSecret,
-  };
+  return headers;
 }
 
 class PublicApiResponseError extends Error {

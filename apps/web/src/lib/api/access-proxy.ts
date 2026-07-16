@@ -1,5 +1,6 @@
 import "server-only";
 
+import { getCloudflareAccessHeaders } from "@/lib/api/cloudflare-access";
 import { env } from "@/lib/env";
 
 const UPSTREAM_TIMEOUT_MS = 30_000;
@@ -7,24 +8,6 @@ const RESPONSE_HEADER_ALLOWLIST = [
   "content-disposition",
   "content-type",
 ] as const;
-
-function cloudflareAccessHeaders(): Record<string, string> | null {
-  const clientId = process.env.CF_ACCESS_CLIENT_ID?.trim();
-  const clientSecret = process.env.CF_ACCESS_CLIENT_SECRET?.trim();
-
-  if (Boolean(clientId) !== Boolean(clientSecret)) {
-    return null;
-  }
-
-  if (!clientId || !clientSecret) {
-    return {};
-  }
-
-  return {
-    "CF-Access-Client-Id": clientId,
-    "CF-Access-Client-Secret": clientSecret,
-  };
-}
 
 function proxyError(message: string, status: number): Response {
   return Response.json({ error: { message } }, { status });
@@ -35,7 +18,7 @@ export async function proxyAccessRequest(
   upstreamUrl: URL,
   serviceName: string,
 ): Promise<Response> {
-  const accessHeaders = cloudflareAccessHeaders();
+  const accessHeaders = getCloudflareAccessHeaders();
   if (!accessHeaders) {
     return proxyError(`${serviceName} is not configured.`, 503);
   }
