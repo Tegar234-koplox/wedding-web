@@ -24,6 +24,8 @@ const invitationPayload = {
 afterEach(() => {
   vi.restoreAllMocks();
   vi.useRealTimers();
+  delete process.env.CF_ACCESS_CLIENT_ID;
+  delete process.env.CF_ACCESS_CLIENT_SECRET;
 });
 
 describe("fetchPublicInvitation", () => {
@@ -75,5 +77,35 @@ describe("fetchPublicInvitation", () => {
       expect.stringContaining("guest=guest-token"),
       expect.objectContaining({ cache: "no-store" }),
     );
+  });
+
+  it("authenticates server-side requests to a Cloudflare Access protected API", async () => {
+    process.env.CF_ACCESS_CLIENT_ID = "staging-web-client-id";
+    process.env.CF_ACCESS_CLIENT_SECRET = "staging-web-client-secret";
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(Response.json(invitationPayload));
+
+    await fetchPublicInvitation("alya-raka", undefined, "guest-token");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("guest=guest-token"),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          "CF-Access-Client-Id": "staging-web-client-id",
+          "CF-Access-Client-Secret": "staging-web-client-secret",
+        }),
+      }),
+    );
+  });
+
+  it("rejects an incomplete Cloudflare Access credential pair", async () => {
+    process.env.CF_ACCESS_CLIENT_ID = "staging-web-client-id";
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+
+    await expect(fetchPublicInvitation("alya-raka")).rejects.toThrow(
+      "CF_ACCESS_CLIENT_ID and CF_ACCESS_CLIENT_SECRET must be configured together",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

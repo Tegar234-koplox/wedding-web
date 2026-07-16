@@ -19,6 +19,26 @@ import type { Locale } from "@/lib/locales";
 const PUBLIC_API_RETRY_DELAY_MS = 250;
 const PUBLIC_INVITATION_TIMEOUT_MS = 8_000;
 
+function cloudflareAccessHeaders(): Record<string, string> {
+  const clientId = process.env.CF_ACCESS_CLIENT_ID?.trim();
+  const clientSecret = process.env.CF_ACCESS_CLIENT_SECRET?.trim();
+
+  if (Boolean(clientId) !== Boolean(clientSecret)) {
+    throw new Error(
+      "CF_ACCESS_CLIENT_ID and CF_ACCESS_CLIENT_SECRET must be configured together",
+    );
+  }
+
+  if (!clientId || !clientSecret) {
+    return {};
+  }
+
+  return {
+    "CF-Access-Client-Id": clientId,
+    "CF-Access-Client-Secret": clientSecret,
+  };
+}
+
 class PublicApiResponseError extends Error {
   constructor(readonly status: number) {
     super(`Public API request failed with ${status}`);
@@ -55,7 +75,10 @@ async function apiFetch(
         ...(options.noStore
           ? { cache: "no-store" as const }
           : { next: { revalidate: 300 } }),
-        headers: { Accept: "application/json" },
+        headers: {
+          Accept: "application/json",
+          ...cloudflareAccessHeaders(),
+        },
         signal: AbortSignal.timeout(options.timeoutMs ?? 2_000),
       });
 
@@ -121,7 +144,10 @@ export async function fetchInvitationWishes(
       )}`,
       {
         cache: "no-store",
-        headers: { Accept: "application/json" },
+        headers: {
+          Accept: "application/json",
+          ...cloudflareAccessHeaders(),
+        },
         signal: AbortSignal.timeout(2_000),
       },
     );

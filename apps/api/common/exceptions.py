@@ -1,10 +1,17 @@
 import logging
 
 from rest_framework import status
+from rest_framework.exceptions import APIException
 from rest_framework.response import Response
 from rest_framework.views import exception_handler
 
 logger = logging.getLogger("wedding.api")
+
+
+class ServiceUnavailable(APIException):
+    status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    default_detail = "The requested service is temporarily unavailable."
+    default_code = "service_unavailable"
 
 
 def api_exception_handler(exc: Exception, context: dict[str, object]) -> Response | None:
