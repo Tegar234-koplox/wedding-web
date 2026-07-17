@@ -35,7 +35,7 @@
     "@types/react-dom": "^19.1.7",
     "@wedding/eslint-config": "workspace:*",
     "@wedding/typescript-config": "workspace:*",
-    "eslint": "^9.31.0",
+    "eslint": "^10.7.0",
     "jsdom": "^26.1.0",
     "tailwindcss": "^4.1.11",
     "typescript": "^5.9.2",

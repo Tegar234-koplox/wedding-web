@@ -15,7 +15,7 @@
   "devDependencies": {
     "@wedding/eslint-config": "workspace:*",
     "@wedding/typescript-config": "workspace:*",
-    "eslint": "^9.31.0",
+    "eslint": "^10.7.0",
     "typescript": "^5.9.2"
   }
 }
