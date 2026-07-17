@@ -69,6 +69,14 @@ export const publicInvitationSchema = invitationEnvelopeSchema.extend({
       default_volume: z.number().min(0).max(1),
     })
     .nullable(),
+  cover: z
+    .object({
+      secure_url: z.url(),
+      focal_x: z.number().min(0).max(100),
+      focal_y: z.number().min(0).max(100),
+    })
+    .nullable()
+    .default(null),
   events: z.array(z.unknown()),
   published_at: z.string().nullable(),
 });
@@ -159,3 +167,4 @@ export type PublicInvitation = z.infer<typeof publicInvitationSchema>;
 export type PublicInvitationWishes = z.infer<typeof publicInvitationWishesSchema>;
 export type InvitationWeather = z.infer<typeof invitationWeatherSchema>;
 export type InvitationAudio = NonNullable<PublicInvitation["audio"]>;
+export type InvitationCover = PublicInvitation["cover"];

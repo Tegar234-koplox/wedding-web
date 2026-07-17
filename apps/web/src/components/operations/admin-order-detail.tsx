@@ -11,7 +11,7 @@ import {
   Save,
 } from "lucide-react";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
 
 import { cn } from "@/lib/utils";
@@ -68,7 +68,11 @@ type OrderDetailForm = {
   gallery_urls: string;
   package_code: string;
   payment_status: PaymentStatus;
+  photo_focal_x: number;
+  photo_focal_y: number;
   photo_url: string;
+  quote_attribution: string;
+  quote_text: string;
   reception_address: string;
   reception_latitude: string;
   reception_longitude: string;
@@ -80,7 +84,12 @@ type OrderDetailForm = {
   rsvp_confirmed: string;
   status_label: string;
   story_body: string;
+  story_conflict: string;
+  story_final: string;
   story_heading: string;
+  story_intimacy: string;
+  story_middle: string;
+  story_trust: string;
   theme_slug: string;
   timeline_conflict: string;
   timeline_final: string;
@@ -129,6 +138,19 @@ type TimelineBlock = {
   mode: "opening" | "middle" | "final" | "conflict" | "intimacy" | "trust";
 };
 
+type StoryCopyBlock = {
+  description: string;
+  field: keyof Pick<
+    OrderDetailForm,
+    | "story_conflict"
+    | "story_final"
+    | "story_intimacy"
+    | "story_middle"
+    | "story_trust"
+  >;
+  label: string;
+};
+
 const emptyForm: OrderDetailForm = {
   bank_account_bank: "",
   bank_account_name: "",
@@ -155,7 +177,11 @@ const emptyForm: OrderDetailForm = {
   gallery_urls: "",
   package_code: "",
   payment_status: "unpaid",
+  photo_focal_x: 50,
+  photo_focal_y: 50,
   photo_url: "",
+  quote_attribution: "",
+  quote_text: "",
   reception_address: "",
   reception_latitude: "",
   reception_longitude: "",
@@ -167,7 +193,12 @@ const emptyForm: OrderDetailForm = {
   rsvp_confirmed: "0",
   status_label: "Baru",
   story_body: "",
+  story_conflict: "",
+  story_final: "",
   story_heading: "Cerita kami",
+  story_intimacy: "",
+  story_middle: "",
+  story_trust: "",
   theme_slug: "",
   timeline_conflict: "",
   timeline_final: "",
@@ -289,6 +320,55 @@ function timelineBlocksFor(packageCode: string): TimelineBlock[] {
   return [];
 }
 
+function storyCopyBlocksFor(packageCode: string): StoryCopyBlock[] {
+  if (packageCode === "couture" || packageCode === "bespoke") {
+    return [
+      {
+        description: "Copy lanjutan untuk bagian konflik dan penyadaran.",
+        field: "story_conflict",
+        label: "Conflict",
+      },
+      {
+        description: "Copy lanjutan untuk bagian kedekatan pasangan.",
+        field: "story_intimacy",
+        label: "Intimacy",
+      },
+      {
+        description: "Copy lanjutan untuk bagian kepercayaan dan penguatan.",
+        field: "story_trust",
+        label: "Trust",
+      },
+      {
+        description: "Copy penutup menuju hari acara.",
+        field: "story_final",
+        label: "Final",
+      },
+    ];
+  }
+
+  if (packageCode === "signature") {
+    return [
+      {
+        description: "Copy lanjutan untuk bagian pertumbuhan cerita.",
+        field: "story_middle",
+        label: "Middle",
+      },
+      {
+        description: "Copy penutup menuju hari acara.",
+        field: "story_final",
+        label: "Final",
+      },
+    ];
+  }
+
+  return [];
+}
+
+function normalizeFocalPoint(value: number | null | undefined): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.min(100, Math.max(0, parsed)) : 50;
+}
+
 function gallerySlots(value: string): string[] {
   return value ? value.split("\n") : [];
 }
@@ -376,6 +456,8 @@ function fromDetail(detail: StaffOrderDetail): OrderDetailForm {
   const backsound = detail.media.find((item) => item.role === "backsound");
   const customChecklist = detail.order.custom_checklist ?? {};
   const story = detail.invitation?.story ?? {};
+  const sectionBodies = story.sectionBodies ?? {};
+  const quote = detail.invitation?.quote ?? {};
   const timeline = detail.invitation?.timeline ?? {};
 
   return {
@@ -404,7 +486,11 @@ function fromDetail(detail: StaffOrderDetail): OrderDetailForm {
     gallery_urls: gallery.map((item) => item.asset.secure_url).join("\n"),
     package_code: detail.order.package_code ?? detail.invitation?.package_code ?? "",
     payment_status: detail.order.payment_status,
+    photo_focal_x: normalizeFocalPoint(photo?.focal_x),
+    photo_focal_y: normalizeFocalPoint(photo?.focal_y),
     photo_url: photo?.asset.secure_url ?? "",
+    quote_attribution: quote.attribution ?? "",
+    quote_text: quote.text ?? "",
     reception_address: reception?.address ?? "",
     reception_latitude: String(reception?.location?.latitude ?? ""),
     reception_longitude: String(reception?.location?.longitude ?? ""),
@@ -416,7 +502,12 @@ function fromDetail(detail: StaffOrderDetail): OrderDetailForm {
     rsvp_confirmed: String(rsvpManual.total_confirmed ?? detail.rsvp.total_confirmed ?? 0),
     status_label: workflowFor(detail.order),
     story_body: story.body ?? "",
+    story_conflict: sectionBodies.conflict ?? "",
+    story_final: sectionBodies.final ?? "",
     story_heading: story.heading ?? "Cerita kami",
+    story_intimacy: sectionBodies.intimacy ?? "",
+    story_middle: sectionBodies.middle ?? "",
+    story_trust: sectionBodies.trust ?? "",
     theme_slug: detail.order.theme_slug ?? detail.invitation?.theme_slug ?? "",
     timeline_conflict: timelineEntriesToText(timeline.conflict),
     timeline_final: timelineEntriesToText(timeline.final),
@@ -542,6 +633,44 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
     setForm((current) => ({ ...current, [field]: value }));
   }
 
+  function setPhotoFocalPoint(x: number, y: number) {
+    setForm((current) => ({
+      ...current,
+      photo_focal_x: normalizeFocalPoint(x),
+      photo_focal_y: normalizeFocalPoint(y),
+    }));
+  }
+
+  function handlePhotoFocalClick(event: MouseEvent<HTMLButtonElement>) {
+    if (event.detail === 0) {
+      return;
+    }
+    const bounds = event.currentTarget.getBoundingClientRect();
+    if (!bounds.width || !bounds.height) {
+      return;
+    }
+    setPhotoFocalPoint(
+      ((event.clientX - bounds.left) / bounds.width) * 100,
+      ((event.clientY - bounds.top) / bounds.height) * 100,
+    );
+  }
+
+  function handlePhotoFocalKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    const step = event.shiftKey ? 5 : 1;
+    const offsets: Partial<Record<typeof event.key, { x: number; y: number }>> = {
+      ArrowDown: { x: 0, y: step },
+      ArrowLeft: { x: -step, y: 0 },
+      ArrowRight: { x: step, y: 0 },
+      ArrowUp: { x: 0, y: -step },
+    };
+    const offset = offsets[event.key];
+    if (!offset) {
+      return;
+    }
+    event.preventDefault();
+    setPhotoFocalPoint(form.photo_focal_x + offset.x, form.photo_focal_y + offset.y);
+  }
+
   function updateGallerySlot(index: number, value: string) {
     const urls = gallerySlots(form.gallery_urls);
     while (urls.length <= index) {
@@ -615,6 +744,18 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
       const responded = totalConfirmed + totalDeclined;
       const responseRate = totalInvited ? Math.round((responded / totalInvited) * 1000) / 10 : 0;
       const totalAmount = normalizeCurrencyInput(form.total_amount);
+      const sectionBodyEntries: Array<[string, string]> = [
+        ["conflict", form.story_conflict],
+        ["final", form.story_final],
+        ["intimacy", form.story_intimacy],
+        ["middle", form.story_middle],
+        ["trust", form.story_trust],
+      ];
+      const sectionBodies = Object.fromEntries(
+        sectionBodyEntries
+          .map(([key, value]) => [key, value.trim()])
+          .filter(([, value]) => Boolean(value)),
+      );
       const updated = await staffFetch<StaffOrderDetail>(`/admin/orders/${reference}`, {
         body: JSON.stringify({
           bank_accounts: [
@@ -654,6 +795,10 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
               .filter(Boolean),
             photo: form.photo_url.trim(),
           },
+          photo_focal: {
+            focal_x: form.photo_focal_x,
+            focal_y: form.photo_focal_y,
+          },
           package_code: form.package_code || null,
           payment_status: form.payment_status,
           reception: {
@@ -674,6 +819,11 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
           story: {
             body: form.story_body.trim(),
             heading: form.story_heading.trim(),
+            sectionBodies,
+          },
+          quote: {
+            attribution: form.quote_attribution.trim(),
+            text: form.quote_text.trim(),
           },
           theme_slug: form.theme_slug || null,
           timeline: Object.fromEntries(
@@ -864,6 +1014,7 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
   const lifecycleLabel = linkLifecycleLabel(detail);
   const lifecycleDescription = linkLifecycleDescription(detail);
   const mediaSections = mediaPlanFor(form.package_code);
+  const storyCopyBlocks = storyCopyBlocksFor(form.package_code);
   const timelineBlocks = timelineBlocksFor(form.package_code);
   const galleryUrlSlots = gallerySlots(form.gallery_urls);
   const expectedGalleryCount = mediaSections.reduce((total, section) => total + section.count, 0);
@@ -1292,14 +1443,60 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
                   value={form.story_heading}
                 />
               </Field>
-              <Field label="Short love story">
+              <Field label="Opening / cerita utama">
                 <textarea
                   className="min-h-28 w-full border border-white/12 bg-black/20 p-3 text-sm text-white outline-none transition focus:border-[var(--color-gold)]"
                   onChange={(event) => updateForm("story_body", event.target.value)}
-                  placeholder="Tulis cerita utama pasangan. Jika dikosongkan, preview memakai copy default tema."
+                  placeholder="Tulis paragraf pembuka pasangan. Jika dikosongkan, preview memakai copy default tema."
                   value={form.story_body}
                 />
               </Field>
+            </div>
+
+            {storyCopyBlocks.length ? (
+              <div className="mt-5 grid gap-4 md:grid-cols-2">
+                {storyCopyBlocks.map((block) => (
+                  <Field key={block.field} label={`${block.label} - ${block.description}`}>
+                    <textarea
+                      className="min-h-28 w-full border border-white/12 bg-black/20 p-3 text-sm text-white outline-none transition focus:border-[var(--color-gold)]"
+                      onChange={(event) => updateForm(block.field, event.target.value)}
+                      placeholder="Kosongkan untuk memakai copy default template."
+                      value={form[block.field]}
+                    />
+                  </Field>
+                ))}
+              </div>
+            ) : null}
+
+            <div className="mt-5 border border-white/10 bg-black/20 p-4">
+              <div className="mb-4">
+                <p className="text-xs uppercase tracking-[0.16em] text-[var(--color-gold)]">
+                  Kutipan undangan
+                </p>
+                <p className="mt-2 text-sm leading-6 text-white/55">
+                  Teks dan sumber berlaku pada preview serta undangan terpublikasi. Field kosong
+                  memakai kutipan default template. Copy paket lain tetap tersimpan saat paket
+                  diganti.
+                </p>
+              </div>
+              <div className="grid gap-4 md:grid-cols-[1.4fr_0.6fr]">
+                <Field label="Teks kutipan">
+                  <textarea
+                    className="min-h-24 w-full border border-white/12 bg-black/20 p-3 text-sm text-white outline-none transition focus:border-[var(--color-gold)]"
+                    onChange={(event) => updateForm("quote_text", event.target.value)}
+                    placeholder="Dan di antara tanda-tanda kebesaran-Nya ialah Dia menciptakan pasangan-pasangan untukmu."
+                    value={form.quote_text}
+                  />
+                </Field>
+                <Field label="Sumber / atribusi">
+                  <input
+                    className={controlClassName}
+                    onChange={(event) => updateForm("quote_attribution", event.target.value)}
+                    placeholder="Ar-Rum · 21"
+                    value={form.quote_attribution}
+                  />
+                </Field>
+              </div>
             </div>
 
             {timelineBlocks.length ? (
@@ -1413,7 +1610,7 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
 
           <Panel eyebrow="Media" title="Foto, galeri, dan musik.">
             <div className="grid gap-4">
-              <Field label="Foto utama Cloudinary URL">
+              <Field label="Foto cover utama (Cloudinary URL)">
                 <input
                   className={controlClassName}
                   onChange={(event) => updateForm("photo_url", event.target.value)}
@@ -1421,6 +1618,61 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
                   value={form.photo_url}
                 />
               </Field>
+              <div className="border border-white/10 bg-black/20 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.16em] text-[var(--color-gold)]">
+                      Posisi fokus cover
+                    </p>
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-white/55">
+                      Klik subjek utama pada foto. Gunakan tombol panah untuk menggeser 1%, atau
+                      Shift + tombol panah untuk 5%.
+                    </p>
+                  </div>
+                  <button
+                    className={outlineButtonClassName}
+                    onClick={() => setPhotoFocalPoint(50, 50)}
+                    type="button"
+                  >
+                    Reset 50/50
+                  </button>
+                </div>
+                <button
+                  aria-label={`Atur titik fokus cover. Posisi saat ini ${Math.round(form.photo_focal_x)} persen horizontal dan ${Math.round(form.photo_focal_y)} persen vertikal.`}
+                  className="relative mt-4 aspect-[16/10] w-full overflow-hidden border border-white/15 bg-[#12120f] bg-cover bg-no-repeat outline-none transition focus:border-[var(--color-gold)] disabled:cursor-not-allowed disabled:opacity-60 md:aspect-[21/9]"
+                  disabled={!form.photo_url.trim()}
+                  onClick={handlePhotoFocalClick}
+                  onKeyDown={handlePhotoFocalKeyDown}
+                  style={{
+                    backgroundImage: form.photo_url.trim()
+                      ? `url(${JSON.stringify(form.photo_url.trim())})`
+                      : undefined,
+                    backgroundPosition: `${form.photo_focal_x}% ${form.photo_focal_y}%`,
+                  }}
+                  type="button"
+                >
+                  {!form.photo_url.trim() ? (
+                    <span className="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-white/40">
+                      Isi URL Cloudinary untuk menampilkan preview cover.
+                    </span>
+                  ) : (
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute h-10 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/90 bg-black/20 shadow-[0_0_0_1px_rgba(0,0,0,0.55)]"
+                      style={{
+                        left: `${form.photo_focal_x}%`,
+                        top: `${form.photo_focal_y}%`,
+                      }}
+                    >
+                      <span className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-white/90" />
+                      <span className="absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-white/90" />
+                    </span>
+                  )}
+                </button>
+                <p className="mt-3 text-xs uppercase tracking-[0.14em] text-white/45">
+                  X {Math.round(form.photo_focal_x)}% · Y {Math.round(form.photo_focal_y)}%
+                </p>
+              </div>
               <div className="border border-white/10 bg-black/20 p-4">
                 <div className="flex flex-wrap items-end justify-between gap-3">
                   <div>

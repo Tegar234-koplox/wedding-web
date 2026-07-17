@@ -202,7 +202,7 @@ def _ensure_invitation(order: Order) -> Invitation:
                     "Dan di antara tanda-tanda kebesaran-Nya ialah Dia menciptakan "
                     "pasangan-pasangan untukmu."
                 ),
-                "attribution": "Ar-Rum - 21",
+                "attribution": "Ar-Rum · 21",
             },
             "gallery": [
                 {"src": "/images/one.webp", "alt": "Gallery 1"},
@@ -316,12 +316,74 @@ def _update_invitation_content(invitation: Invitation, data: dict) -> None:
     content = invitation.content if isinstance(invitation.content, dict) else {}
     changed = False
     if "story" in data:
-        story = data.get("story") if isinstance(data.get("story"), dict) else {}
-        heading = str(story.get("heading") or "").strip()
-        body = str(story.get("body") or "").strip()
-        content["story"] = {
+        raw_story = data.get("story")
+        if not isinstance(raw_story, dict):
+            raise ValidationError({"story": "Story must be an object."})
+        current_story = content.get("story") if isinstance(content.get("story"), dict) else {}
+        heading = str(
+            raw_story.get("heading", current_story.get("heading")) or ""
+        ).strip()
+        body = str(raw_story.get("body", current_story.get("body")) or "").strip()
+        updated_story = {
             "heading": heading or "Cerita kami",
             "body": body or "Kami bertemu dan bertumbuh bersama.",
+        }
+
+        current_section_bodies = current_story.get("sectionBodies")
+        section_bodies = (
+            dict(current_section_bodies) if isinstance(current_section_bodies, dict) else {}
+        )
+        if "sectionBodies" in raw_story:
+            raw_section_bodies = raw_story.get("sectionBodies")
+            if not isinstance(raw_section_bodies, dict):
+                raise ValidationError(
+                    {"story.sectionBodies": "Section bodies must be an object."}
+                )
+            allowed_sections = {"middle", "final", "conflict", "intimacy", "trust"}
+            unsupported_sections = set(raw_section_bodies).difference(allowed_sections)
+            if unsupported_sections:
+                raise ValidationError(
+                    {
+                        "story.sectionBodies": (
+                            "Unsupported section: "
+                            f"{', '.join(sorted(str(key) for key in unsupported_sections))}."
+                        )
+                    }
+                )
+            section_bodies = {}
+            for section, raw_value in raw_section_bodies.items():
+                value = str(raw_value or "").strip()
+                if not value:
+                    continue
+                if len(value) > 1200:
+                    raise ValidationError(
+                        {f"story.sectionBodies.{section}": "Must be 1200 characters or fewer."}
+                    )
+                section_bodies[section] = value
+        if section_bodies:
+            updated_story["sectionBodies"] = section_bodies
+        content["story"] = updated_story
+        changed = True
+    if "quote" in data:
+        raw_quote = data.get("quote")
+        if not isinstance(raw_quote, dict):
+            raise ValidationError({"quote": "Quote must be an object."})
+        current_quote = content.get("quote") if isinstance(content.get("quote"), dict) else {}
+        default_text = (
+            "Dan di antara tanda-tanda kebesaran-Nya ialah Dia menciptakan "
+            "pasangan-pasangan untukmu."
+        )
+        text = str(raw_quote.get("text", current_quote.get("text")) or "").strip()
+        attribution = str(
+            raw_quote.get("attribution", current_quote.get("attribution")) or ""
+        ).strip()
+        if len(text) > 500:
+            raise ValidationError({"quote.text": "Must be 500 characters or fewer."})
+        if len(attribution) > 120:
+            raise ValidationError({"quote.attribution": "Must be 120 characters or fewer."})
+        content["quote"] = {
+            "text": text or default_text,
+            "attribution": attribution or "Ar-Rum · 21",
         }
         changed = True
     if "timeline" in data:
@@ -405,6 +467,34 @@ def _replace_media(invitation: Invitation, role: str, urls: list[str]) -> None:
             role=role,
             sort_order=index,
         )
+
+
+def _update_photo_focal_point(invitation: Invitation, data: object) -> None:
+    if not isinstance(data, dict):
+        raise ValidationError({"photo_focal": "Photo focal point must be an object."})
+
+    updates: dict[str, Decimal] = {}
+    for field in ["focal_x", "focal_y"]:
+        if field not in data:
+            continue
+        value = data.get(field)
+        try:
+            focal_value = Decimal(str(value)).quantize(Decimal("0.01"))
+        except (InvalidOperation, TypeError, ValueError) as exc:
+            raise ValidationError(
+                {f"photo_focal.{field}": "Focal point must be a number from 0 to 100."}
+            ) from exc
+        if focal_value < 0 or focal_value > 100:
+            raise ValidationError(
+                {f"photo_focal.{field}": "Focal point must be between 0 and 100."}
+            )
+        updates[field] = focal_value
+
+    if updates:
+        InvitationMedia.objects.filter(
+            invitation=invitation,
+            role=InvitationMedia.Role.PHOTO,
+        ).update(**updates)
 
 
 def _manual_order_payload(data) -> dict:
@@ -560,6 +650,8 @@ class StaffOrderDetailView(RetrieveUpdateAPIView):
             "bank_accounts",
             "rsvp_manual",
             "media_urls",
+            "photo_focal",
+            "quote",
             "story",
             "timeline",
         }
@@ -614,6 +706,8 @@ class StaffOrderDetailView(RetrieveUpdateAPIView):
                             InvitationMedia.Role.BACKSOUND,
                             [str(media_urls.get("backsound") or "")],
                         )
+                if "photo_focal" in request.data:
+                    _update_photo_focal_point(invitation, request.data.get("photo_focal"))
                 AuditEvent.objects.create(
                     actor=request.user,
                     action="order.manual_detail_updated",

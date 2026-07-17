@@ -1,4 +1,5 @@
 import re
+from urllib.parse import urlparse
 
 from django.contrib.auth.hashers import check_password
 from django.utils import timezone
@@ -212,6 +213,12 @@ class PublicInvitationAudioSerializer(serializers.Serializer):
     default_volume = serializers.FloatField(min_value=0, max_value=1)
 
 
+class PublicInvitationCoverSerializer(serializers.Serializer):
+    secure_url = serializers.URLField()
+    focal_x = serializers.FloatField(min_value=0, max_value=100)
+    focal_y = serializers.FloatField(min_value=0, max_value=100)
+
+
 class PublicInvitationSerializer(serializers.ModelSerializer[Invitation]):
     events = WeddingEventSerializer(many=True, read_only=True)
     theme_slug = serializers.CharField(source="theme.slug", read_only=True)
@@ -228,6 +235,7 @@ class PublicInvitationSerializer(serializers.ModelSerializer[Invitation]):
         read_only=True,
     )
     audio = serializers.SerializerMethodField()
+    cover = serializers.SerializerMethodField()
     content = serializers.SerializerMethodField()
     guest = serializers.SerializerMethodField()
 
@@ -279,6 +287,35 @@ class PublicInvitationSerializer(serializers.ModelSerializer[Invitation]):
             None,
         )
         return public_audio_payload(theme_audio)
+
+    @extend_schema_field(PublicInvitationCoverSerializer(allow_null=True))
+    def get_cover(self, obj: Invitation) -> dict[str, object] | None:
+        cover_media = next(
+            (
+                item
+                for item in obj.media.all()
+                if item.role == InvitationMedia.Role.PHOTO
+                and item.asset.archived_at is None
+                and item.asset.resource_type == MediaAsset.ResourceType.IMAGE
+            ),
+            None,
+        )
+        if cover_media is None:
+            return None
+
+        secure_url = str(cover_media.asset.secure_url or "").strip()
+        parsed_url = urlparse(secure_url)
+        if (
+            parsed_url.scheme != "https"
+            or (parsed_url.hostname or "").lower() != "res.cloudinary.com"
+        ):
+            return None
+
+        return {
+            "secure_url": secure_url,
+            "focal_x": float(cover_media.focal_x),
+            "focal_y": float(cover_media.focal_y),
+        }
 
     def get_content(self, obj: Invitation) -> dict[str, object]:
         content = obj.content if isinstance(obj.content, dict) else {}
@@ -409,6 +446,11 @@ class PublicInvitationSerializer(serializers.ModelSerializer[Invitation]):
             "story": {
                 "heading": story.get("heading") or "Cerita kami",
                 "body": story_body,
+                **(
+                    {"sectionBodies": story["sectionBodies"]}
+                    if isinstance(story.get("sectionBodies"), dict)
+                    else {}
+                ),
             },
             "quote": {
                 "text": quote.get("text")
@@ -416,7 +458,7 @@ class PublicInvitationSerializer(serializers.ModelSerializer[Invitation]):
                     "Dan di antara tanda-tanda kebesaran-Nya ialah Dia menciptakan "
                     "pasangan-pasangan untukmu."
                 ),
-                "attribution": quote.get("attribution") or "Ar-Rum - 21",
+                "attribution": quote.get("attribution") or "Ar-Rum · 21",
             },
             "gallery": gallery,
             "closing": {
@@ -438,6 +480,7 @@ class PublicInvitationSerializer(serializers.ModelSerializer[Invitation]):
             "content",
             "guest",
             "audio",
+            "cover",
             "events",
             "published_at",
         ]
