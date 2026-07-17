@@ -95,6 +95,8 @@ export type DetailMedia = {
   id: string;
   role: "photo" | "gallery" | "backsound" | string;
   sort_order: number;
+  focal_x?: number | null;
+  focal_y?: number | null;
   asset: {
     id: string;
     public_id: string;
@@ -215,6 +217,13 @@ export type StaffOrderDetail = {
     story: {
       body?: string;
       heading?: string;
+      sectionBodies?: Partial<
+        Record<"middle" | "final" | "conflict" | "intimacy" | "trust", string>
+      >;
+    };
+    quote?: {
+      attribution?: string;
+      text?: string;
     };
     timeline: DetailTimeline;
   };

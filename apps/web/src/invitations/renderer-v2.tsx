@@ -30,14 +30,21 @@ import {
   type PremiumVisualConfig,
   type ThemeVisual,
 } from "@/invitations/presentation";
-import { InvitationCard } from "@/invitations/invitation-card";
+import {
+  InvitationCard,
+  InvitationFrame,
+} from "@/invitations/invitation-card";
 import {
   CoverTextContrastLayer,
   ThemeCoverDecoration,
   ThemeSectionDecoration,
 } from "@/invitations/theme-ornament";
 import { ThemedWeather } from "@/invitations/themed-weather";
-import type { InvitationAudio, InvitationWeather } from "@/lib/api/contracts";
+import type {
+  InvitationAudio,
+  InvitationCover,
+  InvitationWeather,
+} from "@/lib/api/contracts";
 
 import ambientStyles from "./invitation-ambient.module.css";
 
@@ -45,6 +52,7 @@ export type RendererV2Props = {
   invitation: InvitationEnvelope;
   packageCode?: PackageCode;
   audio?: InvitationAudio | null;
+  cover?: InvitationCover;
   rsvpSlot?: React.ReactNode;
   weather?: InvitationWeather | null;
 };
@@ -305,6 +313,7 @@ function FadeText({
 function Cover({
   invitation,
   packageCode,
+  cover,
   design,
   onOpen,
   audioAvailable,
@@ -322,6 +331,10 @@ function Cover({
   const couture = resolvedPackage === "couture";
   const id = invitation.locale === "id";
   const essential = resolvedPackage === "essential";
+  const coverImage = cover?.secure_url ?? design.coverImage;
+  const coverPosition = cover
+    ? `${cover.focal_x}% ${cover.focal_y}%`
+    : "50% 50%";
   const supportTextClass =
     "font-medium !text-current opacity-95 drop-shadow-[0_1px_5px_rgba(0,0,0,.45)]";
 
@@ -337,7 +350,8 @@ function Cover({
         fill
         priority
         sizes="100vw"
-        src={design.coverImage}
+        src={coverImage}
+        style={{ objectPosition: coverPosition }}
       />
       <div
         className={`absolute inset-0 ${design.overlay} ${
@@ -350,7 +364,11 @@ function Cover({
       />
       <ThemeCoverDecoration config={premium} />
       <CoverTextContrastLayer config={premium} />
-      <div className="absolute inset-5 border border-current/25 md:inset-9" />
+      <InvitationFrame
+        className="pointer-events-none absolute inset-5 z-[5] md:inset-9"
+        design={design}
+        packageCode={resolvedPackage}
+      />
 
       <div className="relative z-10 grid min-h-svh grid-rows-[auto_1fr_auto] px-7 pb-24 pt-7 sm:pb-28 md:px-14 md:py-12">
         <motion.div
@@ -994,6 +1012,7 @@ function getCoutureTimelineEntries(
 }
 
 function SignatureStoryTimelineSection({
+  copyMode,
   design,
   includeIntro,
   includeQuote,
@@ -1004,6 +1023,7 @@ function SignatureStoryTimelineSection({
   showOverlay = false,
   timeline,
 }: {
+  copyMode?: "opening" | "middle" | "final" | "conflict" | "intimacy" | "trust";
   design: ThemeVisual;
   includeIntro: boolean;
   includeQuote: boolean;
@@ -1017,16 +1037,25 @@ function SignatureStoryTimelineSection({
   const { couple, quote, story } = invitation.content;
   const id = invitation.locale === "id";
   const timelineEntries = timeline ?? getTimelineEntries(invitation, mode);
+  const resolvedCopyMode = copyMode ?? mode;
+  const sectionCopy =
+    resolvedCopyMode === "opening"
+      ? undefined
+      : story.sectionBodies?.[resolvedCopyMode];
   const copy =
-    mode === "middle"
+    sectionCopy ??
+    (resolvedCopyMode === "middle" ||
+    resolvedCopyMode === "conflict" ||
+    resolvedCopyMode === "intimacy" ||
+    resolvedCopyMode === "trust"
       ? id
         ? "Dari percakapan kecil, kami belajar merawat arah yang sama. Setiap musim membuat cerita ini semakin tenang dan utuh."
         : "From small conversations, we learned to care for the same direction. Every season made the story steadier and whole."
-      : mode === "final"
+      : resolvedCopyMode === "final"
         ? id
           ? "Kami membawa cerita ini ke hadapan keluarga dan sahabat, dengan rasa syukur atas perjalanan yang membentuk kami."
           : "We bring this story before family and friends, grateful for every step that shaped us."
-        : story.body;
+        : story.body);
 
   return (
     <section className="relative overflow-hidden px-6 py-24 md:px-12 md:py-36">
@@ -1568,6 +1597,7 @@ function EventStory({
           variant="three"
         />
         <SignatureStoryTimelineSection
+          copyMode="conflict"
           design={design}
           includeIntro={false}
           includeQuote={false}
@@ -1587,6 +1617,7 @@ function EventStory({
           variant="three"
         />
         <SignatureStoryTimelineSection
+          copyMode="intimacy"
           design={design}
           includeIntro={false}
           includeQuote={false}
@@ -1606,6 +1637,7 @@ function EventStory({
           variant="three"
         />
         <SignatureStoryTimelineSection
+          copyMode="trust"
           design={design}
           includeIntro={false}
           includeQuote={false}
@@ -1843,6 +1875,7 @@ export function RendererV2({
   invitation,
   packageCode = "essential",
   audio,
+  cover,
   rsvpSlot,
   weather,
 }: RendererV2Props) {
@@ -2011,6 +2044,7 @@ export function RendererV2({
             <Cover
               audio={audio}
               audioAvailable={Boolean(audio)}
+              cover={cover}
               design={design}
               invitation={invitation}
               key={`${invitation.rendererKey}-${packageCode}`}

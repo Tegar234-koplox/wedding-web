@@ -77,6 +77,7 @@ export default async function PublicInvitationPage({
     <>
       <InvitationRenderer
         audio={invitation.audio}
+        cover={invitation.cover}
         invitation={localizedInvitation}
         packageCode={packageCode}
         rsvpSlot={renderRsvpInsideInvitation ? rsvpForm : undefined}

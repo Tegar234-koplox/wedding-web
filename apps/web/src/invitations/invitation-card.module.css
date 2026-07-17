@@ -57,6 +57,43 @@
   opacity: 0.72;
 }
 
+.subtle.signature::before {
+  background: conic-gradient(
+    from 0deg,
+    transparent 0 36%,
+    var(--card-border) 42%,
+    color-mix(in srgb, var(--card-shine) 35%, var(--card-border)) 49%,
+    var(--card-border) 56%,
+    transparent 63% 100%
+  );
+  animation-duration: 12s;
+}
+
+.subtle.couture::before {
+  background: conic-gradient(
+    from 0deg,
+    transparent 0 23%,
+    var(--card-border) 29%,
+    color-mix(in srgb, var(--card-shine) 42%, var(--card-border)) 35%,
+    var(--card-border) 41%,
+    transparent 47% 67%,
+    var(--card-border) 73%,
+    color-mix(in srgb, var(--card-shine) 42%, var(--card-border)) 79%,
+    transparent 86% 100%
+  );
+  animation-duration: 9s;
+}
+
+.subtle.signature::after {
+  border-color: color-mix(in srgb, var(--card-shine) 22%, transparent);
+  opacity: 0.58;
+}
+
+.subtle.couture::after {
+  border-color: color-mix(in srgb, var(--card-shine) 28%, transparent);
+  opacity: 0.72;
+}
+
 .couture {
   box-shadow:
     0 28px 100px color-mix(in srgb, var(--card-glow) 30%, transparent),

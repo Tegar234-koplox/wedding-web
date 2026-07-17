@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import React from "react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
-import { getPremiumVisualConfig } from "./presentation";
+import { getPremiumVisualConfig, themeFrameColors } from "./presentation";
 import { RendererV2 } from "./renderer-v2";
 import { getSampleInvitation } from "./samples";
 import { shouldAnimatePremium } from "./theme-ornament";
@@ -33,6 +33,130 @@ beforeAll(() => {
 afterEach(() => cleanup());
 
 describe("renderer v2 invitation experience", () => {
+  it("uses the saved cover URL and focal point, with a theme fallback", () => {
+    const custom = render(
+      <RendererV2
+        cover={{
+          focal_x: 18,
+          focal_y: 73,
+          secure_url: "https://res.cloudinary.com/demo/image/upload/cover.jpg",
+        }}
+        invitation={getSampleInvitation("elegant-classic", "id")}
+        packageCode="signature"
+      />,
+    );
+    const customCover = screen.getByAltText(/Wedding cover/);
+    expect(customCover.getAttribute("src")).toContain("cover.jpg");
+    expect(customCover.getAttribute("style")).toContain("18% 73%");
+    custom.unmount();
+
+    render(
+      <RendererV2
+        invitation={getSampleInvitation("elegant-classic", "id")}
+        packageCode="essential"
+      />,
+    );
+    const fallbackCover = screen.getByAltText(/Wedding cover/);
+    expect(fallbackCover.getAttribute("src")).toContain(
+      "elegant-classic.webp",
+    );
+    expect(fallbackCover.getAttribute("style")).toContain("50% 50%");
+  });
+
+  it("renders custom Signature and Couture section copy", () => {
+    const signatureInvitation = getSampleInvitation("islamic-soft", "id");
+    const signature = render(
+      <RendererV2
+        invitation={{
+          ...signatureInvitation,
+          content: {
+            ...signatureInvitation.content,
+            story: {
+              ...signatureInvitation.content.story,
+              sectionBodies: {
+                middle: "Copy tengah Signature",
+                final: "Copy akhir Signature",
+              },
+            },
+          },
+        }}
+        packageCode="signature"
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Buka Undangan" }));
+    expect(screen.getByText("Copy tengah Signature")).toBeTruthy();
+    expect(screen.getByText("Copy akhir Signature")).toBeTruthy();
+    signature.unmount();
+
+    const coutureInvitation = getSampleInvitation("floral-romantic", "id");
+    render(
+      <RendererV2
+        invitation={{
+          ...coutureInvitation,
+          content: {
+            ...coutureInvitation.content,
+            story: {
+              ...coutureInvitation.content.story,
+              sectionBodies: {
+                conflict: "Copy konflik Couture",
+                intimacy: "Copy intimasi Couture",
+                trust: "Copy kepercayaan Couture",
+              },
+            },
+          },
+        }}
+        packageCode="couture"
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Buka Undangan" }));
+    expect(screen.getByText("Copy konflik Couture")).toBeTruthy();
+    expect(screen.getByText("Copy intimasi Couture")).toBeTruthy();
+    expect(screen.getByText("Copy kepercayaan Couture")).toBeTruthy();
+  });
+
+  it("uses exact frame colors and only animates premium tiers", () => {
+    for (const [theme, color] of Object.entries(themeFrameColors)) {
+      const view = render(
+        <RendererV2
+          invitation={getSampleInvitation(
+            theme as keyof typeof themeFrameColors,
+            "id",
+          )}
+          packageCode="essential"
+        />,
+      );
+      const coverFrame = view.container.querySelector(
+        '[data-cover-frame="essential"]',
+      ) as HTMLElement;
+      expect(coverFrame.style.getPropertyValue("--card-border")).toBe(color);
+      expect(coverFrame.dataset.frameStyle).toBe("subtle");
+      expect(coverFrame.dataset.frameMotion).toBe("static");
+      view.unmount();
+    }
+
+    const premium = render(
+      <RendererV2
+        invitation={getSampleInvitation("elegant-classic", "id")}
+        packageCode="signature"
+      />,
+    );
+    expect(
+      premium.container.querySelector('[data-cover-frame="signature"]')
+        ?.getAttribute("data-frame-motion"),
+    ).toBe("animated");
+    premium.unmount();
+
+    const unchanged = render(
+      <RendererV2
+        invitation={getSampleInvitation("luxury-gold", "id")}
+        packageCode="couture"
+      />,
+    );
+    expect(
+      unchanged.container.querySelector('[data-cover-frame="couture"]')
+        ?.getAttribute("data-frame-style"),
+    ).toBe("standard");
+  });
   it("keeps the invitation behind a cover until the guest opens it", () => {
     render(
       <RendererV2

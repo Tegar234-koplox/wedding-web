@@ -15,12 +15,17 @@ import Image from "next/image";
 import type { ComponentType, ReactNode } from "react";
 
 import { RendererV2 } from "@/invitations/renderer-v2";
-import type { InvitationAudio, InvitationWeather } from "@/lib/api/contracts";
+import type {
+  InvitationAudio,
+  InvitationCover,
+  InvitationWeather,
+} from "@/lib/api/contracts";
 
 type RendererProps = {
   invitation: InvitationEnvelope;
   packageCode?: PackageCode;
   audio?: InvitationAudio | null;
+  cover?: InvitationCover;
   rsvpSlot?: ReactNode;
   weather?: InvitationWeather | null;
 };
@@ -134,8 +139,12 @@ function CoupleNames({
   );
 }
 
-function Cover({ invitation, design }: RendererProps & { design: Design }) {
+function Cover({ invitation, design, cover }: RendererProps & { design: Design }) {
   const { opening, event, couple } = invitation.content;
+  const coverImage = cover?.secure_url ?? design.coverImage;
+  const coverStyle = {
+    objectPosition: cover ? `${cover.focal_x}% ${cover.focal_y}%` : "50% 50%",
+  };
 
   if (design.coverMode === "image") {
     return (
@@ -146,7 +155,8 @@ function Cover({ invitation, design }: RendererProps & { design: Design }) {
           fill
           priority
           sizes="100vw"
-          src={design.coverImage}
+          src={coverImage}
+          style={coverStyle}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/25 to-black/35" />
         <div className="relative flex justify-between text-[0.6rem] uppercase tracking-[0.22em]">
@@ -188,7 +198,8 @@ function Cover({ invitation, design }: RendererProps & { design: Design }) {
             fill
             priority
             sizes="100vw"
-            src={design.coverImage}
+            src={coverImage}
+            style={coverStyle}
           />
         </div>
       </section>
@@ -205,7 +216,8 @@ function Cover({ invitation, design }: RendererProps & { design: Design }) {
             fill
             priority
             sizes="100vw"
-            src={design.coverImage}
+            src={coverImage}
+            style={coverStyle}
           />
         </div>
         <div className="absolute inset-5 border border-current/20 md:inset-10" />
@@ -254,7 +266,8 @@ function Cover({ invitation, design }: RendererProps & { design: Design }) {
           fill
           priority
           sizes="(max-width: 1023px) 100vw, 48vw"
-          src={design.coverImage}
+          src={coverImage}
+          style={coverStyle}
         />
       </div>
     </section>
@@ -601,6 +614,7 @@ export function InvitationRenderer({
   invitation,
   packageCode,
   audio,
+  cover,
   rsvpSlot,
   weather,
 }: RendererProps) {
@@ -629,6 +643,7 @@ export function InvitationRenderer({
   return (
     <Renderer
       audio={audio}
+      cover={cover}
       invitation={invitation}
       key={`${invitation.rendererKey}-${invitation.rendererVersion}-${packageCode ?? "essential"}`}
       packageCode={packageCode ?? "essential"}

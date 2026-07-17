@@ -1,12 +1,41 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  invitationContentSchema,
   invitationEnvelopeSchema,
   packageCapabilities,
   packageCodes,
   rendererKeys,
   supportsRenderer,
 } from "./schema";
+
+describe("section story copy", () => {
+  it("accepts optional copy for every premium story section", () => {
+    const result = invitationContentSchema.shape.story.safeParse({
+      body: "Opening copy",
+      heading: "Our story",
+      sectionBodies: {
+        conflict: "Conflict copy",
+        final: "Final copy",
+        intimacy: "Intimacy copy",
+        middle: "Middle copy",
+        trust: "Trust copy",
+      },
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects section copy longer than 1200 characters", () => {
+    const result = invitationContentSchema.shape.story.safeParse({
+      body: "Opening copy",
+      heading: "Our story",
+      sectionBodies: { middle: "a".repeat(1201) },
+    });
+
+    expect(result.success).toBe(false);
+  });
+});
 
 describe("renderer manifest", () => {
   it("registers all seven renderers at versions one and two", () => {

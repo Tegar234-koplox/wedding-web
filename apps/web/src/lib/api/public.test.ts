@@ -13,6 +13,7 @@ import { fetchPublicInvitation } from "./public";
 const invitationPayload = {
   ...getSampleInvitation("elegant-classic", "id"),
   audio: null,
+  cover: null,
   events: [],
   guest: null,
   package_code: "signature",

@@ -119,6 +119,15 @@ export const invitationContentSchema = z.object({
   story: z.object({
     heading: safeText.max(120),
     body: safeText,
+    sectionBodies: z
+      .object({
+        conflict: safeText.optional(),
+        final: safeText.optional(),
+        intimacy: safeText.optional(),
+        middle: safeText.optional(),
+        trust: safeText.optional(),
+      })
+      .optional(),
   }),
   timeline: z
     .object({

@@ -70,6 +70,13 @@ export type PremiumVisualConfig = {
   opacity: number;
 };
 
+export const themeFrameColors = {
+  "elegant-classic": "#23212C",
+  "floral-romantic": "#D2C3F6",
+  "islamic-soft": "#F1FEC8",
+  "minimalist-white": "#99E1D9",
+} as const satisfies Partial<Record<RendererKey, string>>;
+
 const essentialVisual: PremiumVisualConfig = {
   overlay: null,
   corners: null,
@@ -101,7 +108,7 @@ export const themeVisualConfig: Record<RendererKey, ThemeVisual> = {
     muted: "text-[#746a5b]",
     accent: "text-[#9a7135]",
     border: "border-[#a9854c]/45",
-    cardBorderColor: "rgba(111, 74, 24, 0.92)",
+    cardBorderColor: themeFrameColors["elegant-classic"],
     cardGlowColor: "#8a642b",
     cardShineColor: "#fff4c6",
     coverImage: "/images/themes/elegant-classic.webp",
@@ -120,7 +127,7 @@ export const themeVisualConfig: Record<RendererKey, ThemeVisual> = {
     muted: "text-[#687369]",
     accent: "text-[#8f794b]",
     border: "border-[#8f794b]/35",
-    cardBorderColor: "rgba(91, 73, 31, 0.88)",
+    cardBorderColor: themeFrameColors["islamic-soft"],
     cardGlowColor: "#6f6039",
     cardShineColor: "#fff5bf",
     coverImage: "/images/themes/islamic-soft.webp",
@@ -158,7 +165,7 @@ export const themeVisualConfig: Record<RendererKey, ThemeVisual> = {
     muted: "text-[#70706b]",
     accent: "text-[#343434]",
     border: "border-black/20",
-    cardBorderColor: "rgba(38, 38, 38, 0.78)",
+    cardBorderColor: themeFrameColors["minimalist-white"],
     cardGlowColor: "#555b63",
     cardShineColor: "#ffffff",
     coverImage: "/images/themes/minimalist-white.webp",
@@ -196,7 +203,7 @@ export const themeVisualConfig: Record<RendererKey, ThemeVisual> = {
     muted: "text-[#7d5b60]",
     accent: "text-[#9a5964]",
     border: "border-[#a96f77]/40",
-    cardBorderColor: "rgba(128, 60, 72, 0.9)",
+    cardBorderColor: themeFrameColors["floral-romantic"],
     cardGlowColor: "#8f4e5b",
     cardShineColor: "#fff0f3",
     coverImage: "/images/themes/floral-romantic.webp",

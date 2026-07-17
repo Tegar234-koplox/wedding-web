@@ -281,6 +281,7 @@ class StaffOrderDetailSerializer(serializers.Serializer):
     def _invitation_payload(self, invitation: Invitation) -> dict:
         content = invitation.content if isinstance(invitation.content, dict) else {}
         story = content.get("story") if isinstance(content.get("story"), dict) else {}
+        quote = content.get("quote") if isinstance(content.get("quote"), dict) else {}
         timeline = content.get("timeline") if isinstance(content.get("timeline"), dict) else {}
         return {
             "id": str(invitation.id),
@@ -294,6 +295,7 @@ class StaffOrderDetailSerializer(serializers.Serializer):
             "bank_accounts": content.get("bank_accounts", []),
             "rsvp_manual": content.get("rsvp_manual", {}),
             "story": story,
+            "quote": quote,
             "timeline": timeline,
             "partner_one": content.get("couple", {}).get("partner_one")
             or content.get("couple", {}).get("partnerOne", {}),
@@ -332,6 +334,8 @@ class StaffOrderDetailSerializer(serializers.Serializer):
             "role": media.role,
             "sort_order": media.sort_order,
             "alt_text": media.alt_text,
+            "focal_x": float(media.focal_x),
+            "focal_y": float(media.focal_y),
             "asset": {
                 "id": str(asset.id),
                 "public_id": asset.public_id,

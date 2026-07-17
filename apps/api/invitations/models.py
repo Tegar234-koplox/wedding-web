@@ -140,6 +140,18 @@ class InvitationMedia(UUIDTimeStampedModel):
     role = models.CharField(max_length=40)
     sort_order = models.PositiveSmallIntegerField(default=0)
     alt_text = models.JSONField(default=dict)
+    focal_x = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=50,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+    )
+    focal_y = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=50,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+    )
 
     class Meta:
         ordering = ["sort_order", "created_at"]
