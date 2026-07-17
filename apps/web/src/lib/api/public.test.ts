@@ -53,6 +53,29 @@ describe("fetchPublicInvitation", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it("does not follow a Cloudflare Access redirect and retries it as a gateway error", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(null, {
+          headers: { Location: "https://team.cloudflareaccess.com/login" },
+          status: 302,
+        }),
+      )
+      .mockResolvedValueOnce(Response.json(invitationPayload));
+
+    const result = fetchPublicInvitation("alya-raka");
+    await vi.runAllTimersAsync();
+
+    await expect(result).resolves.toMatchObject({ public_slug: "alya-raka" });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/invitations/alya-raka"),
+      expect.objectContaining({ redirect: "manual" }),
+    );
+  });
+
   it("propagates a persistent API failure instead of returning a false 404", async () => {
     vi.useFakeTimers();
     vi.spyOn(globalThis, "fetch").mockResolvedValue(

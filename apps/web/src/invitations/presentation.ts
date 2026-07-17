@@ -74,7 +74,7 @@ export const themeFrameColors = {
   "elegant-classic": "#23212C",
   "floral-romantic": "#D2C3F6",
   "islamic-soft": "#F1FEC8",
-  "minimalist-white": "#99E1D9",
+  "minimalist-white": "#33412F",
 } as const satisfies Partial<Record<RendererKey, string>>;
 
 const essentialVisual: PremiumVisualConfig = {
@@ -167,7 +167,7 @@ export const themeVisualConfig: Record<RendererKey, ThemeVisual> = {
     border: "border-black/20",
     cardBorderColor: themeFrameColors["minimalist-white"],
     cardGlowColor: "#555b63",
-    cardShineColor: "#ffffff",
+    cardShineColor: "#33412F",
     coverImage: "/images/themes/minimalist-white.webp",
     coverLayout: "minimal",
     ornament: "minimal",

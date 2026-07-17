@@ -70,9 +70,13 @@ async function apiFetch(
           Accept: "application/json",
           ...cloudflareAccessHeaders(),
         },
+        redirect: "manual",
         signal: AbortSignal.timeout(options.timeoutMs ?? 2_000),
       });
 
+      if (response.status >= 300 && response.status < 400) {
+        throw new PublicApiResponseError(502);
+      }
       if (!response.ok) {
         throw new PublicApiResponseError(response.status);
       }
@@ -139,6 +143,7 @@ export async function fetchInvitationWishes(
           Accept: "application/json",
           ...cloudflareAccessHeaders(),
         },
+        redirect: "manual",
         signal: AbortSignal.timeout(2_000),
       },
     );

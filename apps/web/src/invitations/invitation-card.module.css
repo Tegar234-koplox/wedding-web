@@ -134,6 +134,21 @@
   animation-play-state: running;
 }
 
+.coverFrame.signature,
+.coverFrame.couture {
+  padding: 0;
+  border: 1px solid var(--card-border);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--card-border) 18%, transparent);
+}
+
+.coverFrame.signature::before,
+.coverFrame.signature::after,
+.coverFrame.couture::before,
+.coverFrame.couture::after {
+  content: none;
+  animation: none;
+}
+
 @keyframes invitation-card-spin {
   to {
     transform: rotate(1turn);

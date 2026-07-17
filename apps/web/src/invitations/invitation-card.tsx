@@ -99,11 +99,11 @@ export function InvitationFrame({
   return (
     <div
       aria-hidden="true"
-      className={`${frameClasses(design, packageCode)} ${className}`}
+      className={`${frameClasses(design, packageCode)} ${cardStyles.coverFrame} ${className}`}
       data-card-active={isNearViewport}
       data-cover-frame={packageCode}
       data-frame-style={subtle ? "subtle" : "standard"}
-      data-frame-motion={packageCode === "essential" ? "static" : "animated"}
+      data-frame-motion="static"
       ref={frameRef}
       style={{ ...frameStyle(design), position: "absolute" }}
     >

@@ -1,6 +1,6 @@
 "use client";
 
-import { env } from "@/lib/env";
+import { staffApiPath } from "@/lib/api/staff-client";
 
 export type StaffSessionUser = {
   username: string;
@@ -322,6 +322,27 @@ export class StaffFetchError extends Error {
   }
 }
 
+const staffRequestTimeoutMs = 30_000;
+
+async function requestStaffApi(path: string, init?: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), staffRequestTimeoutMs);
+  try {
+    return await fetch(staffApiPath(path), {
+      ...init,
+      signal: controller.signal,
+    });
+  } catch (caught) {
+    const message =
+      caught instanceof DOMException && caught.name === "AbortError"
+        ? "Layanan operasional merespons terlalu lama. Silakan coba lagi."
+        : "Layanan operasional tidak dapat dihubungi. Silakan coba lagi.";
+    throw new StaffFetchError(message, 0);
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
 export function staffGateCookieAttributes(maxAge: number) {
   const secure = window.location.protocol === "https:" ? "; Secure" : "";
   return `Path=/; Max-Age=${maxAge}; SameSite=Lax${secure}`;
@@ -337,7 +358,7 @@ export function redirectToStaffLogin() {
 }
 
 async function csrfToken(): Promise<string> {
-  const response = await fetch(`${env.NEXT_PUBLIC_API_URL}/auth/csrf`, {
+  const response = await requestStaffApi("/auth/csrf", {
     cache: "no-store",
     credentials: "include",
     headers: { Accept: "application/json" },
@@ -362,7 +383,7 @@ export async function staffFetch<T>(path: string, init?: RequestInit): Promise<T
     headers["X-CSRFToken"] = await csrfToken();
   }
 
-  const response = await fetch(`${env.NEXT_PUBLIC_API_URL}${path}`, {
+  const response = await requestStaffApi(path, {
     ...init,
     credentials: "include",
     headers,
@@ -401,7 +422,7 @@ export async function staffFetch<T>(path: string, init?: RequestInit): Promise<T
 }
 
 export async function staffDownload(path: string): Promise<Blob> {
-  const response = await fetch(`${env.NEXT_PUBLIC_API_URL}${path}`, {
+  const response = await requestStaffApi(path, {
     credentials: "include",
     headers: { Accept: "*/*" },
   });
@@ -414,7 +435,7 @@ export async function staffDownload(path: string): Promise<Blob> {
 }
 
 export async function staffUpload<T>(path: string, formData: FormData): Promise<T> {
-  const response = await fetch(`${env.NEXT_PUBLIC_API_URL}${path}`, {
+  const response = await requestStaffApi(path, {
     body: formData,
     credentials: "include",
     headers: {

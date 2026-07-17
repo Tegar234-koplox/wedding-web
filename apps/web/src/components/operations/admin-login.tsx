@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
 import { useState } from "react";
 
-import { env } from "@/lib/env";
+import { staffApiPath } from "@/lib/api/staff-client";
 
 type StaffSessionUser = {
   username: string;
@@ -46,17 +46,17 @@ async function fetchWithTimeout(
   } catch (caught) {
     if (caught instanceof DOMException && caught.name === "AbortError") {
       throw new Error(
-        "Request login terlalu lama. Periksa koneksi backend dan konfigurasi CORS.",
+        "Request login terlalu lama. Layanan staff belum merespons.",
       );
     }
-    throw caught;
+    throw new Error("Layanan staff tidak dapat dihubungi. Silakan coba lagi.");
   } finally {
     window.clearTimeout(timeout);
   }
 }
 
 async function csrfToken(): Promise<string> {
-  const response = await fetchWithTimeout(`${env.NEXT_PUBLIC_API_URL}/auth/csrf`, {
+  const response = await fetchWithTimeout(staffApiPath("/auth/csrf"), {
     cache: "no-store",
     credentials: "include",
     headers: { Accept: "application/json" },
@@ -70,7 +70,7 @@ async function csrfToken(): Promise<string> {
 
 async function staffLogin(username: string, password: string): Promise<StaffLoginResult> {
   const token = await csrfToken();
-  const response = await fetchWithTimeout(`${env.NEXT_PUBLIC_API_URL}/auth/login`, {
+  const response = await fetchWithTimeout(staffApiPath("/auth/login"), {
     body: JSON.stringify({ password, username }),
     credentials: "include",
     headers: {
@@ -84,8 +84,11 @@ async function staffLogin(username: string, password: string): Promise<StaffLogi
   if (!response.ok) {
     let detail = response.statusText;
     try {
-      const payload = (await response.json()) as { detail?: string };
-      detail = payload.detail ?? detail;
+      const payload = (await response.json()) as {
+        detail?: string;
+        error?: { message?: string };
+      };
+      detail = payload.detail ?? payload.error?.message ?? detail;
     } catch {
       // Keep status text for non-JSON backend errors.
     }
@@ -97,7 +100,7 @@ async function staffLogin(username: string, password: string): Promise<StaffLogi
 
 async function staffMfaLogin(challenge: string, code: string): Promise<StaffSessionUser> {
   const token = await csrfToken();
-  const response = await fetchWithTimeout(`${env.NEXT_PUBLIC_API_URL}/auth/login/mfa`, {
+  const response = await fetchWithTimeout(staffApiPath("/auth/login/mfa"), {
     body: JSON.stringify({ challenge, code }),
     credentials: "include",
     headers: {
@@ -111,9 +114,10 @@ async function staffMfaLogin(challenge: string, code: string): Promise<StaffSess
   if (!response.ok) {
     const payload = (await response.json().catch(() => ({}))) as {
       detail?: string;
+      error?: { message?: string };
     };
     throw new Error(
-      `Verifikasi ditolak (${response.status}): ${payload.detail ?? response.statusText}`,
+      `Verifikasi ditolak (${response.status}): ${payload.detail ?? payload.error?.message ?? response.statusText}`,
     );
   }
 

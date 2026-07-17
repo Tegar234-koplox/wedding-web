@@ -114,7 +114,7 @@ describe("renderer v2 invitation experience", () => {
     expect(screen.getByText("Copy kepercayaan Couture")).toBeTruthy();
   });
 
-  it("uses exact frame colors and only animates premium tiers", () => {
+  it("uses exact frame colors and keeps every cover frame static", () => {
     for (const [theme, color] of Object.entries(themeFrameColors)) {
       const view = render(
         <RendererV2
@@ -143,8 +143,25 @@ describe("renderer v2 invitation experience", () => {
     expect(
       premium.container.querySelector('[data-cover-frame="signature"]')
         ?.getAttribute("data-frame-motion"),
-    ).toBe("animated");
+    ).toBe("static");
     premium.unmount();
+
+    const minimalist = render(
+      <RendererV2
+        invitation={getSampleInvitation("minimalist-white", "id")}
+        packageCode="signature"
+      />,
+    );
+    const minimalistCover = minimalist.container.querySelector(
+      '[data-cover-frame="signature"]',
+    ) as HTMLElement;
+    expect(minimalistCover.style.getPropertyValue("--card-border")).toBe(
+      "#33412F",
+    );
+    expect(minimalistCover.style.getPropertyValue("--card-shine")).toBe(
+      "#33412F",
+    );
+    minimalist.unmount();
 
     const unchanged = render(
       <RendererV2
@@ -156,6 +173,10 @@ describe("renderer v2 invitation experience", () => {
       unchanged.container.querySelector('[data-cover-frame="couture"]')
         ?.getAttribute("data-frame-style"),
     ).toBe("standard");
+    expect(
+      unchanged.container.querySelector('[data-cover-frame="couture"]')
+        ?.getAttribute("data-frame-motion"),
+    ).toBe("static");
   });
   it("keeps the invitation behind a cover until the guest opens it", () => {
     render(

@@ -125,8 +125,32 @@ function guestManagementUrl(token: string, path = ""): string {
   return `/api/guest-management/${encodeURIComponent(token)}${path}`;
 }
 
+const guestRequestTimeoutMs = 30_000;
+
+async function guestRequest(
+  token: string,
+  path = "",
+  init?: RequestInit,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), guestRequestTimeoutMs);
+  try {
+    return await fetch(guestManagementUrl(token, path), {
+      ...init,
+      signal: controller.signal,
+    });
+  } catch (caught) {
+    if (caught instanceof DOMException && caught.name === "AbortError") {
+      throw new Error("Layanan daftar tamu merespons terlalu lama. Silakan coba lagi.");
+    }
+    throw new Error("Layanan daftar tamu tidak dapat dihubungi. Silakan coba lagi.");
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
 async function guestFetch<T>(token: string, path = "", init?: RequestInit): Promise<T> {
-  const response = await fetch(guestManagementUrl(token, path), {
+  const response = await guestRequest(token, path, {
     ...init,
     cache: "no-store",
     headers: {
@@ -151,7 +175,7 @@ async function guestFetch<T>(token: string, path = "", init?: RequestInit): Prom
 }
 
 async function guestDownload(token: string, path: string): Promise<Blob> {
-  const response = await fetch(guestManagementUrl(token, path), {
+  const response = await guestRequest(token, path, {
     cache: "no-store",
     headers: { Accept: "*/*" },
   });
@@ -164,7 +188,7 @@ async function guestDownload(token: string, path: string): Promise<Blob> {
 async function guestUpload<T>(token: string, path: string, file: File): Promise<T> {
   const formData = new FormData();
   formData.append("file", file);
-  const response = await fetch(guestManagementUrl(token, path), {
+  const response = await guestRequest(token, path, {
     body: formData,
     cache: "no-store",
     headers: { Accept: "application/json" },
