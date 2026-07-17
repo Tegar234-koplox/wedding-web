@@ -7,6 +7,8 @@ const apiOrigin = apiUrl.replace(/\/api\/v1$/, "");
 const publicSlug = __ENV.K6_PUBLIC_SLUG || "";
 const previewToken = __ENV.K6_PREVIEW_TOKEN || "";
 const guestToken = __ENV.K6_GUEST_TOKEN || "";
+const accessClientId = __ENV.K6_CF_ACCESS_CLIENT_ID || "";
+const accessClientSecret = __ENV.K6_CF_ACCESS_CLIENT_SECRET || "";
 
 if (!frontendUrl || !apiUrl) {
   throw new Error("K6_FRONTEND_URL and K6_API_URL are required.");
@@ -27,6 +29,15 @@ export const options = {
   },
 };
 
+const requestParams = {
+  headers: {
+    ...(accessClientId ? { "CF-Access-Client-Id": accessClientId } : {}),
+    ...(accessClientSecret
+      ? { "CF-Access-Client-Secret": accessClientSecret }
+      : {}),
+  },
+};
+
 function invitationUrl() {
   if (!publicSlug) {
     return `${frontendUrl}/id`;
@@ -40,8 +51,18 @@ function invitationUrl() {
 
 export default function () {
   const responses = http.batch([
-    ["GET", `${apiOrigin}/health/live`, null, { tags: { route: "health" } }],
-    ["GET", invitationUrl(), null, { tags: { route: "invitation" } }],
+    [
+      "GET",
+      `${apiOrigin}/health/live`,
+      null,
+      { ...requestParams, tags: { route: "health" } },
+    ],
+    [
+      "GET",
+      invitationUrl(),
+      null,
+      { ...requestParams, tags: { route: "invitation" } },
+    ],
   ]);
 
   check(responses[0], {

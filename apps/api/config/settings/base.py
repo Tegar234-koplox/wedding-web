@@ -40,6 +40,13 @@ def env_int(name: str, default: int) -> int:
 
 SECRET_KEY = env("DJANGO_SECRET_KEY", "unsafe-local-development-key")
 DEBUG = False
+DEPLOYMENT_ENVIRONMENT = (
+    env("DEPLOYMENT_ENVIRONMENT", env("RAILWAY_ENVIRONMENT_NAME", "development")).strip().lower()
+)
+DEPLOYMENT_RELEASE = (
+    env("DEPLOYMENT_RELEASE", env("RAILWAY_GIT_COMMIT_SHA", "local")).strip() or "local"
+)
+SENTRY_ENVIRONMENT = env("SENTRY_ENVIRONMENT", DEPLOYMENT_ENVIRONMENT)
 ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1")
 
 INSTALLED_APPS = [
@@ -254,7 +261,7 @@ SENTRY_DSN = env("SENTRY_DSN", "")
 if SENTRY_DSN:
     sentry_sdk.init(
         dsn=SENTRY_DSN,
-        environment=env("SENTRY_ENVIRONMENT", "development"),
+        environment=SENTRY_ENVIRONMENT,
         release=env("SENTRY_RELEASE", ""),
         send_default_pii=False,
         traces_sample_rate=env_float("SENTRY_TRACES_SAMPLE_RATE", 0.05),

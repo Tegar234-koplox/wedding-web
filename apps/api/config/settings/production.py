@@ -23,6 +23,15 @@ if missing_environment:
         + ", ".join(sorted(missing_environment))
     )
 
+if DEPLOYMENT_ENVIRONMENT not in {"production", "staging"}:  # noqa: F405
+    raise RuntimeError(
+        "DEPLOYMENT_ENVIRONMENT must resolve to production or staging in production settings"
+    )
+if DEPLOYMENT_RELEASE == "local":  # noqa: F405
+    raise RuntimeError(
+        "DEPLOYMENT_RELEASE or RAILWAY_GIT_COMMIT_SHA must identify the deployed release"
+    )
+
 SECURE_SSL_REDIRECT = env_bool("DJANGO_SECURE_SSL_REDIRECT", True)
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SECURE_REDIRECT_EXEMPT = [r"^health/(live|ready)$"]

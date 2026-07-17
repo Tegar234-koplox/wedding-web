@@ -11,6 +11,14 @@ on:
         description: Production or staging API origin
         required: true
         type: string
+      expected_environment:
+        description: Optional deployment environment marker
+        required: false
+        type: string
+      expected_release:
+        description: Optional deployed commit SHA
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -29,3 +37,5 @@ jobs:
           python infra/deployment/smoke_test.py
           --site-url "${{ inputs.site_url }}"
           --api-url "${{ inputs.api_url }}"
+          ${{ inputs.expected_environment && format('--expected-environment "{0}"', inputs.expected_environment) || '' }}
+          ${{ inputs.expected_release && format('--expected-release "{0}"', inputs.expected_release) || '' }}

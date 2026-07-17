@@ -6,4 +6,9 @@ class CommonConfig(AppConfig):
     name = "common"
 
     def ready(self) -> None:
-        from common import signals  # noqa: F401
+        from common.deployment import staging_configuration_errors
+
+        staging_errors = staging_configuration_errors()
+        if staging_errors:
+            raise RuntimeError("Unsafe staging configuration: " + "; ".join(staging_errors))
+        from common import checks, signals  # noqa: F401

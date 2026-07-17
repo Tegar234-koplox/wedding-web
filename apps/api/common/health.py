@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core.cache import cache
 from django.db import connection
 from django.http import JsonResponse
@@ -8,7 +9,13 @@ from django.views.decorators.http import require_GET
 @never_cache
 @require_GET
 def live(_: object) -> JsonResponse:
-    return JsonResponse({"status": "ok"})
+    return JsonResponse(
+        {
+            "status": "ok",
+            "environment": settings.DEPLOYMENT_ENVIRONMENT,
+            "release": settings.DEPLOYMENT_RELEASE,
+        }
+    )
 
 
 @never_cache

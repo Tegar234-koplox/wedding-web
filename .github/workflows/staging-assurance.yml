@@ -9,23 +9,69 @@ permissions:
   contents: read
 
 jobs:
-  zap-baseline:
+  isolation-guard:
     runs-on: ubuntu-latest
+    timeout-minutes: 8
+    environment: staging
     env:
       STAGING_FRONTEND_URL: ${{ secrets.STAGING_FRONTEND_URL }}
       STAGING_API_URL: ${{ secrets.STAGING_API_URL }}
+      CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+      CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
     steps:
       - uses: actions/checkout@v4
-      - name: Require isolated staging targets
-        run: test -n "$STAGING_FRONTEND_URL" && test -n "$STAGING_API_URL"
+        with:
+          ref: staging
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Reject cross-environment targets
+        run: >-
+          python infra/deployment/staging_guard.py
+          --frontend-url "$STAGING_FRONTEND_URL"
+          --api-url "$STAGING_API_URL"
+          --production-frontend-url "https://www.niskalastudio.site"
+          --production-api-url "https://api.niskalastudio.site"
+          --expected-frontend-host "staging.niskalastudio.site"
+          --expected-api-host "api-staging.niskalastudio.site"
+      - name: Verify staging deployment identity and smoke flow
+        shell: bash
+        run: |
+          release_sha="$(git rev-parse HEAD)"
+          python infra/deployment/smoke_test.py \
+            --site-url "$STAGING_FRONTEND_URL" \
+            --api-url "$STAGING_API_URL" \
+            --expected-environment staging \
+            --expected-release "$release_sha" \
+            --cf-access-client-id "$CF_ACCESS_CLIENT_ID" \
+            --cf-access-client-secret "$CF_ACCESS_CLIENT_SECRET"
+
+  zap-baseline:
+    needs: isolation-guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: staging
+    env:
+      STAGING_FRONTEND_URL: ${{ secrets.STAGING_FRONTEND_URL }}
+      STAGING_API_URL: ${{ secrets.STAGING_API_URL }}
+      CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+      CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: staging
       - name: Scan frontend
         run: |
           docker run --rm -v "$PWD:/zap/wrk/:rw" -t ghcr.io/zaproxy/zaproxy:stable \
-            zap-baseline.py -t "$STAGING_FRONTEND_URL" -m 3 -J zap-frontend.json -r zap-frontend.html
+            zap-baseline.py -t "$STAGING_FRONTEND_URL" -m 3 \
+            -z "-config replacer.full_list(0).description=cf-id -config replacer.full_list(0).enabled=true -config replacer.full_list(0).matchtype=REQ_HEADER -config replacer.full_list(0).matchstr=CF-Access-Client-Id -config replacer.full_list(0).replacement=$CF_ACCESS_CLIENT_ID -config replacer.full_list(1).description=cf-secret -config replacer.full_list(1).enabled=true -config replacer.full_list(1).matchtype=REQ_HEADER -config replacer.full_list(1).matchstr=CF-Access-Client-Secret -config replacer.full_list(1).replacement=$CF_ACCESS_CLIENT_SECRET" \
+            -J zap-frontend.json -r zap-frontend.html
       - name: Scan API
         run: |
           docker run --rm -v "$PWD:/zap/wrk/:rw" -t ghcr.io/zaproxy/zaproxy:stable \
-            zap-baseline.py -t "$STAGING_API_URL" -m 3 -J zap-api.json -r zap-api.html
+            zap-baseline.py -t "$STAGING_API_URL" -m 3 \
+            -z "-config replacer.full_list(0).description=cf-id -config replacer.full_list(0).enabled=true -config replacer.full_list(0).matchtype=REQ_HEADER -config replacer.full_list(0).matchstr=CF-Access-Client-Id -config replacer.full_list(0).replacement=$CF_ACCESS_CLIENT_ID -config replacer.full_list(1).description=cf-secret -config replacer.full_list(1).enabled=true -config replacer.full_list(1).matchtype=REQ_HEADER -config replacer.full_list(1).matchstr=CF-Access-Client-Secret -config replacer.full_list(1).replacement=$CF_ACCESS_CLIENT_SECRET" \
+            -J zap-api.json -r zap-api.html
       - name: Upload ZAP reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -39,17 +85,21 @@ jobs:
           retention-days: 30
 
   k6-load:
+    needs: isolation-guard
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: staging
     env:
       K6_FRONTEND_URL: ${{ secrets.STAGING_FRONTEND_URL }}
       K6_API_URL: ${{ secrets.STAGING_API_URL }}
-      K6_PUBLIC_SLUG: ${{ secrets.STAGING_DEMO_INVITATION_SLUG }}
-      K6_PREVIEW_TOKEN: ${{ secrets.STAGING_DEMO_PREVIEW_TOKEN }}
+      K6_PUBLIC_SLUG: staging-isolation-demo
       K6_GUEST_TOKEN: ${{ secrets.STAGING_DEMO_GUEST_TOKEN }}
+      K6_CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+      K6_CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
     steps:
       - uses: actions/checkout@v4
-      - name: Require isolated staging targets
-        run: test -n "$K6_FRONTEND_URL" && test -n "$K6_API_URL"
+        with:
+          ref: staging
       - uses: grafana/setup-k6-action@v1
       - uses: grafana/run-k6-action@v1
         with:
