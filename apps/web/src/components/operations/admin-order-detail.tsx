@@ -11,7 +11,7 @@ import {
   Save,
 } from "lucide-react";
 import Link from "next/link";
-import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
 
 import {
@@ -20,6 +20,7 @@ import {
 } from "@/components/site/niskala-preloader";
 import { cn } from "@/lib/utils";
 
+import { CoverFocalPreview, normalizeFocalPoint } from "./cover-focal-preview";
 import {
   customStatusLabels,
   formatCurrency,
@@ -368,11 +369,6 @@ function storyCopyBlocksFor(packageCode: string): StoryCopyBlock[] {
   return [];
 }
 
-function normalizeFocalPoint(value: number | null | undefined): number {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? Math.min(100, Math.max(0, parsed)) : 50;
-}
-
 function gallerySlots(value: string): string[] {
   return value ? value.split("\n") : [];
 }
@@ -635,44 +631,6 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
 
   function updateForm(field: keyof OrderDetailForm, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
-  }
-
-  function setPhotoFocalPoint(x: number, y: number) {
-    setForm((current) => ({
-      ...current,
-      photo_focal_x: normalizeFocalPoint(x),
-      photo_focal_y: normalizeFocalPoint(y),
-    }));
-  }
-
-  function handlePhotoFocalClick(event: MouseEvent<HTMLButtonElement>) {
-    if (event.detail === 0) {
-      return;
-    }
-    const bounds = event.currentTarget.getBoundingClientRect();
-    if (!bounds.width || !bounds.height) {
-      return;
-    }
-    setPhotoFocalPoint(
-      ((event.clientX - bounds.left) / bounds.width) * 100,
-      ((event.clientY - bounds.top) / bounds.height) * 100,
-    );
-  }
-
-  function handlePhotoFocalKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
-    const step = event.shiftKey ? 5 : 1;
-    const offsets: Partial<Record<typeof event.key, { x: number; y: number }>> = {
-      ArrowDown: { x: 0, y: step },
-      ArrowLeft: { x: -step, y: 0 },
-      ArrowRight: { x: step, y: 0 },
-      ArrowUp: { x: 0, y: -step },
-    };
-    const offset = offsets[event.key];
-    if (!offset) {
-      return;
-    }
-    event.preventDefault();
-    setPhotoFocalPoint(form.photo_focal_x + offset.x, form.photo_focal_y + offset.y);
   }
 
   function updateGallerySlot(index: number, value: string) {
@@ -1625,61 +1583,18 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
                   value={form.photo_url}
                 />
               </Field>
-              <div className="border border-white/10 bg-black/20 p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.16em] text-[var(--color-gold)]">
-                      Posisi fokus cover
-                    </p>
-                    <p className="mt-2 max-w-2xl text-sm leading-6 text-white/55">
-                      Klik subjek utama pada foto. Gunakan tombol panah untuk menggeser 1%, atau
-                      Shift + tombol panah untuk 5%.
-                    </p>
-                  </div>
-                  <button
-                    className={outlineButtonClassName}
-                    onClick={() => setPhotoFocalPoint(50, 50)}
-                    type="button"
-                  >
-                    Reset 50/50
-                  </button>
-                </div>
-                <button
-                  aria-label={`Atur titik fokus cover. Posisi saat ini ${Math.round(form.photo_focal_x)} persen horizontal dan ${Math.round(form.photo_focal_y)} persen vertikal.`}
-                  className="relative mt-4 aspect-[16/10] w-full overflow-hidden border border-white/15 bg-[#12120f] bg-cover bg-no-repeat outline-none transition focus:border-[var(--color-gold)] disabled:cursor-not-allowed disabled:opacity-60 md:aspect-[21/9]"
-                  disabled={!form.photo_url.trim()}
-                  onClick={handlePhotoFocalClick}
-                  onKeyDown={handlePhotoFocalKeyDown}
-                  style={{
-                    backgroundImage: form.photo_url.trim()
-                      ? `url(${JSON.stringify(form.photo_url.trim())})`
-                      : undefined,
-                    backgroundPosition: `${form.photo_focal_x}% ${form.photo_focal_y}%`,
-                  }}
-                  type="button"
-                >
-                  {!form.photo_url.trim() ? (
-                    <span className="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-white/40">
-                      Isi URL Cloudinary untuk menampilkan preview cover.
-                    </span>
-                  ) : (
-                    <span
-                      aria-hidden="true"
-                      className="pointer-events-none absolute h-10 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/90 bg-black/20 shadow-[0_0_0_1px_rgba(0,0,0,0.55)]"
-                      style={{
-                        left: `${form.photo_focal_x}%`,
-                        top: `${form.photo_focal_y}%`,
-                      }}
-                    >
-                      <span className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-white/90" />
-                      <span className="absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-white/90" />
-                    </span>
-                  )}
-                </button>
-                <p className="mt-3 text-xs uppercase tracking-[0.14em] text-white/45">
-                  X {Math.round(form.photo_focal_x)}% · Y {Math.round(form.photo_focal_y)}%
-                </p>
-              </div>
+              <CoverFocalPreview
+                focalX={form.photo_focal_x}
+                focalY={form.photo_focal_y}
+                onFocalChange={(x, y) =>
+                  setForm((current) => ({
+                    ...current,
+                    photo_focal_x: normalizeFocalPoint(x),
+                    photo_focal_y: normalizeFocalPoint(y),
+                  }))
+                }
+                photoUrl={form.photo_url}
+              />
               <div className="border border-white/10 bg-black/20 p-4">
                 <div className="flex flex-wrap items-end justify-between gap-3">
                   <div>
