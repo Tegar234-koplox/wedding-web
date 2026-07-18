@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { getPreloaderCopy } from "./niskala-preloader";
@@ -24,5 +27,42 @@ describe("getPreloaderCopy", () => {
     );
     expect(getPreloaderCopy("id", "success").title).toBe("Proses berhasil.");
     expect(getPreloaderCopy("en", "error").title).toBe("Process failed.");
+  });
+});
+
+describe("preloader assets", () => {
+  it("keeps the dual balls inside their visual bounds", () => {
+    const css = readFileSync(
+      resolve(process.cwd(), "src/components/site/niskala-preloader.module.css"),
+      "utf8",
+    );
+
+    expect(css).toMatch(/\.visual\s*\{[^}]*overflow:\s*visible/s);
+    expect(css).toMatch(
+      /\.dualBall span\s*\{[^}]*left:\s*10%[^}]*width:\s*40%[^}]*height:\s*40%/s,
+    );
+  });
+
+  it("keeps Indonesian and English offline fallbacks separate", () => {
+    const offlineId = readFileSync(
+      resolve(process.cwd(), "public/offline-id.html"),
+      "utf8",
+    );
+    const offlineEn = readFileSync(
+      resolve(process.cwd(), "public/offline-en.html"),
+      "utf8",
+    );
+    const serviceWorker = readFileSync(
+      resolve(process.cwd(), "public/sw.js"),
+      "utf8",
+    );
+
+    expect(offlineId).toContain("Tidak ada koneksi internet...");
+    expect(offlineId).not.toContain("No internet connection...");
+    expect(offlineEn).toContain("No internet connection...");
+    expect(offlineEn).not.toContain("Tidak ada koneksi internet...");
+    expect(serviceWorker).toContain('url.pathname.startsWith("/en/")');
+    expect(serviceWorker).toContain('? "/offline-en.html"');
+    expect(serviceWorker).toContain(': "/offline-id.html"');
   });
 });

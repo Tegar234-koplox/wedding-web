@@ -1,5 +1,9 @@
-const CACHE_NAME = "niskala-offline-v1";
-const OFFLINE_ASSETS = ["/offline.html", "/preloader/no-connection.png"];
+const CACHE_NAME = "niskala-offline-v2";
+const OFFLINE_ASSETS = [
+  "/offline-id.html",
+  "/offline-en.html",
+  "/preloader/no-connection.png",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(OFFLINE_ASSETS)));
@@ -35,8 +39,12 @@ self.addEventListener("fetch", (event) => {
   }
 
   if (event.request.mode === "navigate") {
+    const offlinePage =
+      url.pathname === "/en" || url.pathname.startsWith("/en/")
+        ? "/offline-en.html"
+        : "/offline-id.html";
     event.respondWith(
-      fetch(event.request).catch(() => caches.match("/offline.html")),
+      fetch(event.request).catch(() => caches.match(offlinePage)),
     );
   }
 });

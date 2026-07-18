@@ -83,7 +83,7 @@
   position: relative;
   width: 7.5rem;
   height: 7.5rem;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .compact .visual {
@@ -93,10 +93,10 @@
 
 .dualBall span {
   position: absolute;
-  top: 37.5%;
-  left: 12.5%;
-  width: 50%;
-  height: 50%;
+  top: 30%;
+  left: 10%;
+  width: 40%;
+  height: 40%;
   border-radius: 999px;
 }
 
