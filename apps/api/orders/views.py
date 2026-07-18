@@ -3,6 +3,7 @@ import hashlib
 import re
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
+from urllib.parse import urlparse
 
 from django.conf import settings
 from django.db import transaction
@@ -320,9 +321,7 @@ def _update_invitation_content(invitation: Invitation, data: dict) -> None:
         if not isinstance(raw_story, dict):
             raise ValidationError({"story": "Story must be an object."})
         current_story = content.get("story") if isinstance(content.get("story"), dict) else {}
-        heading = str(
-            raw_story.get("heading", current_story.get("heading")) or ""
-        ).strip()
+        heading = str(raw_story.get("heading", current_story.get("heading")) or "").strip()
         body = str(raw_story.get("body", current_story.get("body")) or "").strip()
         updated_story = {
             "heading": heading or "Cerita kami",
@@ -336,9 +335,7 @@ def _update_invitation_content(invitation: Invitation, data: dict) -> None:
         if "sectionBodies" in raw_story:
             raw_section_bodies = raw_story.get("sectionBodies")
             if not isinstance(raw_section_bodies, dict):
-                raise ValidationError(
-                    {"story.sectionBodies": "Section bodies must be an object."}
-                )
+                raise ValidationError({"story.sectionBodies": "Section bodies must be an object."})
             allowed_sections = {"middle", "final", "conflict", "intimacy", "trust"}
             unsupported_sections = set(raw_section_bodies).difference(allowed_sections)
             if unsupported_sections:
@@ -495,6 +492,42 @@ def _update_photo_focal_point(invitation: Invitation, data: object) -> None:
             invitation=invitation,
             role=InvitationMedia.Role.PHOTO,
         ).update(**updates)
+
+
+def _sync_photo_cover_snapshot(invitation: Invitation) -> None:
+    """Keep a public cover fallback inside content when media joins are unavailable."""
+    cover_media = (
+        InvitationMedia.objects.select_related("asset")
+        .filter(
+            invitation=invitation,
+            role=InvitationMedia.Role.PHOTO,
+            asset__archived_at__isnull=True,
+            asset__resource_type=MediaAsset.ResourceType.IMAGE,
+        )
+        .order_by("sort_order", "id")
+        .first()
+    )
+    content = dict(invitation.content) if isinstance(invitation.content, dict) else {}
+    if cover_media is None:
+        content.pop("cover", None)
+    else:
+        secure_url = str(cover_media.asset.secure_url or "").strip()
+        parsed_url = urlparse(secure_url)
+        if (
+            parsed_url.scheme == "https"
+            and (parsed_url.hostname or "").lower() == "res.cloudinary.com"
+        ):
+            content["cover"] = {
+                "secure_url": secure_url,
+                "focal_x": float(cover_media.focal_x),
+                "focal_y": float(cover_media.focal_y),
+            }
+        else:
+            content.pop("cover", None)
+
+    if content != invitation.content:
+        invitation.content = content
+        invitation.save(update_fields=["content", "updated_at"])
 
 
 def _manual_order_payload(data) -> dict:
@@ -708,6 +741,10 @@ class StaffOrderDetailView(RetrieveUpdateAPIView):
                         )
                 if "photo_focal" in request.data:
                     _update_photo_focal_point(invitation, request.data.get("photo_focal"))
+                if (
+                    isinstance(media_urls, dict) and "photo" in media_urls
+                ) or "photo_focal" in request.data:
+                    _sync_photo_cover_snapshot(invitation)
                 AuditEvent.objects.create(
                     actor=request.user,
                     action="order.manual_detail_updated",

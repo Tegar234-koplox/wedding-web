@@ -113,7 +113,9 @@ export async function fetchPublicInvitation(
       : `/invitations/${publicSlug}${suffix}`;
     return publicInvitationSchema.parse(
       await apiFetch(path, {
-        noStore: Boolean(previewToken || guestToken),
+        // Invitation copy and media are edited after an order exists. Always
+        // request the current payload so a newly saved cover is visible at once.
+        noStore: true,
         timeoutMs: PUBLIC_INVITATION_TIMEOUT_MS,
       }),
     );

@@ -37,6 +37,28 @@ describe("section story copy", () => {
   });
 });
 
+describe("invitation cover snapshot", () => {
+  it("accepts a responsive Cloudinary cover focal point", () => {
+    const result = invitationContentSchema.shape.cover.safeParse({
+      secure_url: "https://res.cloudinary.com/demo/image/upload/cover.jpg",
+      focal_x: 24.25,
+      focal_y: 73.5,
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects an out-of-range focal point", () => {
+    const result = invitationContentSchema.shape.cover.safeParse({
+      secure_url: "https://res.cloudinary.com/demo/image/upload/cover.jpg",
+      focal_x: 101,
+      focal_y: 50,
+    });
+
+    expect(result.success).toBe(false);
+  });
+});
+
 describe("renderer manifest", () => {
   it("registers all seven renderers at versions one and two", () => {
     expect(rendererKeys).toHaveLength(7);

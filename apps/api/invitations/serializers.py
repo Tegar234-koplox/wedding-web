@@ -219,6 +219,30 @@ class PublicInvitationCoverSerializer(serializers.Serializer):
     focal_y = serializers.FloatField(min_value=0, max_value=100)
 
 
+def _public_cover_payload(value: object) -> dict[str, object] | None:
+    if not isinstance(value, dict):
+        return None
+
+    secure_url = str(value.get("secure_url") or "").strip()
+    parsed_url = urlparse(secure_url)
+    if parsed_url.scheme != "https" or (parsed_url.hostname or "").lower() != "res.cloudinary.com":
+        return None
+
+    try:
+        focal_x = float(value.get("focal_x"))
+        focal_y = float(value.get("focal_y"))
+    except (TypeError, ValueError):
+        return None
+    if not (0 <= focal_x <= 100 and 0 <= focal_y <= 100):
+        return None
+
+    return {
+        "secure_url": secure_url,
+        "focal_x": focal_x,
+        "focal_y": focal_y,
+    }
+
+
 class PublicInvitationSerializer(serializers.ModelSerializer[Invitation]):
     events = WeddingEventSerializer(many=True, read_only=True)
     theme_slug = serializers.CharField(source="theme.slug", read_only=True)
@@ -300,22 +324,19 @@ class PublicInvitationSerializer(serializers.ModelSerializer[Invitation]):
             ),
             None,
         )
-        if cover_media is None:
-            return None
+        if cover_media is not None:
+            payload = _public_cover_payload(
+                {
+                    "secure_url": cover_media.asset.secure_url,
+                    "focal_x": cover_media.focal_x,
+                    "focal_y": cover_media.focal_y,
+                }
+            )
+            if payload is not None:
+                return payload
 
-        secure_url = str(cover_media.asset.secure_url or "").strip()
-        parsed_url = urlparse(secure_url)
-        if (
-            parsed_url.scheme != "https"
-            or (parsed_url.hostname or "").lower() != "res.cloudinary.com"
-        ):
-            return None
-
-        return {
-            "secure_url": secure_url,
-            "focal_x": float(cover_media.focal_x),
-            "focal_y": float(cover_media.focal_y),
-        }
+        content = obj.content if isinstance(obj.content, dict) else {}
+        return _public_cover_payload(content.get("cover"))
 
     def get_content(self, obj: Invitation) -> dict[str, object]:
         content = obj.content if isinstance(obj.content, dict) else {}

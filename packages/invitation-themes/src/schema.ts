@@ -90,6 +90,13 @@ const timelineEntrySchema = z.object({
 });
 
 export const invitationContentSchema = z.object({
+  cover: z
+    .object({
+      secure_url: safeMediaSrc,
+      focal_x: z.number().min(0).max(100),
+      focal_y: z.number().min(0).max(100),
+    })
+    .optional(),
   couple: z.object({
     partnerOne: safeText.max(80),
     partnerTwo: safeText.max(80),

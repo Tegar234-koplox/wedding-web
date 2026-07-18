@@ -48,6 +48,8 @@ describe("renderer v2 invitation experience", () => {
     const customCover = screen.getByAltText(/Wedding cover/);
     expect(customCover.getAttribute("src")).toContain("cover.jpg");
     expect(customCover.getAttribute("style")).toContain("18% 73%");
+    expect(customCover.getAttribute("data-cover-source")).toBe("custom");
+    expect(customCover.className).toContain("object-cover");
     custom.unmount();
 
     render(
@@ -61,6 +63,7 @@ describe("renderer v2 invitation experience", () => {
       "elegant-classic.webp",
     );
     expect(fallbackCover.getAttribute("style")).toContain("50% 50%");
+    expect(fallbackCover.getAttribute("data-cover-source")).toBe("theme");
   });
 
   it("renders custom Signature and Couture section copy", () => {

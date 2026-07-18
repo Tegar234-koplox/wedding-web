@@ -111,6 +111,11 @@ def test_staff_copy_and_replaced_cover_round_trip_to_preview_and_public(client):
     assert photo_payload["focal_y"] == 73.5
 
     invitation.refresh_from_db()
+    assert invitation.content["cover"] == {
+        "secure_url": cover_url,
+        "focal_x": 24.25,
+        "focal_y": 73.5,
+    }
     photo = invitation.media.get(role=InvitationMedia.Role.PHOTO)
     assert photo.asset.secure_url == cover_url
     assert photo.focal_x == Decimal("24.25")
@@ -178,7 +183,7 @@ def test_staff_copy_and_replaced_cover_round_trip_to_preview_and_public(client):
 )
 def test_staff_rejects_invalid_editable_copy_and_focal_point(client, payload, error_field):
     staff, order, _invitation, _media = _staff_order_with_photo(
-        f"invalid-{error_field.replace('.', '-') }"
+        f"invalid-{error_field.replace('.', '-')}"
     )
     client.force_login(staff)
 
@@ -243,3 +248,55 @@ def test_public_and_preview_hide_untrusted_or_archived_cover(client):
         assert preview_response.status_code == 200
         assert public_response.json()["cover"] is None
         assert preview_response.json()["cover"] is None
+
+
+@pytest.mark.django_db
+def test_public_cover_falls_back_to_validated_content_snapshot(client):
+    theme = create_theme()
+    invitation = create_invitation(
+        theme=theme,
+        public_slug="snapshot-cover",
+        is_sample=False,
+    )
+    invitation.content = {
+        **invitation.content,
+        "cover": {
+            "secure_url": "https://res.cloudinary.com/demo/image/upload/snapshot.jpg",
+            "focal_x": 31,
+            "focal_y": 62,
+        },
+    }
+    invitation.save(update_fields=["content", "updated_at"])
+
+    response = client.get(
+        reverse("invitation-detail", kwargs={"public_slug": invitation.public_slug})
+    )
+
+    assert response.status_code == 200
+    assert response.json()["cover"] == invitation.content["cover"]
+
+
+@pytest.mark.django_db
+def test_public_cover_rejects_untrusted_content_snapshot(client):
+    theme = create_theme()
+    invitation = create_invitation(
+        theme=theme,
+        public_slug="untrusted-snapshot-cover",
+        is_sample=False,
+    )
+    invitation.content = {
+        **invitation.content,
+        "cover": {
+            "secure_url": "https://images.example.test/cover.jpg",
+            "focal_x": 50,
+            "focal_y": 50,
+        },
+    }
+    invitation.save(update_fields=["content", "updated_at"])
+
+    response = client.get(
+        reverse("invitation-detail", kwargs={"public_slug": invitation.public_slug})
+    )
+
+    assert response.status_code == 200
+    assert response.json()["cover"] is None

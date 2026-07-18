@@ -347,11 +347,13 @@ function Cover({
       <Image
         alt={`Wedding cover for ${couple.partnerOne} and ${couple.partnerTwo}`}
         className="object-cover"
+        data-cover-source={cover ? "custom" : "theme"}
         fill
         priority
         sizes="100vw"
         src={coverImage}
         style={{ objectPosition: coverPosition }}
+        unoptimized={Boolean(cover)}
       />
       <div
         className={`absolute inset-0 ${design.overlay} ${

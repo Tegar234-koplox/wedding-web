@@ -103,6 +103,19 @@ describe("fetchPublicInvitation", () => {
     );
   });
 
+  it("disables caching for published client links so cover edits appear immediately", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(Response.json(invitationPayload));
+
+    await fetchPublicInvitation("alya-raka");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/invitations/alya-raka"),
+      expect.objectContaining({ cache: "no-store" }),
+    );
+  });
+
   it("authenticates server-side requests to a Cloudflare Access protected API", async () => {
     process.env.CF_ACCESS_CLIENT_ID = "staging-web-client-id";
     process.env.CF_ACCESS_CLIENT_SECRET = "staging-web-client-secret";

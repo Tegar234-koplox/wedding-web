@@ -152,11 +152,13 @@ function Cover({ invitation, design, cover }: RendererProps & { design: Design }
         <Image
           alt={`Portrait of ${couple.partnerOne} and ${couple.partnerTwo}`}
           className="object-cover object-center"
+          data-cover-source={cover ? "custom" : "theme"}
           fill
           priority
           sizes="100vw"
           src={coverImage}
           style={coverStyle}
+          unoptimized={Boolean(cover)}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/25 to-black/35" />
         <div className="relative flex justify-between text-[0.6rem] uppercase tracking-[0.22em]">
@@ -195,11 +197,13 @@ function Cover({ invitation, design, cover }: RendererProps & { design: Design }
           <Image
             alt="Minimal invitation detail"
             className="object-cover"
+            data-cover-source={cover ? "custom" : "theme"}
             fill
             priority
             sizes="100vw"
             src={coverImage}
             style={coverStyle}
+            unoptimized={Boolean(cover)}
           />
         </div>
       </section>
@@ -213,11 +217,13 @@ function Cover({ invitation, design, cover }: RendererProps & { design: Design }
           <Image
             alt=""
             className="object-cover"
+            data-cover-source={cover ? "custom" : "theme"}
             fill
             priority
             sizes="100vw"
             src={coverImage}
             style={coverStyle}
+            unoptimized={Boolean(cover)}
           />
         </div>
         <div className="absolute inset-5 border border-current/20 md:inset-10" />
@@ -263,11 +269,13 @@ function Cover({ invitation, design, cover }: RendererProps & { design: Design }
         <Image
           alt={`Invitation style for ${couple.partnerOne} and ${couple.partnerTwo}`}
           className="object-cover"
+          data-cover-source={cover ? "custom" : "theme"}
           fill
           priority
           sizes="(max-width: 1023px) 100vw, 48vw"
           src={coverImage}
           style={coverStyle}
+          unoptimized={Boolean(cover)}
         />
       </div>
     </section>
