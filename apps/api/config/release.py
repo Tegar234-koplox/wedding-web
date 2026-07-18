@@ -11,6 +11,11 @@ def prepare_release_environment(environment: MutableMapping[str, str]) -> None:
         raise RuntimeError("DATABASE_DIRECT_URL is required for release commands.")
 
     environment["DATABASE_URL"] = direct_url
+    # The staging isolation guard normally expects DATABASE_URL to use the
+    # pooled host. Release commands deliberately replace it with the direct
+    # connection, so identify that intentional mode without weakening the
+    # separate direct-host and database-name checks.
+    environment["NISKALA_RELEASE_DATABASE_MODE"] = "direct"
     environment.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.production")
 
 

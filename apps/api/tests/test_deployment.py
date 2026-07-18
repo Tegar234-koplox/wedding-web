@@ -20,6 +20,7 @@ def test_release_environment_uses_direct_database_url():
     prepare_release_environment(environment)
 
     assert environment["DATABASE_URL"] == "postgresql://direct"
+    assert environment["NISKALA_RELEASE_DATABASE_MODE"] == "direct"
     assert environment["DJANGO_SETTINGS_MODULE"] == "config.settings.production"
 
 
@@ -66,6 +67,48 @@ def test_release_environment_requires_direct_database_url():
     clear=False,
 )
 def test_staging_configuration_accepts_exact_dedicated_resources():
+    assert staging_configuration_errors() == []
+
+
+@override_settings(
+    DEPLOYMENT_ENVIRONMENT="staging",
+    ALLOWED_HOSTS=["api-staging.niskalastudio.site", "healthcheck.railway.app"],
+    CORS_ALLOWED_ORIGINS=["https://staging.niskalastudio.site"],
+    CSRF_TRUSTED_ORIGINS=["https://staging.niskalastudio.site"],
+    DATABASES={
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "HOST": "direct.staging-db.invalid",
+            "NAME": "niskala_staging",
+        }
+    },
+    CACHES={"default": {"LOCATION": "rediss://staging-redis.invalid:6379/0"}},
+    CELERY_BROKER_URL="rediss://staging-redis.invalid:6379/1",
+    CELERY_RESULT_BACKEND="rediss://staging-redis.invalid:6379/2",
+    CLOUDINARY_CLOUD_NAME="niskala-staging",
+    SENTRY_ENVIRONMENT="staging",
+    SESSION_COOKIE_DOMAIN=None,
+    CSRF_COOKIE_DOMAIN=None,
+    MIDTRANS_IS_PRODUCTION=False,
+)
+@patch.dict(
+    "os.environ",
+    {
+        "NISKALA_RELEASE_DATABASE_MODE": "direct",
+        "STAGING_EXPECTED_FRONTEND_ORIGIN": "https://staging.niskalastudio.site",
+        "STAGING_EXPECTED_API_HOST": "api-staging.niskalastudio.site",
+        "STAGING_EXPECTED_DATABASE_HOST": "pool.staging-db.invalid",
+        "STAGING_EXPECTED_DATABASE_DIRECT_HOST": "direct.staging-db.invalid",
+        "STAGING_EXPECTED_DATABASE_NAME": "niskala_staging",
+        "STAGING_EXPECTED_REDIS_HOST": "staging-redis.invalid",
+        "STAGING_EXPECTED_CLOUDINARY_CLOUD_NAME": "niskala-staging",
+        "DATABASE_DIRECT_URL": (
+            "postgresql://user:secret@direct.staging-db.invalid/niskala_staging"
+        ),
+    },
+    clear=False,
+)
+def test_staging_configuration_accepts_direct_database_for_release_commands():
     assert staging_configuration_errors() == []
 
 

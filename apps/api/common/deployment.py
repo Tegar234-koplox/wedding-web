@@ -47,8 +47,22 @@ def staging_configuration_errors() -> list[str]:
         errors.append("DJANGO_ALLOWED_HOSTS contains a host outside the staging allowlist")
 
     database = settings.DATABASES["default"]
-    if database_host and str(database.get("HOST", "")).lower() != database_host:
-        errors.append("DATABASE_URL host does not match STAGING_EXPECTED_DATABASE_HOST")
+    release_uses_direct_database = (
+        os.environ.get("NISKALA_RELEASE_DATABASE_MODE", "").strip().lower() == "direct"
+    )
+    expected_effective_database_host = (
+        database_direct_host if release_uses_direct_database else database_host
+    )
+    if (
+        expected_effective_database_host
+        and str(database.get("HOST", "")).lower() != expected_effective_database_host
+    ):
+        expected_host_name = (
+            "STAGING_EXPECTED_DATABASE_DIRECT_HOST"
+            if release_uses_direct_database
+            else "STAGING_EXPECTED_DATABASE_HOST"
+        )
+        errors.append(f"DATABASE_URL host does not match {expected_host_name}")
     if database_name and str(database.get("NAME", "")) != database_name:
         errors.append("DATABASE_URL name does not match STAGING_EXPECTED_DATABASE_NAME")
     direct_database = urlparse(os.environ.get("DATABASE_DIRECT_URL", ""))

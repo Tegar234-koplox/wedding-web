@@ -78,7 +78,10 @@ STAGING_EXPECTED_CLOUDINARY_CLOUD_NAME=<staging Cloudinary cloud name>
 
 The API refuses startup when any expected staging resource does not match the
 effective Django configuration. The guard compares identifiers, never secret
-values.
+values. Release commands temporarily use `DATABASE_DIRECT_URL`; their process
+is marked as direct-database mode so the effective connection is checked against
+`STAGING_EXPECTED_DATABASE_DIRECT_HOST` while normal API traffic continues to
+be checked against `STAGING_EXPECTED_DATABASE_HOST`.
 
 Set synthetic-demo secrets only on Railway staging:
 
