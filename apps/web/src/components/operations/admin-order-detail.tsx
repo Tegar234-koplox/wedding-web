@@ -14,6 +14,10 @@ import Link from "next/link";
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
 
+import {
+  NetworkAwarePreloader,
+  NiskalaPreloader,
+} from "@/components/site/niskala-preloader";
 import { cn } from "@/lib/utils";
 
 import {
@@ -1070,9 +1074,12 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
         </button>
       </div>
 
-      {error ? <Notice tone="warn">{error}</Notice> : null}
-      {notice ? <Notice tone="ok">{notice}</Notice> : null}
-      {loading ? <Notice tone="warn">Memuat detail order...</Notice> : null}
+      {error ? <NiskalaPreloader compact description={error} state="error" /> : null}
+      {notice ? <NiskalaPreloader compact description={notice} state="success" /> : null}
+      {loading ? <NetworkAwarePreloader compact context="refresh" /> : null}
+      {saving || savingPayment || savingRevision ? (
+        <NetworkAwarePreloader compact context="save" />
+      ) : null}
       {!loading && nameWarning ? <Notice tone="warn">{nameWarning}</Notice> : null}
       {!loading && missingMediaSections.length ? (
         <Notice tone="warn">

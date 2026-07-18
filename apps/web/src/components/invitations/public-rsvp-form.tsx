@@ -3,6 +3,11 @@
 import { Send } from "lucide-react";
 import { useState } from "react";
 
+import {
+  NetworkAwarePreloader,
+  NiskalaPreloader,
+} from "@/components/site/niskala-preloader";
+
 type PublicRSVPFormProps = {
   embedded?: boolean;
   initialToken?: string;
@@ -142,10 +147,13 @@ export function PublicRSVPForm({
             />
           </label>
         </div>
+        {submitting ? <NetworkAwarePreloader compact context="submit" /> : null}
         {message ? (
-          <div className="border border-[#d5ad55]/40 bg-[#d5ad55]/10 p-4 text-sm leading-6 text-[#f4ddb0]">
-            {message}
-          </div>
+          <NiskalaPreloader
+            compact
+            description={message}
+            state={submitted ? "success" : "error"}
+          />
         ) : null}
         <button
           className="inline-flex min-h-11 items-center justify-center gap-3 bg-[var(--color-gold)] px-4 text-[0.65rem] font-bold uppercase tracking-[0.16em] text-[#17140d] transition hover:brightness-110 disabled:opacity-50"

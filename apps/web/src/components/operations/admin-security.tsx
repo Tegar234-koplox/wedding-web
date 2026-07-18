@@ -4,6 +4,11 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 
 import { staffFetch, type StaffSession } from "@/components/operations/staff-api";
+import {
+  NetworkAwarePreloader,
+  NiskalaPreloader,
+  type PreloaderState,
+} from "@/components/site/niskala-preloader";
 
 type EnrollmentPayload = {
   otpauth_uri: string;
@@ -22,15 +27,36 @@ export function AdminSecurity() {
   const [enrollment, setEnrollment] = useState<EnrollmentPayload | null>(null);
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
   const [message, setMessage] = useState("");
+  const [result, setResult] = useState<Extract<PreloaderState, "success" | "error"> | null>(
+    null,
+  );
+  const [sessionLoading, setSessionLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    void staffFetch<StaffSession>("/auth/me").then(setSession);
+    let cancelled = false;
+    void staffFetch<StaffSession>("/auth/me")
+      .then((payload) => {
+        if (!cancelled) setSession(payload);
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setMessage(error instanceof Error ? error.message : "Sesi staff gagal dimuat.");
+          setResult("error");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setSessionLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   async function startEnrollment() {
     setBusy(true);
     setMessage("");
+    setResult(null);
     try {
       const payload = await staffFetch<EnrollmentPayload>("/auth/mfa/enroll", {
         method: "POST",
@@ -38,8 +64,11 @@ export function AdminSecurity() {
       });
       setEnrollment(payload);
       setPassword("");
+      setMessage("QR authenticator berhasil disiapkan.");
+      setResult("success");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Enrollment MFA gagal.");
+      setResult("error");
     } finally {
       setBusy(false);
     }
@@ -48,6 +77,7 @@ export function AdminSecurity() {
   async function confirmEnrollment() {
     setBusy(true);
     setMessage("");
+    setResult(null);
     try {
       const payload = await staffFetch<ConfirmationPayload>("/auth/mfa/confirm", {
         method: "POST",
@@ -60,8 +90,10 @@ export function AdminSecurity() {
         current ? { ...current, user: { ...current.user, mfa_enrolled: true } } : current,
       );
       setMessage("MFA aktif. Simpan recovery code di password manager.");
+      setResult("success");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Konfirmasi MFA gagal.");
+      setResult("error");
     } finally {
       setBusy(false);
     }
@@ -70,6 +102,7 @@ export function AdminSecurity() {
   async function reauthenticate() {
     setBusy(true);
     setMessage("");
+    setResult(null);
     try {
       await staffFetch<{ ok: boolean }>("/auth/reauth", {
         method: "POST",
@@ -78,8 +111,10 @@ export function AdminSecurity() {
       setPassword("");
       setCode("");
       setMessage("Verifikasi ulang berhasil. Aksi sensitif tersedia selama 30 menit.");
+      setResult("success");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Verifikasi ulang gagal.");
+      setResult("error");
     } finally {
       setBusy(false);
     }
@@ -92,6 +127,11 @@ export function AdminSecurity() {
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
+      {sessionLoading ? (
+        <div className="lg:col-span-2">
+          <NetworkAwarePreloader compact context="refresh" />
+        </div>
+      ) : null}
       <section className="border border-white/12 bg-[#181815] p-6 md:p-8">
         <p className="text-[0.62rem] uppercase tracking-[0.2em] text-[var(--color-gold)]">
           Multi-factor authentication
@@ -203,10 +243,15 @@ export function AdminSecurity() {
         )}
       </section>
 
-      {message ? (
-        <p className="border border-white/12 bg-[#181815] p-4 text-sm lg:col-span-2">
-          {message}
-        </p>
+      {busy ? (
+        <div className="lg:col-span-2">
+          <NetworkAwarePreloader compact context="action" />
+        </div>
+      ) : null}
+      {message && result ? (
+        <div className="lg:col-span-2">
+          <NiskalaPreloader compact description={message} state={result} />
+        </div>
       ) : null}
 
       {recoveryCodes.length ? (

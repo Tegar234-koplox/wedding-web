@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
 import { useState } from "react";
 
+import {
+  NetworkAwarePreloader,
+  NiskalaPreloader,
+} from "@/components/site/niskala-preloader";
 import { staffApiPath } from "@/lib/api/staff-client";
 
 type StaffSessionUser = {
@@ -191,11 +195,19 @@ export function AdminLogin() {
       </p>
 
       {error ? (
-        <div className="mt-6 border border-[#d5ad55]/40 bg-[#d5ad55]/10 p-4 text-sm leading-6 text-[#f4ddb0]">
-          {error}
+        <div className="mt-6">
+          <NiskalaPreloader compact description={error} state="error" />
         </div>
       ) : null}
-      {status ? (
+      {submitting ? (
+        <div className="mt-6">
+          <NetworkAwarePreloader
+            compact
+            context="login"
+            description={status || undefined}
+          />
+        </div>
+      ) : status ? (
         <div className="mt-6 border border-white/12 bg-black/25 p-4 text-sm leading-6 text-white/60">
           {status}
         </div>

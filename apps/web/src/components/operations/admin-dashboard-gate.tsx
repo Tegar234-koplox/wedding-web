@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 
 import { AdminOperations } from "@/components/operations/admin-operations";
 import { DashboardShell } from "@/components/operations/dashboard-shell";
+import { NetworkAwarePreloader } from "@/components/site/niskala-preloader";
 import {
   clearStaffGateCookie,
   staffFetch,
@@ -63,9 +64,10 @@ export function AdminDashboardGate({
   if (!verified) {
     return (
       <main className="grid min-h-screen place-items-center bg-[#11110f] px-6 text-[var(--color-ink)]">
-        <div className="border border-white/12 bg-[#181815] p-6 text-sm text-white/60">
-          Memverifikasi session staff...
-        </div>
+        <NetworkAwarePreloader
+          context="login"
+          title="Memverifikasi sesi staff..."
+        />
       </main>
     );
   }

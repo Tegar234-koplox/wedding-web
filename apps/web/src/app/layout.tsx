@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
+import { NiskalaAppStatus } from "@/components/site/niskala-app-status";
+
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -27,7 +29,10 @@ export default function RootLayout({
 }: Readonly<{ children: ReactNode }>) {
   return (
     <html data-scroll-behavior="smooth" lang="id">
-      <body>{children}</body>
+      <body>
+        <NiskalaAppStatus />
+        {children}
+      </body>
     </html>
   );
 }

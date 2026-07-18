@@ -1,0 +1,224 @@
+.surface {
+  --preloader-accent: var(--color-gold, #d5ad55);
+  --preloader-muted: #715e36;
+  display: grid;
+  justify-items: center;
+  gap: 1rem;
+  color: #f7f1e6;
+  text-align: center;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  min-height: 100dvh;
+  align-content: center;
+  padding: 2rem;
+  background:
+    radial-gradient(circle at 50% 35%, rgb(213 173 85 / 12%), transparent 34rem),
+    #0b0b09;
+}
+
+.panel {
+  width: min(100%, 34rem);
+  align-content: center;
+  padding: clamp(1.5rem, 5vw, 3rem);
+  border: 1px solid rgb(213 173 85 / 24%);
+  background: rgb(20 20 17 / 92%);
+  box-shadow: 0 2rem 7rem rgb(0 0 0 / 45%);
+}
+
+.inline {
+  width: 100%;
+  min-height: 8rem;
+  align-content: center;
+  padding: 1.25rem;
+  border: 1px solid rgb(255 255 255 / 10%);
+  background: rgb(255 255 255 / 2.5%);
+}
+
+.compact {
+  grid-template-columns: auto minmax(0, 1fr);
+  justify-items: start;
+  min-height: auto;
+  padding: 0.85rem 1rem;
+  text-align: left;
+}
+
+.brand {
+  margin: 0;
+  color: var(--preloader-accent);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+
+.copy {
+  display: grid;
+  gap: 0.4rem;
+  max-width: 27rem;
+}
+
+.title,
+.description {
+  margin: 0;
+}
+
+.title {
+  color: #f7f1e6;
+  font-family: var(--font-serif, Georgia, serif);
+  font-size: clamp(1.15rem, 3vw, 1.65rem);
+  line-height: 1.2;
+}
+
+.description {
+  color: rgb(255 255 255 / 54%);
+  font-size: 0.78rem;
+  line-height: 1.65;
+}
+
+.visual {
+  position: relative;
+  width: 7.5rem;
+  height: 7.5rem;
+  overflow: hidden;
+}
+
+.compact .visual {
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+.dualBall span {
+  position: absolute;
+  top: 37.5%;
+  left: 12.5%;
+  width: 50%;
+  height: 50%;
+  border-radius: 999px;
+}
+
+.dualBall span:nth-child(1),
+.dualBall span:nth-child(3) {
+  background: var(--preloader-accent);
+}
+
+.dualBall span:nth-child(1) {
+  animation: dual-ball-slide 2s linear infinite;
+  animation-delay: -1s;
+}
+
+.dualBall span:nth-child(2) {
+  background: var(--preloader-muted);
+  animation: dual-ball-slide 2s linear infinite;
+}
+
+.dualBall span:nth-child(3) {
+  animation: dual-ball-mask 2s linear infinite;
+  animation-delay: -1s;
+}
+
+.radio span {
+  position: absolute;
+  box-sizing: border-box;
+  animation: radio-pulse 1s linear infinite;
+}
+
+.radio span:nth-child(1) {
+  top: 64%;
+  left: 17%;
+  width: 22%;
+  height: 22%;
+  border-radius: 999px;
+  background: #e38e03;
+}
+
+.radio span:nth-child(2) {
+  top: 42%;
+  left: 28%;
+  width: 33%;
+  height: 33%;
+  border: 0.75rem solid #c2690c;
+  border-bottom: 0;
+  border-left: 0;
+  border-radius: 0 100% 0 0;
+  background: transparent;
+  animation-delay: 100ms;
+}
+
+.radio span:nth-child(3) {
+  top: 20%;
+  left: 28%;
+  width: 55%;
+  height: 55%;
+  border: 0.75rem solid #9a560a;
+  border-bottom: 0;
+  border-left: 0;
+  border-radius: 0 100% 0 0;
+  background: transparent;
+  animation-delay: 200ms;
+}
+
+.compact .radio span:nth-child(2),
+.compact .radio span:nth-child(3) {
+  border-width: 0.25rem;
+}
+
+.offlineImage {
+  width: min(100%, 18rem);
+  height: auto;
+  object-fit: contain;
+}
+
+.compact .offlineImage {
+  width: 2.5rem;
+}
+
+.resultMark {
+  display: grid;
+  place-items: center;
+  width: 5.5rem;
+  height: 5.5rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  color: var(--preloader-accent);
+  font-family: var(--font-serif, Georgia, serif);
+  font-size: 2.2rem;
+}
+
+.errorMark {
+  color: #e5a59a;
+}
+
+.compact .resultMark {
+  width: 2.5rem;
+  height: 2.5rem;
+  font-size: 1.1rem;
+}
+
+@keyframes dual-ball-slide {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(100%); }
+}
+
+@keyframes dual-ball-mask {
+  0% { opacity: 1; transform: translateX(0); }
+  49.99% { opacity: 1; transform: translateX(100%); }
+  50% { opacity: 0; transform: translateX(100%); }
+  100% { opacity: 0; transform: translateX(0); }
+}
+
+@keyframes radio-pulse {
+  0% { opacity: 0; }
+  20%, 100% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dualBall span,
+  .radio span {
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+  }
+}

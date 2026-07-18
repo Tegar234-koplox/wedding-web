@@ -5,6 +5,11 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import {
+  NetworkAwarePreloader,
+  NiskalaPreloader,
+  type PreloaderContext,
+} from "@/components/site/niskala-preloader";
 import { cn } from "@/lib/utils";
 
 import {
@@ -73,6 +78,7 @@ export function AdminOperations() {
   const [orderForm, setOrderForm] = useState<OrderForm>(emptyOrderForm);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingContext, setSavingContext] = useState<PreloaderContext>("save");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
@@ -157,6 +163,7 @@ export function AdminOperations() {
       setError("ORDER ID dan CLIENT wajib diisi.");
       return;
     }
+    setSavingContext("save");
     setSaving(true);
     setError("");
     setNotice("");
@@ -193,6 +200,7 @@ export function AdminOperations() {
     if (!confirmed) {
       return;
     }
+    setSavingContext("save");
     setSaving(true);
     setError("");
     setNotice("");
@@ -208,6 +216,7 @@ export function AdminOperations() {
   }
 
   async function exportOrders() {
+    setSavingContext("action");
     setSaving(true);
     setError("");
     setNotice("");
@@ -230,6 +239,7 @@ export function AdminOperations() {
   }
 
   async function logoutStaff() {
+    setSavingContext("logout");
     setSaving(true);
     try {
       await staffFetch<{ ok: boolean }>("/auth/logout", { method: "POST" });
@@ -279,8 +289,10 @@ export function AdminOperations() {
         </div>
       </div>
 
-      {error ? <Notice tone="warn">{error}</Notice> : null}
-      {notice ? <Notice tone="ok">{notice}</Notice> : null}
+      {error ? <NiskalaPreloader compact description={error} state="error" /> : null}
+      {notice ? <NiskalaPreloader compact description={notice} state="success" /> : null}
+      {loading ? <NetworkAwarePreloader compact context="refresh" /> : null}
+      {saving ? <NetworkAwarePreloader compact context={savingContext} /> : null}
 
       <section className="grid gap-3 md:grid-cols-4">
         <Metric label="Total Tagihan" value={formatCurrency(financeSummary.total)} />
@@ -605,21 +617,6 @@ function Metric({ label, value }: { label: string; value: string }) {
     <div className="border border-white/10 bg-[#141411] p-4">
       <p className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">{label}</p>
       <p className="mt-3 font-serif text-2xl text-white">{value}</p>
-    </div>
-  );
-}
-
-function Notice({ children, tone }: { children: ReactNode; tone: "ok" | "warn" }) {
-  return (
-    <div
-      className={cn(
-        "border p-4 text-sm leading-6",
-        tone === "ok"
-          ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-100"
-          : "border-[#d5ad55]/40 bg-[#d5ad55]/10 text-[#f4ddb0]",
-      )}
-    >
-      {children}
     </div>
   );
 }

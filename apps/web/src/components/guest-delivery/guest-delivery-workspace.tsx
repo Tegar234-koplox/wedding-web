@@ -14,6 +14,10 @@ import type { Route } from "next";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import {
+  NetworkAwarePreloader,
+  NiskalaPreloader,
+} from "@/components/site/niskala-preloader";
 import { cn } from "@/lib/utils";
 
 type GuestDeliveryMode = "import" | "list" | "wishes";
@@ -323,24 +327,32 @@ export function GuestDeliveryWorkspace({
   }
 
   async function downloadTemplate() {
+    setBusy(true);
     setError("");
+    setNotice("");
     try {
       const blob = await guestDownload(token, "/guest-links/import-template");
       downloadBlob(blob, "template-daftar-tamu.csv");
       setNotice("Template CSV berhasil didownload.");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Template CSV gagal didownload.");
+    } finally {
+      setBusy(false);
     }
   }
 
   async function exportCsv() {
+    setBusy(true);
     setError("");
+    setNotice("");
     try {
       const blob = await guestDownload(token, "/guest-links/export");
       downloadBlob(blob, "daftar-link-tamu.csv");
       setNotice("CSV daftar link personal berhasil didownload.");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Export CSV gagal.");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -439,7 +451,7 @@ export function GuestDeliveryWorkspace({
   if (loading) {
     return (
       <main className="min-h-screen bg-[var(--color-black)] px-6 py-12 text-white">
-        <p className="text-sm text-white/60">Memuat daftar tamu...</p>
+        <NetworkAwarePreloader context="guest" />
       </main>
     );
   }
@@ -497,14 +509,19 @@ export function GuestDeliveryWorkspace({
         <StatCard label="RSVP Hadir" value={detail?.rsvp.total_confirmed ?? 0} />
       </section>
 
+      {busy ? (
+        <div className="mx-auto mt-6 max-w-6xl">
+          <NetworkAwarePreloader compact context="action" />
+        </div>
+      ) : null}
       {error ? (
-        <div className="mx-auto mt-6 max-w-6xl border border-[var(--color-gold)]/45 bg-[var(--color-gold)]/10 p-4 text-sm text-[#ffe8a3]">
-          {error}
+        <div className="mx-auto mt-6 max-w-6xl">
+          <NiskalaPreloader compact description={error} state="error" />
         </div>
       ) : null}
       {notice ? (
-        <div className="mx-auto mt-6 max-w-6xl border border-emerald-400/30 bg-emerald-500/10 p-4 text-sm text-emerald-100">
-          {notice}
+        <div className="mx-auto mt-6 max-w-6xl">
+          <NiskalaPreloader compact description={notice} state="success" />
         </div>
       ) : null}
 
