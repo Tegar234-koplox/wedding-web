@@ -18,10 +18,10 @@
     "format:check": "prettier --check ."
   },
   "devDependencies": {
-    "@playwright/test": "1.55.1",
-    "prettier": "^3.6.2",
-    "sharp": "0.34.5",
-    "turbo": "^2.5.4",
+    "@playwright/test": "1.61.1",
+    "prettier": "^3.9.5",
+    "sharp": "0.35.3",
+    "turbo": "^2.10.5",
     "typescript": "^5.9.2"
   }
 }
