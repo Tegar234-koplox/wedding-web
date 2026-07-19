@@ -2,6 +2,7 @@ import {
   packageCapabilities,
   type PackageCode,
   type RendererKey,
+  type StandardRendererKey,
 } from "@wedding/invitation-themes";
 
 export { packageCapabilities };
@@ -99,7 +100,7 @@ function premiumVisual(
   };
 }
 
-export const themeVisualConfig: Record<RendererKey, ThemeVisual> = {
+export const themeVisualConfig: Record<StandardRendererKey, ThemeVisual> = {
   "elegant-classic": {
     key: "elegant-classic",
     page: "bg-[#f1eadf] text-[#211d17]",
@@ -236,7 +237,7 @@ export const themeVisualConfig: Record<RendererKey, ThemeVisual> = {
 };
 
 export const premiumVisualConfig: Record<
-  RendererKey,
+  StandardRendererKey,
   Record<PackageCode, PremiumVisualConfig>
 > = {
   "elegant-classic": {
@@ -620,7 +621,7 @@ export const premiumVisualConfig: Record<
 };
 
 export function getPremiumVisualConfig(
-  theme: RendererKey,
+  theme: StandardRendererKey,
   packageCode: PackageCode,
 ): PremiumVisualConfig {
   return premiumVisualConfig[theme][packageCode];

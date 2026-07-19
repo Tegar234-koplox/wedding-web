@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 from django.urls import reverse
 from django.utils import timezone
 
-from invitations.models import InvitationMedia
+from invitations.models import Invitation, InvitationMedia
 from invitations.preview import preview_token_for
 from media_library.models import MediaAsset
 from orders.models import Order
@@ -24,6 +24,7 @@ def _staff_order_with_photo(reference: str):
     package = create_package()
     invitation = create_invitation(
         theme=theme,
+        status=Invitation.Status.DRAFT,
         public_slug=f"inv-{reference}",
         is_sample=False,
     )
@@ -121,6 +122,11 @@ def test_staff_copy_and_replaced_cover_round_trip_to_preview_and_public(client):
     assert photo.focal_x == Decimal("24.25")
     assert photo.focal_y == Decimal("73.50")
 
+    invitation.status = Invitation.Status.PUBLISHED
+    invitation.approval_status = Invitation.ApprovalStatus.PUBLISHED
+    invitation.published_at = timezone.now()
+    invitation.save(update_fields=["status", "approval_status", "published_at", "updated_at"])
+
     public_response = client.get(
         reverse("invitation-detail", kwargs={"public_slug": invitation.public_slug})
     )
@@ -152,15 +158,8 @@ def test_staff_copy_and_replaced_cover_round_trip_to_preview_and_public(client):
         content_type="application/json",
     )
 
-    assert clear_response.status_code == 200
-    assert "sectionBodies" not in clear_response.json()["invitation"]["story"]
-    assert clear_response.json()["invitation"]["quote"] == {
-        "text": (
-            "Dan di antara tanda-tanda kebesaran-Nya ialah Dia menciptakan "
-            "pasangan-pasangan untukmu."
-        ),
-        "attribution": "Ar-Rum · 21",
-    }
+    assert clear_response.status_code == 400
+    assert "immutable" in clear_response.json()["error"]["details"]["invitation"]
 
 
 @pytest.mark.django_db

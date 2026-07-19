@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const rendererKeys = [
+export const standardRendererKeys = [
   "elegant-classic",
   "islamic-soft",
   "luxury-gold",
@@ -9,6 +9,9 @@ export const rendererKeys = [
   "floral-romantic",
   "javanese-traditional",
 ] as const;
+export type StandardRendererKey = (typeof standardRendererKeys)[number];
+
+export const rendererKeys = [...standardRendererKeys, "bespoke"] as const;
 
 export const rendererKeySchema = z.enum(rendererKeys);
 export type RendererKey = z.infer<typeof rendererKeySchema>;
@@ -19,6 +22,10 @@ export type InvitationLocale = z.infer<typeof localeSchema>;
 export const packageCodes = ["essential", "signature", "couture"] as const;
 export const packageCodeSchema = z.enum(packageCodes);
 export type PackageCode = z.infer<typeof packageCodeSchema>;
+
+export const catalogPackageCodes = [...packageCodes, "bespoke"] as const;
+export const catalogPackageCodeSchema = z.enum(catalogPackageCodes);
+export type CatalogPackageCode = z.infer<typeof catalogPackageCodeSchema>;
 
 export type PackageCapabilities = {
   cover: true;
@@ -68,26 +75,202 @@ const safeUrl = z
     },
     { message: "Only HTTP(S) URLs are allowed" },
   );
-const safeMediaSrc = z.string().max(500).refine(
-  (src) => {
-    if (src.startsWith("/")) {
-      return true;
-    }
-    try {
-      const protocol = new URL(src).protocol;
-      return protocol === "https:" || protocol === "http:";
-    } catch {
-      return false;
-    }
-  },
-  { message: "Only local paths or HTTP(S) URLs are allowed" },
-);
+const safeMediaSrc = z
+  .string()
+  .max(500)
+  .refine(
+    (src) => {
+      if (src.startsWith("/")) {
+        return true;
+      }
+      try {
+        const protocol = new URL(src).protocol;
+        return protocol === "https:" || protocol === "http:";
+      } catch {
+        return false;
+      }
+    },
+    { message: "Only local paths or HTTP(S) URLs are allowed" },
+  );
 
 const timelineEntrySchema = z.object({
   description: safeText.max(700),
   number: safeText.max(8),
   title: safeText.max(120),
 });
+
+export const bespokeSectionTypes = [
+  "cover",
+  "event",
+  "story",
+  "timeline",
+  "gallery",
+  "quote",
+  "rsvp",
+  "gift",
+  "weather",
+  "closing",
+] as const;
+
+export const bespokeSectionTypeSchema = z.enum(bespokeSectionTypes);
+export type BespokeSectionType = z.infer<typeof bespokeSectionTypeSchema>;
+
+export const bespokeVariantIds = {
+  cover: [
+    "cover.editorial-split@1",
+    "cover.cinematic-center@1",
+    "cover.minimal-frame@1",
+  ],
+  event: ["event.editorial-cards@1", "event.timeline-band@1"],
+  story: ["story.chapters@1", "story.manifesto@1"],
+  timeline: ["timeline.vertical@1", "timeline.horizontal@1"],
+  gallery: ["gallery.asymmetric-grid@1", "gallery.film-strip@1"],
+  quote: ["quote.statement@1"],
+  rsvp: ["rsvp.minimal@1"],
+  gift: ["gift.cards@1"],
+  weather: ["weather.editorial@1"],
+  closing: ["closing.signature@1"],
+} as const satisfies Record<BespokeSectionType, readonly string[]>;
+
+const bespokeFontIds = [
+  "cormorant-garamond",
+  "playfair-display",
+  "bodoni-moda",
+  "lora",
+  "inter",
+  "manrope",
+] as const;
+
+const hexColor = z
+  .string()
+  .regex(/^#[0-9a-f]{6}$/i, "Use a six-digit hex color");
+
+const bespokeSectionSchema = z
+  .object({
+    id: z
+      .string()
+      .trim()
+      .min(1)
+      .max(80)
+      .regex(/^[a-z0-9][a-z0-9-]*$/),
+    type: bespokeSectionTypeSchema,
+    variant: z.string().trim().min(1).max(80),
+    enabled: z.boolean().default(true),
+    mediaStart: z.number().int().min(0).max(17).optional(),
+    mediaCount: z.number().int().min(1).max(18).optional(),
+  })
+  .superRefine((section, context) => {
+    const supported = bespokeVariantIds[section.type] as readonly string[];
+    if (!supported.includes(section.variant)) {
+      context.addIssue({
+        code: "custom",
+        message: `Variant ${section.variant} is not supported for ${section.type}`,
+        path: ["variant"],
+      });
+    }
+  });
+
+export const bespokeConfigSchema = z
+  .object({
+    engineVersion: z.literal(1),
+    designVersion: z.string().trim().min(1).max(80),
+    tokens: z.object({
+      background: hexColor,
+      surface: hexColor,
+      text: hexColor,
+      muted: hexColor,
+      accent: hexColor,
+      border: hexColor,
+      displayFont: z.enum(bespokeFontIds),
+      bodyFont: z.enum(bespokeFontIds),
+      spacing: z.enum(["compact", "balanced", "editorial"]),
+      radius: z.enum(["none", "soft", "rounded"]),
+    }),
+    motion: z.object({
+      preset: z.enum(["none", "soft-reveal", "editorial", "cinematic"]),
+      intensity: z.enum(["subtle", "balanced", "expressive"]),
+      parallax: z.enum(["none", "subtle", "premium"]),
+      reducedMotionFallback: z.literal(true),
+    }),
+    sections: z.array(bespokeSectionSchema).min(3).max(20),
+  })
+  .superRefine((config, context) => {
+    const enabled = config.sections.filter((section) => section.enabled);
+    const ids = new Set<string>();
+    for (const [index, section] of config.sections.entries()) {
+      if (ids.has(section.id)) {
+        context.addIssue({
+          code: "custom",
+          message: "Section ids must be unique",
+          path: ["sections", index, "id"],
+        });
+      }
+      ids.add(section.id);
+    }
+    for (const required of ["cover", "event", "closing"] as const) {
+      if (!enabled.some((section) => section.type === required)) {
+        context.addIssue({
+          code: "custom",
+          message: `An enabled ${required} section is required`,
+          path: ["sections"],
+        });
+      }
+    }
+  });
+
+export type BespokeConfig = z.infer<typeof bespokeConfigSchema>;
+
+export const defaultBespokeConfig: BespokeConfig = {
+  engineVersion: 1,
+  designVersion: "bespoke-initial@1",
+  tokens: {
+    background: "#11110f",
+    surface: "#f3eadb",
+    text: "#f7f1e6",
+    muted: "#aaa294",
+    accent: "#d5ad55",
+    border: "#5d5037",
+    displayFont: "cormorant-garamond",
+    bodyFont: "manrope",
+    spacing: "editorial",
+    radius: "none",
+  },
+  motion: {
+    preset: "soft-reveal",
+    intensity: "subtle",
+    parallax: "subtle",
+    reducedMotionFallback: true,
+  },
+  sections: [
+    {
+      id: "cover",
+      type: "cover",
+      variant: "cover.editorial-split@1",
+      enabled: true,
+    },
+    {
+      id: "event",
+      type: "event",
+      variant: "event.editorial-cards@1",
+      enabled: true,
+    },
+    { id: "story", type: "story", variant: "story.chapters@1", enabled: true },
+    {
+      id: "gallery",
+      type: "gallery",
+      variant: "gallery.asymmetric-grid@1",
+      enabled: true,
+    },
+    { id: "quote", type: "quote", variant: "quote.statement@1", enabled: true },
+    { id: "rsvp", type: "rsvp", variant: "rsvp.minimal@1", enabled: true },
+    {
+      id: "closing",
+      type: "closing",
+      variant: "closing.signature@1",
+      enabled: true,
+    },
+  ],
+};
 
 export const invitationContentSchema = z.object({
   cover: z
@@ -174,23 +357,34 @@ export const invitationContentSchema = z.object({
     )
     .max(4)
     .optional(),
+  bespoke: bespokeConfigSchema.optional(),
 });
 
 export type InvitationContent = z.infer<typeof invitationContentSchema>;
 
-export const invitationEnvelopeSchema = z.object({
-  rendererKey: rendererKeySchema,
-  rendererVersion: z.number().int().positive(),
-  contentSchemaVersion: z.number().int().positive(),
-  locale: localeSchema,
-  content: invitationContentSchema,
-  guest: z
-    .object({
-      displayName: safeText.max(120),
-    })
-    .nullable()
-    .optional(),
-});
+export const invitationEnvelopeSchema = z
+  .object({
+    rendererKey: rendererKeySchema,
+    rendererVersion: z.number().int().positive(),
+    contentSchemaVersion: z.number().int().positive(),
+    locale: localeSchema,
+    content: invitationContentSchema,
+    guest: z
+      .object({
+        displayName: safeText.max(120),
+      })
+      .nullable()
+      .optional(),
+  })
+  .superRefine((envelope, context) => {
+    if (envelope.rendererKey === "bespoke" && !envelope.content.bespoke) {
+      context.addIssue({
+        code: "custom",
+        message: "Bespoke renderer requires bespoke configuration",
+        path: ["content", "bespoke"],
+      });
+    }
+  });
 
 export type InvitationEnvelope = z.infer<typeof invitationEnvelopeSchema>;
 
@@ -198,14 +392,7 @@ export type RendererRegistration = {
   key: RendererKey;
   version: number;
   contentSchemaVersion: number;
-  supportedSections: readonly [
-    "cover",
-    "event",
-    "story",
-    "gallery",
-    "weather",
-    "closing",
-  ];
+  supportedSections: readonly BespokeSectionType[];
 };
 
 const sections = [
@@ -217,15 +404,25 @@ const sections = [
   "closing",
 ] as const;
 
-export const rendererManifest: readonly RendererRegistration[] =
-  rendererKeys.flatMap((key) =>
-    [1, 2].map((version) => ({
-      key,
-      version,
-      contentSchemaVersion: 1,
-      supportedSections: sections,
-    })),
-  );
+export const rendererManifest: readonly RendererRegistration[] = [
+  ...standardRendererKeys.flatMap((key) =>
+    [1, 2].map(
+      (version) =>
+        ({
+          key,
+          version,
+          contentSchemaVersion: 1,
+          supportedSections: sections,
+        }) satisfies RendererRegistration,
+    ),
+  ),
+  {
+    key: "bespoke",
+    version: 1,
+    contentSchemaVersion: 2,
+    supportedSections: bespokeSectionTypes,
+  },
+];
 
 export function supportsRenderer(
   key: RendererKey,

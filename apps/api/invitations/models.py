@@ -221,3 +221,117 @@ class InvitationRevision(UUIDTimeStampedModel):
                 name="unique_invitation_revision_number",
             )
         ]
+
+
+class ClientReviewSession(UUIDTimeStampedModel):
+    class Purpose(models.TextChoices):
+        SCOPE = "scope", "Scope approval"
+        FINAL = "final", "Final approval"
+
+    invitation = models.ForeignKey(
+        Invitation,
+        on_delete=models.CASCADE,
+        related_name="review_sessions",
+    )
+    scope_agreement = models.ForeignKey(
+        "orders.BespokeScopeAgreement",
+        blank=True,
+        null=True,
+        on_delete=models.PROTECT,
+        related_name="review_sessions",
+    )
+    revision = models.ForeignKey(
+        InvitationRevision,
+        blank=True,
+        null=True,
+        on_delete=models.PROTECT,
+        related_name="review_sessions",
+    )
+    purpose = models.CharField(max_length=16, choices=Purpose.choices)
+    token_hash = models.CharField(max_length=64, unique=True)
+    expires_at = models.DateTimeField(db_index=True)
+    revoked_at = models.DateTimeField(blank=True, null=True)
+
+
+class ClientOtpChallenge(UUIDTimeStampedModel):
+    class Channel(models.TextChoices):
+        WHATSAPP = "whatsapp", "WhatsApp"
+        EMAIL = "email", "Email"
+
+    class DeliveryStatus(models.TextChoices):
+        QUEUED = "queued", "Queued"
+        SENT = "sent", "Sent"
+        FAILED = "failed", "Failed"
+
+    review_session = models.ForeignKey(
+        ClientReviewSession,
+        on_delete=models.CASCADE,
+        related_name="otp_challenges",
+    )
+    channel = models.CharField(max_length=16, choices=Channel.choices)
+    destination_hash = models.CharField(max_length=64)
+    destination_masked = models.CharField(max_length=160)
+    code_hash = models.CharField(max_length=128)
+    expires_at = models.DateTimeField(db_index=True)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    delivery_status = models.CharField(
+        max_length=16,
+        choices=DeliveryStatus.choices,
+        default=DeliveryStatus.QUEUED,
+    )
+    consumed_at = models.DateTimeField(blank=True, null=True)
+
+
+class ClientApprovalRecord(UUIDTimeStampedModel):
+    review_session = models.OneToOneField(
+        ClientReviewSession,
+        on_delete=models.PROTECT,
+        related_name="approval_record",
+    )
+    checksum = models.CharField(max_length=64, db_index=True)
+    channel = models.CharField(max_length=16, choices=ClientOtpChallenge.Channel.choices)
+    contact_masked = models.CharField(max_length=160)
+    ip_hash = models.CharField(max_length=64, blank=True)
+    user_agent = models.CharField(max_length=300, blank=True)
+    approved_at = models.DateTimeField()
+
+
+class InvitationPublication(UUIDTimeStampedModel):
+    invitation = models.ForeignKey(
+        Invitation,
+        on_delete=models.CASCADE,
+        related_name="publications",
+    )
+    revision = models.ForeignKey(
+        InvitationRevision,
+        blank=True,
+        null=True,
+        on_delete=models.PROTECT,
+        related_name="publications",
+    )
+    publication_number = models.PositiveIntegerField()
+    snapshot = models.JSONField()
+    checksum = models.CharField(max_length=64, db_index=True)
+    is_active = models.BooleanField(default=True, db_index=True)
+    published_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
+        related_name="invitation_publications",
+    )
+    published_at = models.DateTimeField()
+
+    class Meta:
+        ordering = ["-publication_number"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["invitation", "publication_number"],
+                name="unique_invitation_publication_number",
+            ),
+            models.UniqueConstraint(
+                fields=["invitation"],
+                condition=models.Q(is_active=True),
+                name="one_active_invitation_publication",
+            ),
+        ]

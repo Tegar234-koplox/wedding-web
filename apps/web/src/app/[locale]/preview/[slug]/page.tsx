@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { StandardRendererKey } from "@wedding/invitation-themes";
 import { notFound } from "next/navigation";
 
 import { PreviewPackageSelector } from "@/components/site/preview-package-selector";
@@ -56,7 +57,10 @@ export default async function PreviewPage({
     notFound();
   }
 
-  const invitation = getSampleInvitation(theme.slug, locale);
+  const invitation = getSampleInvitation(
+    theme.slug as StandardRendererKey,
+    locale,
+  );
   const packageCode = resolvePackageCode(query.package);
 
   return (

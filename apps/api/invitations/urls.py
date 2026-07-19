@@ -1,5 +1,11 @@
 from django.urls import path
 
+from invitations.bespoke_views import (
+    BespokeReviewApproveView,
+    BespokeReviewDetailView,
+    BespokeReviewOtpView,
+    BespokeReviewRevisionView,
+)
 from invitations.views import (
     GuestManagementDetailView,
     GuestManagementGuestDeliveryStatusView,
@@ -27,6 +33,22 @@ from invitations.views import (
 )
 
 urlpatterns = [
+    path("bespoke-reviews/<str:token>", BespokeReviewDetailView.as_view(), name="bespoke-review"),
+    path(
+        "bespoke-reviews/<str:token>/revisions",
+        BespokeReviewRevisionView.as_view(),
+        name="bespoke-review-revision",
+    ),
+    path(
+        "bespoke-reviews/<str:token>/otp",
+        BespokeReviewOtpView.as_view(),
+        name="bespoke-review-otp",
+    ),
+    path(
+        "bespoke-reviews/<str:token>/approve",
+        BespokeReviewApproveView.as_view(),
+        name="bespoke-review-approve",
+    ),
     path(
         "invitations/<slug:public_slug>",
         InvitationDetailView.as_view(),

@@ -1,4 +1,4 @@
-import { rendererKeys } from "@wedding/invitation-themes";
+import { standardRendererKeys as rendererKeys } from "@wedding/invitation-themes";
 import { describe, expect, it } from "vitest";
 
 import { getSampleInvitation } from "./samples";

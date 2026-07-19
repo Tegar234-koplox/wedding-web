@@ -4,7 +4,7 @@ import {
   packageCapabilities,
   type InvitationEnvelope,
   type PackageCode,
-  type RendererKey,
+  type StandardRendererKey,
 } from "@wedding/invitation-themes";
 import {
   AnimatePresence,
@@ -30,10 +30,7 @@ import {
   type PremiumVisualConfig,
   type ThemeVisual,
 } from "@/invitations/presentation";
-import {
-  InvitationCard,
-  InvitationFrame,
-} from "@/invitations/invitation-card";
+import { InvitationCard, InvitationFrame } from "@/invitations/invitation-card";
 import {
   CoverTextContrastLayer,
   ThemeCoverDecoration,
@@ -66,9 +63,18 @@ type BankAccount = {
 
 type TimelineEntry = readonly [string, string, string];
 type TimelineEntries = readonly TimelineEntry[];
-type TimelineMode = "opening" | "middle" | "final" | "conflict" | "intimacy" | "trust";
+type TimelineMode =
+  | "opening"
+  | "middle"
+  | "final"
+  | "conflict"
+  | "intimacy"
+  | "trust";
 
-const textFadeTransition = { duration: 0.85, ease: [0.22, 1, 0.36, 1] } as const;
+const textFadeTransition = {
+  duration: 0.85,
+  ease: [0.22, 1, 0.36, 1],
+} as const;
 
 function timelineOverride(
   invitation: InvitationEnvelope,
@@ -80,11 +86,14 @@ function timelineOverride(
     return null;
   }
   const normalized = entries
-    .map((entry) => [
-      entry.number.trim(),
-      entry.title.trim(),
-      entry.description.trim(),
-    ] as const)
+    .map(
+      (entry) =>
+        [
+          entry.number.trim(),
+          entry.title.trim(),
+          entry.description.trim(),
+        ] as const,
+    )
     .filter(([number, title, description]) => number && title && description);
   return normalized.length ? normalized : null;
 }
@@ -257,7 +266,7 @@ function sectionPhotosFromGallery(
   }).filter((photo): photo is GalleryPhoto => Boolean(photo));
 }
 
-const signatureGiftFolders: Record<RendererKey, string> = {
+const signatureGiftFolders: Record<StandardRendererKey, string> = {
   "dark-cinematic": "dark-cinematic",
   "elegant-classic": "elegant-classic",
   "floral-romantic": "floral-romantic",
@@ -267,7 +276,7 @@ const signatureGiftFolders: Record<RendererKey, string> = {
   "minimalist-white": "minimalist-white",
 };
 
-const coutureGiftSoundEffects: Record<RendererKey, string> = {
+const coutureGiftSoundEffects: Record<StandardRendererKey, string> = {
   "dark-cinematic":
     "https://res.cloudinary.com/djhewrs1n/video/upload/v1783150346/chest_treasure_tntcss.mp3",
   "elegant-classic":
@@ -422,9 +431,7 @@ function Cover({
             <p
               className={`mt-9 max-w-lg text-sm leading-7 ${
                 essential ? supportTextClass : design.muted
-              } ${
-                design.coverLayout === "editorial" ? "" : "mx-auto"
-              } ${
+              } ${design.coverLayout === "editorial" ? "" : "mx-auto"} ${
                 !essential && premium.textContrast
                   ? "font-medium !text-current drop-shadow-[0_1px_5px_rgba(255,255,255,.75)]"
                   : ""
@@ -685,13 +692,17 @@ function EssentialGiftSection({
       className={`${design.surface} relative grid min-h-[78svh] place-items-center overflow-hidden px-6 py-24 text-center md:px-12`}
     >
       <FadeText className="mx-auto max-w-3xl">
-        <p className={`text-[0.6rem] uppercase tracking-[0.25em] ${design.accent}`}>
+        <p
+          className={`text-[0.6rem] uppercase tracking-[0.25em] ${design.accent}`}
+        >
           {id ? "Gift" : "Gift"}
         </p>
         <h2 className="mt-8 font-serif text-[clamp(3rem,8vw,7rem)] leading-[0.86] tracking-[-0.05em]">
           {id ? "Tanda kasih." : "A token of love."}
         </h2>
-        <p className={`mx-auto mt-7 max-w-xl text-sm leading-7 ${design.muted}`}>
+        <p
+          className={`mx-auto mt-7 max-w-xl text-sm leading-7 ${design.muted}`}
+        >
           {id
             ? "Doa dan kehadiran Anda adalah hadiah utama. Jika ingin menitipkan tanda kasih, detail rekening tersedia di bawah ini."
             : "Your prayers and presence are the greatest gift. If you would like to send a token of love, the account detail is available below."}
@@ -719,7 +730,9 @@ function EssentialGiftSection({
               initial={{ opacity: 0, y: 14 }}
               transition={textFadeTransition}
             >
-              <p className={`text-[0.58rem] uppercase tracking-[0.22em] ${design.accent}`}>
+              <p
+                className={`text-[0.58rem] uppercase tracking-[0.22em] ${design.accent}`}
+              >
                 {id ? "Rekening pengantin" : "Couple account"}
               </p>
               <p className="mt-3 font-serif text-2xl">{account.label}</p>
@@ -928,14 +941,38 @@ function getTimelineEntries(
 
   return id
     ? [
-        ["01", "Bertemu", "Sebuah awal yang sederhana membuka ruang untuk saling mengenal."],
-        ["02", "Bertumbuh", "Cerita itu tumbuh melalui waktu, jarak, dan pilihan untuk tetap bersama."],
-        ["03", "Suka Cita", "Rasa bahagia dan damai selalu tumbuh setiap hari membawa kesuburan."],
+        [
+          "01",
+          "Bertemu",
+          "Sebuah awal yang sederhana membuka ruang untuk saling mengenal.",
+        ],
+        [
+          "02",
+          "Bertumbuh",
+          "Cerita itu tumbuh melalui waktu, jarak, dan pilihan untuk tetap bersama.",
+        ],
+        [
+          "03",
+          "Suka Cita",
+          "Rasa bahagia dan damai selalu tumbuh setiap hari membawa kesuburan.",
+        ],
       ]
     : [
-        ["01", "Meeting", "A simple beginning opened the way for two lives to know one another."],
-        ["02", "Growing", "The story grew through time, distance, and the choice to keep returning."],
-        ["03", "Joy", "Happiness and peace keep growing each day, bringing life into bloom."],
+        [
+          "01",
+          "Meeting",
+          "A simple beginning opened the way for two lives to know one another.",
+        ],
+        [
+          "02",
+          "Growing",
+          "The story grew through time, distance, and the choice to keep returning.",
+        ],
+        [
+          "03",
+          "Joy",
+          "Happiness and peace keep growing each day, bringing life into bloom.",
+        ],
       ];
 }
 
@@ -952,58 +989,178 @@ function getCoutureTimelineEntries(
   const entries = {
     opening: id
       ? [
-          ["01", "Bertemu", "Sebuah awal yang sederhana yang membuka ruang untuk saling mengenal."],
-          ["02", "Bertumbuh", "Cerita itu tumbuh melalui waktu, jarak, dan pilihan untuk tetap bersama."],
-          ["03", "Suka Cita", "Rasa bahagia dan damai selalu tumbuh setiap hari membawa kesuburan."],
+          [
+            "01",
+            "Bertemu",
+            "Sebuah awal yang sederhana yang membuka ruang untuk saling mengenal.",
+          ],
+          [
+            "02",
+            "Bertumbuh",
+            "Cerita itu tumbuh melalui waktu, jarak, dan pilihan untuk tetap bersama.",
+          ],
+          [
+            "03",
+            "Suka Cita",
+            "Rasa bahagia dan damai selalu tumbuh setiap hari membawa kesuburan.",
+          ],
         ]
       : [
-          ["01", "Meeting", "A simple beginning opened space for us to know one another."],
-          ["02", "Growing", "The story grew through time, distance, and the choice to stay together."],
-          ["03", "Joy", "Happiness and peace keep growing each day, bringing life into bloom."],
+          [
+            "01",
+            "Meeting",
+            "A simple beginning opened space for us to know one another.",
+          ],
+          [
+            "02",
+            "Growing",
+            "The story grew through time, distance, and the choice to stay together.",
+          ],
+          [
+            "03",
+            "Joy",
+            "Happiness and peace keep growing each day, bringing life into bloom.",
+          ],
         ],
     conflict: id
       ? [
-          ["04", "Tragedi Lembut", "Konflik yang turut mewarnai perjalanan dengan kontrol hati yang terarah."],
-          ["05", "Sadar", "Ego tidak bisa melawan ego, masing-masing kami adalah rumah."],
-          ["06", "Sabar", "Besar kecilnya masalah akan tetap kalah dengan tekad dan keteguhan hati yang selalu ingin bersama."],
+          [
+            "04",
+            "Tragedi Lembut",
+            "Konflik yang turut mewarnai perjalanan dengan kontrol hati yang terarah.",
+          ],
+          [
+            "05",
+            "Sadar",
+            "Ego tidak bisa melawan ego, masing-masing kami adalah rumah.",
+          ],
+          [
+            "06",
+            "Sabar",
+            "Besar kecilnya masalah akan tetap kalah dengan tekad dan keteguhan hati yang selalu ingin bersama.",
+          ],
         ]
       : [
-          ["04", "A Gentle Tragedy", "Conflict colored the journey, guided by hearts learning direction."],
-          ["05", "Awake", "Ego cannot defeat ego; each of us learned that the other is home."],
-          ["06", "Patient", "Every problem, big or small, bows to the resolve and steadfastness that keep choosing togetherness."],
+          [
+            "04",
+            "A Gentle Tragedy",
+            "Conflict colored the journey, guided by hearts learning direction.",
+          ],
+          [
+            "05",
+            "Awake",
+            "Ego cannot defeat ego; each of us learned that the other is home.",
+          ],
+          [
+            "06",
+            "Patient",
+            "Every problem, big or small, bows to the resolve and steadfastness that keep choosing togetherness.",
+          ],
         ],
     intimacy: id
       ? [
-          ["07", "Teliti", "Memperhatikan dan mengapresiasi hal-hal kecil untuk menjaga keintiman tetap hangat."],
-          ["08", "Konsisten", "Naik turunnya rasa adalah hal rumit bagi kami, namun kemauan kami jauh lebih besar."],
-          ["09", "Merajut", "Tetap saling melengkapi disaat hal-hal yang belum diketahui mulai terlihat sedikit demi sedikit."],
+          [
+            "07",
+            "Teliti",
+            "Memperhatikan dan mengapresiasi hal-hal kecil untuk menjaga keintiman tetap hangat.",
+          ],
+          [
+            "08",
+            "Konsisten",
+            "Naik turunnya rasa adalah hal rumit bagi kami, namun kemauan kami jauh lebih besar.",
+          ],
+          [
+            "09",
+            "Merajut",
+            "Tetap saling melengkapi disaat hal-hal yang belum diketahui mulai terlihat sedikit demi sedikit.",
+          ],
         ]
       : [
-          ["07", "Attentive", "Noticing and appreciating small things keeps intimacy warm."],
-          ["08", "Consistent", "The rise and fall of feelings can be complicated, yet our willingness is far greater."],
-          ["09", "Weaving", "We keep completing one another as the unknown slowly begins to reveal itself."],
+          [
+            "07",
+            "Attentive",
+            "Noticing and appreciating small things keeps intimacy warm.",
+          ],
+          [
+            "08",
+            "Consistent",
+            "The rise and fall of feelings can be complicated, yet our willingness is far greater.",
+          ],
+          [
+            "09",
+            "Weaving",
+            "We keep completing one another as the unknown slowly begins to reveal itself.",
+          ],
         ],
     trust: id
       ? [
-          ["10", "Percaya", "Sedikit kecurigaan, lebih besar kepercayaan yang pada akhirnya saling mengikat."],
-          ["11", "Memberi", "Bukan tentang materi, tapi sesuatu yang lebih berarti, tatapan yang jujur misalnya."],
-          ["12", "Menguatkan", "Saling mendorong untuk meningkatkan nilai yang luhur dan mencapai hal-hal kecil untuk menunjang hal yang lebih besar. Salah satunya adalah kisah ini."],
+          [
+            "10",
+            "Percaya",
+            "Sedikit kecurigaan, lebih besar kepercayaan yang pada akhirnya saling mengikat.",
+          ],
+          [
+            "11",
+            "Memberi",
+            "Bukan tentang materi, tapi sesuatu yang lebih berarti, tatapan yang jujur misalnya.",
+          ],
+          [
+            "12",
+            "Menguatkan",
+            "Saling mendorong untuk meningkatkan nilai yang luhur dan mencapai hal-hal kecil untuk menunjang hal yang lebih besar. Salah satunya adalah kisah ini.",
+          ],
         ]
       : [
-          ["10", "Trust", "A little suspicion, but far greater trust, ultimately binding us together."],
-          ["11", "Giving", "Not about material things, but something more meaningful, an honest gaze for example."],
-          ["12", "Strengthening", "Encouraging one another to grow in noble value and accomplish small things that support something greater. One of them is this story."],
+          [
+            "10",
+            "Trust",
+            "A little suspicion, but far greater trust, ultimately binding us together.",
+          ],
+          [
+            "11",
+            "Giving",
+            "Not about material things, but something more meaningful, an honest gaze for example.",
+          ],
+          [
+            "12",
+            "Strengthening",
+            "Encouraging one another to grow in noble value and accomplish small things that support something greater. One of them is this story.",
+          ],
         ],
     final: id
       ? [
-          ["11", "Mendengar", "Sebuah validasi yang berarti sebagai langkah awal untuk menumbuhkan rasa setiap hari."],
-          ["12", "Maaf", "Bukan siapa yang paling salah, tapi siapa yang paling cinta, dan kami melakukannya."],
-          ["13", "Hari Ini", "Kini perjalanan itu menuju hari yang kami rayakan bersama orang-orang terdekat."],
+          [
+            "11",
+            "Mendengar",
+            "Sebuah validasi yang berarti sebagai langkah awal untuk menumbuhkan rasa setiap hari.",
+          ],
+          [
+            "12",
+            "Maaf",
+            "Bukan siapa yang paling salah, tapi siapa yang paling cinta, dan kami melakukannya.",
+          ],
+          [
+            "13",
+            "Hari Ini",
+            "Kini perjalanan itu menuju hari yang kami rayakan bersama orang-orang terdekat.",
+          ],
         ]
       : [
-          ["11", "Listening", "A meaningful validation became the first step in growing love each day."],
-          ["12", "Forgiveness", "It was never about who was most wrong, but who loved most, and we chose to do it."],
-          ["13", "Today", "That journey now becomes a celebration shared with the people closest to us."],
+          [
+            "11",
+            "Listening",
+            "A meaningful validation became the first step in growing love each day.",
+          ],
+          [
+            "12",
+            "Forgiveness",
+            "It was never about who was most wrong, but who loved most, and we chose to do it.",
+          ],
+          [
+            "13",
+            "Today",
+            "That journey now becomes a celebration shared with the people closest to us.",
+          ],
         ],
   } satisfies Record<
     "opening" | "conflict" | "intimacy" | "trust" | "final",
@@ -1099,7 +1256,9 @@ function SignatureStoryTimelineSection({
                 key={number}
                 packageCode={packageCode}
               >
-                <p className={`text-[0.58rem] uppercase tracking-[0.2em] ${design.accent}`}>
+                <p
+                  className={`text-[0.58rem] uppercase tracking-[0.2em] ${design.accent}`}
+                >
                   {number}
                 </p>
                 <h3 className="mt-5 font-serif text-2xl">{title}</h3>
@@ -1145,7 +1304,9 @@ function SignatureRsvpPreviewSection({
 
   if (rsvpSlot) {
     return (
-      <section className={`${design.surface} relative overflow-hidden px-5 py-20 md:px-12 md:py-32`}>
+      <section
+        className={`${design.surface} relative overflow-hidden px-5 py-20 md:px-12 md:py-32`}
+      >
         <ThemeSectionDecoration config={premium} showOverlay={showOverlay} />
         <div className="relative z-30 mx-auto max-w-4xl">
           <InvitationCard
@@ -1161,7 +1322,9 @@ function SignatureRsvpPreviewSection({
   }
 
   return (
-    <section className={`${design.surface} relative overflow-hidden px-6 py-24 md:px-12 md:py-36`}>
+    <section
+      className={`${design.surface} relative overflow-hidden px-6 py-24 md:px-12 md:py-36`}
+    >
       <ThemeSectionDecoration config={premium} showOverlay={showOverlay} />
       <InvitationCard
         className="relative z-30 mx-auto max-w-4xl"
@@ -1170,7 +1333,9 @@ function SignatureRsvpPreviewSection({
         packageCode={packageCode}
       >
         <div>
-          <p className={`text-[0.6rem] uppercase tracking-[0.25em] ${design.accent}`}>
+          <p
+            className={`text-[0.6rem] uppercase tracking-[0.25em] ${design.accent}`}
+          >
             RSVP
           </p>
           <h2 className="mt-4 font-serif text-[clamp(2.5rem,7vw,5.5rem)] leading-[0.9] tracking-[-0.04em]">
@@ -1178,9 +1343,13 @@ function SignatureRsvpPreviewSection({
           </h2>
         </div>
         <div className="grid gap-3 md:grid-cols-2">
-          <div className={`border px-4 py-3 text-sm ${design.border}`}>{id ? "Hadir" : "Attending"}</div>
+          <div className={`border px-4 py-3 text-sm ${design.border}`}>
+            {id ? "Hadir" : "Attending"}
+          </div>
           <div className={`border px-4 py-3 text-sm ${design.border}`}>1</div>
-          <div className={`min-h-28 border px-4 py-3 text-sm ${design.border} md:col-span-2`}>
+          <div
+            className={`min-h-28 border px-4 py-3 text-sm ${design.border} md:col-span-2`}
+          >
             {id ? "Ucapan untuk kedua mempelai" : "Your wishes for the couple"}
           </div>
         </div>
@@ -1208,7 +1377,8 @@ function SignatureGiftSection({
   const [opened, setOpened] = useState(false);
   const id = invitation.locale === "id";
   const account = getGiftAccount(invitation, id);
-  const folder = signatureGiftFolders[invitation.rendererKey];
+  const folder =
+    signatureGiftFolders[invitation.rendererKey as StandardRendererKey];
 
   return (
     <section
@@ -1216,13 +1386,17 @@ function SignatureGiftSection({
     >
       <ThemeSectionDecoration config={premium} showOverlay={false} />
       <FadeText className="relative z-30 mx-auto max-w-3xl">
-        <p className={`text-[0.6rem] uppercase tracking-[0.25em] ${design.accent}`}>
+        <p
+          className={`text-[0.6rem] uppercase tracking-[0.25em] ${design.accent}`}
+        >
           {id ? "Gift" : "Gift"}
         </p>
         <h2 className="mt-8 font-serif text-[clamp(3rem,8vw,7rem)] leading-[0.86] tracking-[-0.05em]">
           {id ? "Tanda kasih." : "A token of love."}
         </h2>
-        <p className={`mx-auto mt-7 max-w-xl text-sm leading-7 ${design.muted}`}>
+        <p
+          className={`mx-auto mt-7 max-w-xl text-sm leading-7 ${design.muted}`}
+        >
           {id
             ? "Doa dan kehadiran Anda adalah hadiah utama. Jika ingin menitipkan tanda kasih, detail rekening tersedia di bawah ini."
             : "Your prayers and presence are the greatest gift. If you would like to send a token of love, the account detail is available below."}
@@ -1250,7 +1424,9 @@ function SignatureGiftSection({
               initial={{ opacity: 0, y: 14 }}
               transition={textFadeTransition}
             >
-              <p className={`text-[0.58rem] uppercase tracking-[0.22em] ${design.accent}`}>
+              <p
+                className={`text-[0.58rem] uppercase tracking-[0.22em] ${design.accent}`}
+              >
                 {id ? "Rekening pengantin" : "Couple account"}
               </p>
               <p className="mt-3 font-serif text-2xl">{account.label}</p>
@@ -1280,8 +1456,10 @@ function CoutureGiftSection({
   const effectPlayedRef = useRef(false);
   const id = invitation.locale === "id";
   const account = getGiftAccount(invitation, id);
-  const folder = signatureGiftFolders[invitation.rendererKey];
-  const effectUrl = coutureGiftSoundEffects[invitation.rendererKey];
+  const folder =
+    signatureGiftFolders[invitation.rendererKey as StandardRendererKey];
+  const effectUrl =
+    coutureGiftSoundEffects[invitation.rendererKey as StandardRendererKey];
 
   function openGift() {
     setOpened(true);
@@ -1298,13 +1476,17 @@ function CoutureGiftSection({
     >
       <ThemeSectionDecoration config={premium} showOverlay />
       <FadeText className="relative z-30 mx-auto max-w-3xl">
-        <p className={`text-[0.6rem] uppercase tracking-[0.25em] ${design.accent}`}>
+        <p
+          className={`text-[0.6rem] uppercase tracking-[0.25em] ${design.accent}`}
+        >
           {id ? "Gift" : "Gift"}
         </p>
         <h2 className="mt-8 font-serif text-[clamp(3rem,8vw,7rem)] leading-[0.86] tracking-[-0.05em]">
           {id ? "Tanda kasih." : "A token of love."}
         </h2>
-        <p className={`mx-auto mt-7 max-w-xl text-sm leading-7 ${design.muted}`}>
+        <p
+          className={`mx-auto mt-7 max-w-xl text-sm leading-7 ${design.muted}`}
+        >
           {id
             ? "Doa dan kehadiran Anda adalah hadiah utama. Jika ingin menitipkan tanda kasih, detail rekening tersedia di bawah ini."
             : "Your prayers and presence are the greatest gift. If you would like to send a token of love, the account detail is available below."}
@@ -1340,7 +1522,9 @@ function CoutureGiftSection({
               initial={{ opacity: 0, y: 14 }}
               transition={textFadeTransition}
             >
-              <p className={`text-[0.58rem] uppercase tracking-[0.22em] ${design.accent}`}>
+              <p
+                className={`text-[0.58rem] uppercase tracking-[0.22em] ${design.accent}`}
+              >
                 {id ? "Rekening pengantin" : "Couple account"}
               </p>
               <p className="mt-3 font-serif text-2xl">{account.label}</p>
@@ -1388,11 +1572,12 @@ function EventDetailsGrid({
   return (
     <div className="mt-16 grid gap-3 md:grid-cols-2">
       {eventDetails.map((detail, index) => (
-        <FadeText
-          delay={index * 0.08}
-          key={detail.key}
-        >
-          <InvitationCard contentClassName="p-7" design={design} packageCode={packageCode}>
+        <FadeText delay={index * 0.08} key={detail.key}>
+          <InvitationCard
+            contentClassName="p-7"
+            design={design}
+            packageCode={packageCode}
+          >
             <CalendarDays size={19} />
             <p className="mt-9 text-[0.6rem] uppercase tracking-[0.18em] opacity-55">
               {detail.label}
@@ -1489,7 +1674,12 @@ function EventStory({
         <SignaturePhotoSection
           design={design}
           packageCode="signature"
-          photos={sectionPhotosFromGallery(gallery, 3, 3, signatureSectionPhotos[4])}
+          photos={sectionPhotosFromGallery(
+            gallery,
+            3,
+            3,
+            signatureSectionPhotos[4],
+          )}
           premium={premium}
           variant="three"
         />
@@ -1505,7 +1695,12 @@ function EventStory({
         <SignaturePhotoSection
           design={design}
           packageCode="signature"
-          photos={sectionPhotosFromGallery(gallery, 6, 3, signatureSectionPhotos[6])}
+          photos={sectionPhotosFromGallery(
+            gallery,
+            6,
+            3,
+            signatureSectionPhotos[6],
+          )}
           premium={premium}
           variant="three"
         />
@@ -1521,7 +1716,12 @@ function EventStory({
         <SignaturePhotoSection
           design={design}
           packageCode="signature"
-          photos={sectionPhotosFromGallery(gallery, 9, 3, signatureSectionPhotos[8])}
+          photos={sectionPhotosFromGallery(
+            gallery,
+            9,
+            3,
+            signatureSectionPhotos[8],
+          )}
           premium={premium}
           variant="three"
         />
@@ -1535,7 +1735,12 @@ function EventStory({
         <SignaturePhotoSection
           design={design}
           packageCode="signature"
-          photos={sectionPhotosFromGallery(gallery, 12, 2, signatureSectionPhotos[10])}
+          photos={sectionPhotosFromGallery(
+            gallery,
+            12,
+            2,
+            signatureSectionPhotos[10],
+          )}
           premium={premium}
           variant="two"
         />
@@ -1593,7 +1798,12 @@ function EventStory({
         <SignaturePhotoSection
           design={design}
           packageCode="couture"
-          photos={sectionPhotosFromGallery(gallery, 3, 3, coutureSectionPhotos[4])}
+          photos={sectionPhotosFromGallery(
+            gallery,
+            3,
+            3,
+            coutureSectionPhotos[4],
+          )}
           premium={premium}
           showOverlay
           variant="three"
@@ -1613,7 +1823,12 @@ function EventStory({
         <SignaturePhotoSection
           design={design}
           packageCode="couture"
-          photos={sectionPhotosFromGallery(gallery, 6, 3, coutureSectionPhotos[6])}
+          photos={sectionPhotosFromGallery(
+            gallery,
+            6,
+            3,
+            coutureSectionPhotos[6],
+          )}
           premium={premium}
           showOverlay
           variant="three"
@@ -1633,7 +1848,12 @@ function EventStory({
         <SignaturePhotoSection
           design={design}
           packageCode="couture"
-          photos={sectionPhotosFromGallery(gallery, 9, 3, coutureSectionPhotos[8])}
+          photos={sectionPhotosFromGallery(
+            gallery,
+            9,
+            3,
+            coutureSectionPhotos[8],
+          )}
           premium={premium}
           showOverlay
           variant="three"
@@ -1653,7 +1873,12 @@ function EventStory({
         <SignaturePhotoSection
           design={design}
           packageCode="couture"
-          photos={sectionPhotosFromGallery(gallery, 12, 3, coutureSectionPhotos[10])}
+          photos={sectionPhotosFromGallery(
+            gallery,
+            12,
+            3,
+            coutureSectionPhotos[10],
+          )}
           premium={premium}
           showOverlay
           variant="three"
@@ -1672,7 +1897,12 @@ function EventStory({
         <SignaturePhotoSection
           design={design}
           packageCode="couture"
-          photos={sectionPhotosFromGallery(gallery, 15, 3, coutureSectionPhotos[12])}
+          photos={sectionPhotosFromGallery(
+            gallery,
+            15,
+            3,
+            coutureSectionPhotos[12],
+          )}
           premium={premium}
           showOverlay
           variant="three"
@@ -1738,7 +1968,9 @@ function EventStory({
               viewport={{ once: true, amount: 0.3 }}
               whileInView={{ opacity: 1, y: 0 }}
             >
-              <p className={`text-lg leading-9 ${design.muted}`}>{story.body}</p>
+              <p className={`text-lg leading-9 ${design.muted}`}>
+                {story.body}
+              </p>
               <blockquote className={`mt-14 border-l pl-7 ${design.border}`}>
                 <p className="font-serif text-2xl italic leading-9">
                   &quot;{quote.text}&quot;
@@ -1753,14 +1985,24 @@ function EventStory({
 
         <EssentialPhotoSection
           design={design}
-          photos={sectionPhotosFromGallery(gallery, 3, 3, essentialSectionFourPhotos)}
+          photos={sectionPhotosFromGallery(
+            gallery,
+            3,
+            3,
+            essentialSectionFourPhotos,
+          )}
           title={id ? "Galeri lanjutan" : "Additional gallery"}
           variant="three"
         />
         <EssentialGiftSection design={design} invitation={invitation} />
         <EssentialPhotoSection
           design={design}
-          photos={sectionPhotosFromGallery(gallery, 6, 2, essentialSectionSixPhotos)}
+          photos={sectionPhotosFromGallery(
+            gallery,
+            6,
+            2,
+            essentialSectionSixPhotos,
+          )}
           title={id ? "Galeri penutup" : "Closing gallery"}
           variant="two"
         />
@@ -1881,8 +2123,9 @@ export function RendererV2({
   rsvpSlot,
   weather,
 }: RendererV2Props) {
-  const design = themeVisualConfig[invitation.rendererKey];
-  const premium = getPremiumVisualConfig(invitation.rendererKey, packageCode);
+  const rendererKey = invitation.rendererKey as StandardRendererKey;
+  const design = themeVisualConfig[rendererKey];
+  const premium = getPremiumVisualConfig(rendererKey, packageCode);
   const reducedMotion = useReducedMotion();
   const [opened, setOpened] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -2006,7 +2249,8 @@ export function RendererV2({
 
   async function playGiftEffect(effectUrl: string) {
     const backgroundAudio = audioRef.current;
-    const previousVolume = backgroundAudio?.volume ?? audio?.default_volume ?? 0.55;
+    const previousVolume =
+      backgroundAudio?.volume ?? audio?.default_volume ?? 0.55;
 
     if (backgroundAudio) {
       backgroundAudio.volume = Math.max(0.08, previousVolume * 0.28);

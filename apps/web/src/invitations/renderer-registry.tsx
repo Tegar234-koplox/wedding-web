@@ -2,6 +2,7 @@ import type {
   InvitationEnvelope,
   PackageCode,
   RendererKey,
+  StandardRendererKey,
 } from "@wedding/invitation-themes";
 import {
   CalendarDays,
@@ -15,13 +16,14 @@ import Image from "next/image";
 import type { ComponentType, ReactNode } from "react";
 
 import { RendererV2 } from "@/invitations/renderer-v2";
+import { BespokeRenderer } from "@/invitations/bespoke-renderer";
 import type {
   InvitationAudio,
   InvitationCover,
   InvitationWeather,
 } from "@/lib/api/contracts";
 
-type RendererProps = {
+export type RendererProps = {
   invitation: InvitationEnvelope;
   packageCode?: PackageCode;
   audio?: InvitationAudio | null;
@@ -31,7 +33,7 @@ type RendererProps = {
 };
 
 type Design = {
-  key: RendererKey;
+  key: StandardRendererKey;
   page: string;
   surface: string;
   muted: string;
@@ -42,7 +44,7 @@ type Design = {
   ornament?: string;
 };
 
-const designs: Record<RendererKey, Design> = {
+const designs: Record<StandardRendererKey, Design> = {
   "elegant-classic": {
     key: "elegant-classic",
     page: "bg-[#eee8dd] text-[#171510]",
@@ -139,7 +141,11 @@ function CoupleNames({
   );
 }
 
-function Cover({ invitation, design, cover }: RendererProps & { design: Design }) {
+function Cover({
+  invitation,
+  design,
+  cover,
+}: RendererProps & { design: Design }) {
   const { opening, event, couple } = invitation.content;
   const coverImage = cover?.secure_url ?? design.coverImage;
   const coverStyle = {
@@ -434,7 +440,9 @@ function WeatherSection({
       : "";
     const locationLabel =
       weather.location?.venue ||
-      [weather.location?.village, weather.location?.regency].filter(Boolean).join(", ") ||
+      [weather.location?.village, weather.location?.regency]
+        .filter(Boolean)
+        .join(", ") ||
       weather.location?.address ||
       (id ? "Lokasi acara" : "Event location");
 
@@ -530,10 +538,7 @@ function WeatherSection({
         </p>
         <a
           className="mt-7 inline-block text-[0.58rem] uppercase tracking-[0.18em] opacity-45 underline underline-offset-4"
-          href={
-            weather?.attribution_url ??
-            "https://open-meteo.com/"
-          }
+          href={weather?.attribution_url ?? "https://open-meteo.com/"}
           rel="noreferrer"
           target="_blank"
         >
@@ -593,7 +598,9 @@ function InvitationDocument({
   );
 }
 
-function createRenderer(key: RendererKey): ComponentType<RendererProps> {
+function createRenderer(
+  key: StandardRendererKey,
+): ComponentType<RendererProps> {
   function RegisteredRenderer(props: RendererProps) {
     return <InvitationDocument design={designs[key]} {...props} />;
   }
@@ -616,6 +623,7 @@ export const rendererRegistry: Record<
     1: createRenderer("javanese-traditional"),
     2: RendererV2,
   },
+  bespoke: { 1: BespokeRenderer },
 };
 
 export function InvitationRenderer({

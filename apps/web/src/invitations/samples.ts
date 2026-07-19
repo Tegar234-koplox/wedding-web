@@ -3,7 +3,7 @@ import {
   type InvitationContent,
   type InvitationEnvelope,
   type InvitationLocale,
-  type RendererKey,
+  type StandardRendererKey,
 } from "@wedding/invitation-themes";
 
 type SampleIdentity = {
@@ -17,7 +17,7 @@ type SampleIdentity = {
   storyEn: string;
 };
 
-const identities: Record<RendererKey, SampleIdentity> = {
+const identities: Record<StandardRendererKey, SampleIdentity> = {
   "elegant-classic": {
     partnerOne: "Alya",
     partnerTwo: "Raka",
@@ -104,7 +104,10 @@ const identities: Record<RendererKey, SampleIdentity> = {
   },
 };
 
-const galleryByTheme: Record<RendererKey, InvitationContent["gallery"]> = {
+const galleryByTheme: Record<
+  StandardRendererKey,
+  InvitationContent["gallery"]
+> = {
   "elegant-classic": [
     {
       src: "/images/hero-editorial.webp",
@@ -182,7 +185,7 @@ const galleryByTheme: Record<RendererKey, InvitationContent["gallery"]> = {
 };
 
 function createContent(
-  key: RendererKey,
+  key: StandardRendererKey,
   locale: InvitationLocale,
 ): InvitationContent {
   const identity = identities[key];
@@ -237,7 +240,7 @@ function createContent(
 }
 
 export function getSampleInvitation(
-  key: RendererKey,
+  key: StandardRendererKey,
   locale: InvitationLocale,
 ): InvitationEnvelope {
   return parseInvitationEnvelope({

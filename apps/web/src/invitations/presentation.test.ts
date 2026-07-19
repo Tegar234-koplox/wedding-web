@@ -1,4 +1,7 @@
-import { packageCodes, rendererKeys } from "@wedding/invitation-themes";
+import {
+  packageCodes,
+  standardRendererKeys as rendererKeys,
+} from "@wedding/invitation-themes";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -195,16 +198,21 @@ describe("premium presentation configuration", () => {
     });
   });
   it("keeps updated WebP overlays to a single mobile layer", () => {
-    const islamicOverlay = getPremiumVisualConfig("islamic-soft", "signature").overlay;
+    const islamicOverlay = getPremiumVisualConfig(
+      "islamic-soft",
+      "signature",
+    ).overlay;
 
     expect(islamicOverlay?.mobileBlend).toBeUndefined();
-    ["minimalist-white", "dark-cinematic", "floral-romantic"].forEach((theme) => {
-      const overlay = getPremiumVisualConfig(
-        theme as "minimalist-white" | "dark-cinematic" | "floral-romantic",
-        "signature",
-      ).overlay;
-      expect(overlay?.mobileBlend).toBeUndefined();
-    });
+    ["minimalist-white", "dark-cinematic", "floral-romantic"].forEach(
+      (theme) => {
+        const overlay = getPremiumVisualConfig(
+          theme as "minimalist-white" | "dark-cinematic" | "floral-romantic",
+          "signature",
+        ).overlay;
+        expect(overlay?.mobileBlend).toBeUndefined();
+      },
+    );
   });
   it("falls back invalid or missing packages to Essential", () => {
     expect(resolvePackageCode("essential")).toBe("essential");

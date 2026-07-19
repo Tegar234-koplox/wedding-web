@@ -76,10 +76,10 @@ export default async function BespokePage({ params }: BespokePageProps) {
               </div>
               <div className="lg:text-right">
                 <p className="text-[0.6rem] uppercase tracking-[0.2em] text-white/42">
-                  {id ? "Investasi mulai" : "Investment starts at"}
+                  {id ? "Paket Bespoke" : "Bespoke package"}
                 </p>
                 <p className={`${styles.display} mt-3 text-4xl text-[#f5ead5]`}>
-                  Rp 849k
+                  {id ? "Mulai Rp 849k" : "Starting from IDR 849k"}
                 </p>
               </div>
             </div>

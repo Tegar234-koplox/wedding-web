@@ -22,7 +22,15 @@ from rest_framework.views import APIView
 from common.models import AuditEvent
 from common.notifications import enqueue_client_notification
 from common.permissions import require_recent_staff_mfa
+from invitations.bespoke import (
+    create_review_session,
+    create_scope_agreement,
+    ensure_bespoke_invitation,
+    publish_invitation,
+    update_bespoke_config,
+)
 from invitations.models import (
+    ClientReviewSession,
     EventLocation,
     Invitation,
     InvitationMedia,
@@ -37,7 +45,7 @@ from orders.lifecycle import (
     staff_confirm_order,
     staff_reject_order,
 )
-from orders.models import Order
+from orders.models import BespokeChangeRequest, BespokeScopeAgreement, Order
 from orders.permissions import IsStaffRole
 from orders.serializers import (
     OrderSerializer,
@@ -223,13 +231,7 @@ def _ensure_invitation(order: Order) -> Invitation:
 
 def _publish_invitation_for_order(order: Order, actor) -> Invitation:
     invitation = _ensure_invitation(order)
-    if invitation.status == Invitation.Status.PUBLISHED:
-        return invitation
-
-    invitation.status = Invitation.Status.PUBLISHED
-    invitation.approval_status = Invitation.ApprovalStatus.PUBLISHED
-    invitation.published_at = invitation.published_at or timezone.now()
-    invitation.save(update_fields=["status", "approval_status", "published_at", "updated_at"])
+    invitation = publish_invitation(invitation, actor=actor)
     AuditEvent.objects.create(
         actor=actor,
         action="invitation.published",
@@ -653,6 +655,289 @@ class StaffOrderExportView(APIView):
         return response
 
 
+def _scope_agreement_payload(scope: BespokeScopeAgreement) -> dict:
+    return {
+        "id": str(scope.id),
+        "version": scope.version,
+        "status": scope.status,
+        "scope": scope.scope,
+        "total_amount": str(scope.total_amount),
+        "currency": scope.currency,
+        "revision_limit": scope.revision_limit,
+        "production_days_min": scope.production_days_min,
+        "production_days_max": scope.production_days_max,
+        "checksum": scope.checksum,
+        "sent_at": scope.sent_at,
+        "approved_at": scope.approved_at,
+    }
+
+
+class StaffBespokeConfigView(APIView):
+    permission_classes = [IsStaffRole]
+
+    def _order(self, reference: str) -> Order:
+        order = _detail_queryset().filter(reference=reference, archived_at__isnull=True).first()
+        if order is None:
+            from django.http import Http404
+
+            raise Http404
+        if not settings.BESPOKE_ENGINE_ENABLED:
+            raise ValidationError({"bespoke": "Bespoke Engine is disabled."})
+        return order
+
+    def get(self, request, reference: str) -> Response:
+        order = self._order(reference)
+        if not order.invitation_id:
+            _ensure_invitation(order)
+            order.refresh_from_db()
+        invitation = ensure_bespoke_invitation(order)
+        return Response({"config": invitation.content.get("bespoke")})
+
+    def patch(self, request, reference: str) -> Response:
+        require_recent_staff_mfa(request)
+        order = self._order(reference)
+        if not order.invitation_id:
+            _ensure_invitation(order)
+            order.refresh_from_db()
+        config = request.data.get("config")
+        if not isinstance(config, dict):
+            raise ValidationError({"config": "Structured Bespoke configuration is required."})
+        invitation = update_bespoke_config(order, config)
+        AuditEvent.objects.create(
+            actor=request.user,
+            action="bespoke.config_updated",
+            resource_type="order",
+            resource_reference=order.reference,
+            metadata={"design_version": config.get("designVersion")},
+        )
+        return Response({"config": invitation.content.get("bespoke")})
+
+
+class StaffBespokeScopeView(APIView):
+    permission_classes = [IsStaffRole]
+
+    def _order(self, reference: str) -> Order:
+        order = _detail_queryset().filter(reference=reference, archived_at__isnull=True).first()
+        if order is None:
+            from django.http import Http404
+
+            raise Http404
+        return order
+
+    def get(self, request, reference: str) -> Response:
+        order = self._order(reference)
+        return Response(
+            [_scope_agreement_payload(item) for item in order.bespoke_scope_agreements.all()]
+        )
+
+    def post(self, request, reference: str) -> Response:
+        require_recent_staff_mfa(request)
+        order = self._order(reference)
+        agreement = create_scope_agreement(order, request.data)
+        AuditEvent.objects.create(
+            actor=request.user,
+            action="bespoke.scope_created",
+            resource_type="order",
+            resource_reference=order.reference,
+            metadata={"scope_version": agreement.version, "checksum": agreement.checksum},
+        )
+        return Response(_scope_agreement_payload(agreement), status=201)
+
+
+class StaffBespokeChangeRequestView(APIView):
+    permission_classes = [IsStaffRole]
+
+    def _order(self, reference: str) -> Order:
+        order = _detail_queryset().filter(reference=reference, archived_at__isnull=True).first()
+        if order is None:
+            from django.http import Http404
+
+            raise Http404
+        return order
+
+    def get(self, request, reference: str) -> Response:
+        order = self._order(reference)
+        return Response(
+            [
+                {
+                    "id": str(item.id),
+                    "status": item.status,
+                    "description": item.description,
+                    "price_delta": str(item.price_delta),
+                    "schedule_delta_days": item.schedule_delta_days,
+                    "scope_id": str(item.scope_agreement_id),
+                    "approved_at": item.approved_at,
+                }
+                for item in order.bespoke_change_requests.select_related("scope_agreement")
+            ]
+        )
+
+    @transaction.atomic
+    def post(self, request, reference: str) -> Response:
+        require_recent_staff_mfa(request)
+        order = self._order(reference)
+        if not order.invitation_id or order.invitation.status != Invitation.Status.PUBLISHED:
+            raise ValidationError(
+                {"invitation": "Change requests are only used after initial publication."}
+            )
+        description = str(request.data.get("description") or "").strip()
+        scope = request.data.get("scope")
+        if not description or not isinstance(scope, dict) or not scope:
+            raise ValidationError(
+                {"change_request": "Description and updated structured scope are required."}
+            )
+        try:
+            price_delta = Decimal(str(request.data.get("price_delta") or "0"))
+            schedule_delta = int(request.data.get("schedule_delta_days") or 0)
+        except (InvalidOperation, TypeError, ValueError) as exc:
+            raise ValidationError(
+                {"change_request": "Price or schedule delta is invalid."}
+            ) from exc
+        if price_delta < 0 or schedule_delta < 0:
+            raise ValidationError({"change_request": "Deltas cannot be negative."})
+        current_scope = order.bespoke_scope_agreements.filter(
+            status=BespokeScopeAgreement.Status.APPROVED
+        ).first()
+        revision_limit = current_scope.revision_limit if current_scope else 8
+        minimum_days = (current_scope.production_days_min if current_scope else 10) + schedule_delta
+        maximum_days = (current_scope.production_days_max if current_scope else 14) + schedule_delta
+        agreement = create_scope_agreement(
+            order,
+            {
+                "scope": scope,
+                "total_amount": order.total_amount + price_delta,
+                "revision_limit": revision_limit,
+                "production_days_min": minimum_days,
+                "production_days_max": maximum_days,
+            },
+        )
+        agreement.status = BespokeScopeAgreement.Status.SENT
+        agreement.sent_at = timezone.now()
+        agreement.save(update_fields=["status", "sent_at", "updated_at"])
+        change = BespokeChangeRequest.objects.create(
+            order=order,
+            scope_agreement=agreement,
+            status=BespokeChangeRequest.Status.SENT,
+            description=description,
+            price_delta=price_delta,
+            schedule_delta_days=schedule_delta,
+        )
+        AuditEvent.objects.create(
+            actor=request.user,
+            action="bespoke.change_request_created",
+            resource_type="order",
+            resource_reference=order.reference,
+            metadata={"change_request": str(change.id), "scope_version": agreement.version},
+        )
+        return Response(
+            {
+                "id": str(change.id),
+                "status": change.status,
+                "scope": _scope_agreement_payload(agreement),
+            },
+            status=201,
+        )
+
+
+class StaffBespokeReviewCreateView(APIView):
+    permission_classes = [IsStaffRole]
+
+    @transaction.atomic
+    def post(self, request, reference: str) -> Response:
+        require_recent_staff_mfa(request)
+        order = _detail_queryset().filter(reference=reference, archived_at__isnull=True).first()
+        if order is None:
+            from django.http import Http404
+
+            raise Http404
+        if not order.invitation_id:
+            _ensure_invitation(order)
+            order.refresh_from_db()
+        invitation = ensure_bespoke_invitation(order)
+        purpose = str(request.data.get("purpose") or "").strip()
+        if purpose == ClientReviewSession.Purpose.SCOPE:
+            scope_id = request.data.get("scope_id")
+            scope = order.bespoke_scope_agreements.filter(pk=scope_id).first()
+            if scope is None:
+                raise ValidationError({"scope_id": "Scope agreement was not found."})
+            scope.status = BespokeScopeAgreement.Status.SENT
+            scope.sent_at = timezone.now()
+            scope.save(update_fields=["status", "sent_at", "updated_at"])
+            session, raw_token = create_review_session(
+                invitation=invitation,
+                purpose=purpose,
+                scope=scope,
+            )
+            order.custom_status = Order.CustomStatus.SCOPING
+            order.status = (
+                Order.Status.PUBLISHED
+                if invitation.status == Invitation.Status.PUBLISHED
+                else Order.Status.CONSULTING
+            )
+            order.save(update_fields=["custom_status", "status", "updated_at"])
+        elif purpose == ClientReviewSession.Purpose.FINAL:
+            if (
+                invitation.status == Invitation.Status.PUBLISHED
+                and not order.bespoke_change_requests.filter(
+                    status=BespokeChangeRequest.Status.APPROVED
+                ).exists()
+            ):
+                raise ValidationError(
+                    {"change_request": "Approve a paid change request before final review."}
+                )
+            scope = order.bespoke_scope_agreements.filter(
+                status=BespokeScopeAgreement.Status.APPROVED
+            ).first()
+            if scope is None:
+                raise ValidationError({"scope": "Approve the Bespoke scope first."})
+            next_number = (
+                invitation.revisions.order_by("-revision_number")
+                .values_list("revision_number", flat=True)
+                .first()
+                or 0
+            ) + 1
+            revision = InvitationRevision.objects.create(
+                invitation=invitation,
+                revision_number=next_number,
+                content=invitation.content,
+                note="Final client approval",
+                is_final_check=True,
+                created_by=request.user,
+            )
+            session, raw_token = create_review_session(
+                invitation=invitation,
+                purpose=purpose,
+                revision=revision,
+            )
+            invitation.approval_status = Invitation.ApprovalStatus.CLIENT_REVIEW
+            invitation.save(update_fields=["approval_status", "updated_at"])
+            order.custom_status = Order.CustomStatus.READY
+            order.status = (
+                Order.Status.PUBLISHED
+                if invitation.status == Invitation.Status.PUBLISHED
+                else Order.Status.CLIENT_REVIEW
+            )
+            order.save(update_fields=["custom_status", "status", "updated_at"])
+        else:
+            raise ValidationError({"purpose": "Use scope or final."})
+        AuditEvent.objects.create(
+            actor=request.user,
+            action=f"bespoke.{purpose}_review_created",
+            resource_type="order",
+            resource_reference=order.reference,
+            metadata={"session": str(session.id)},
+        )
+        return Response(
+            {
+                "purpose": purpose,
+                "token": raw_token,
+                "review_path": f"/review/{raw_token}",
+                "expires_at": session.expires_at,
+            },
+            status=201,
+        )
+
+
 class StaffOrderDetailView(RetrieveUpdateAPIView):
     permission_classes = [IsStaffRole]
     serializer_class = OrderSerializer
@@ -691,6 +976,14 @@ class StaffOrderDetailView(RetrieveUpdateAPIView):
         should_sync_invitation = bool(
             nested_keys.intersection(request.data) or "client_name" in request.data
         )
+        if (
+            (should_sync_invitation or {"theme_slug", "package_code"}.intersection(request.data))
+            and order.invitation_id
+            and order.invitation.status == Invitation.Status.PUBLISHED
+        ):
+            raise ValidationError(
+                {"invitation": "Published invitations are immutable. Use a change request."}
+            )
         serializer = self.get_serializer(
             order,
             data=_manual_order_payload(request.data),

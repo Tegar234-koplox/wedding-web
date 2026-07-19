@@ -52,7 +52,7 @@ export const publicPackageSchema = z.object({
   ),
 });
 
-export const publicInvitationSchema = invitationEnvelopeSchema.extend({
+export const publicInvitationSchema = invitationEnvelopeSchema.safeExtend({
   public_slug: z.string(),
   theme_slug: rendererKeySchema,
   package_code: z.union([packageCodeSchema, z.literal("bespoke")]).nullable(),
@@ -164,7 +164,9 @@ export const invitationWeatherSchema = z.object({
 export type PublicTheme = z.infer<typeof publicThemeSchema>;
 export type PublicPackage = z.infer<typeof publicPackageSchema>;
 export type PublicInvitation = z.infer<typeof publicInvitationSchema>;
-export type PublicInvitationWishes = z.infer<typeof publicInvitationWishesSchema>;
+export type PublicInvitationWishes = z.infer<
+  typeof publicInvitationWishesSchema
+>;
 export type InvitationWeather = z.infer<typeof invitationWeatherSchema>;
 export type InvitationAudio = NonNullable<PublicInvitation["audio"]>;
 export type InvitationCover = PublicInvitation["cover"];

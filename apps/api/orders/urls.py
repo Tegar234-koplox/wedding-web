@@ -3,6 +3,10 @@ from django.urls import path
 from orders.views import (
     BillingLifecycleRefreshView,
     StaffArchiveWeddingView,
+    StaffBespokeChangeRequestView,
+    StaffBespokeConfigView,
+    StaffBespokeReviewCreateView,
+    StaffBespokeScopeView,
     StaffClientLifecycleListView,
     StaffConfirmOrderView,
     StaffDashboardMetricsView,
@@ -22,6 +26,26 @@ urlpatterns = [
         name="admin-dashboard-metrics",
     ),
     path("admin/orders", StaffOrderListCreateView.as_view(), name="admin-order-list"),
+    path(
+        "admin/orders/<slug:reference>/bespoke-config",
+        StaffBespokeConfigView.as_view(),
+        name="admin-order-bespoke-config",
+    ),
+    path(
+        "admin/orders/<slug:reference>/bespoke-change-requests",
+        StaffBespokeChangeRequestView.as_view(),
+        name="admin-order-bespoke-change-requests",
+    ),
+    path(
+        "admin/orders/<slug:reference>/bespoke-scopes",
+        StaffBespokeScopeView.as_view(),
+        name="admin-order-bespoke-scopes",
+    ),
+    path(
+        "admin/orders/<slug:reference>/bespoke-reviews",
+        StaffBespokeReviewCreateView.as_view(),
+        name="admin-order-bespoke-reviews",
+    ),
     path("admin/orders/export", StaffOrderExportView.as_view(), name="admin-order-export"),
     path(
         "admin/orders/verification-queue",

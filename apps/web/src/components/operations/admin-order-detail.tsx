@@ -21,6 +21,7 @@ import {
 import { cn } from "@/lib/utils";
 
 import { CoverFocalPreview, normalizeFocalPoint } from "./cover-focal-preview";
+import { BespokeWorkspace } from "./bespoke-workspace";
 import {
   customStatusLabels,
   formatCurrency,
@@ -237,24 +238,94 @@ const outlineButtonClassName =
 
 const mediaSectionPlans: Record<string, MediaSectionPlan[]> = {
   couture: [
-    { count: 3, description: "Foto pembuka setelah waktu dan tempat.", label: "3 foto", section: 2 },
-    { count: 3, description: "Foto setelah love story bagian 01-03.", label: "3 foto", section: 4 },
-    { count: 3, description: "Foto setelah love story bagian 04-06.", label: "3 foto", section: 6 },
-    { count: 3, description: "Foto setelah love story bagian 07-09.", label: "3 foto", section: 8 },
-    { count: 3, description: "Foto setelah love story bagian 10-12.", label: "3 foto", section: 10 },
-    { count: 3, description: "Foto sebelum prakiraan cuaca dan RSVP.", label: "3 foto", section: 12 },
+    {
+      count: 3,
+      description: "Foto pembuka setelah waktu dan tempat.",
+      label: "3 foto",
+      section: 2,
+    },
+    {
+      count: 3,
+      description: "Foto setelah love story bagian 01-03.",
+      label: "3 foto",
+      section: 4,
+    },
+    {
+      count: 3,
+      description: "Foto setelah love story bagian 04-06.",
+      label: "3 foto",
+      section: 6,
+    },
+    {
+      count: 3,
+      description: "Foto setelah love story bagian 07-09.",
+      label: "3 foto",
+      section: 8,
+    },
+    {
+      count: 3,
+      description: "Foto setelah love story bagian 10-12.",
+      label: "3 foto",
+      section: 10,
+    },
+    {
+      count: 3,
+      description: "Foto sebelum prakiraan cuaca dan RSVP.",
+      label: "3 foto",
+      section: 12,
+    },
   ],
   essential: [
-    { count: 3, description: "Foto setelah informasi acara dan lokasi.", label: "3 foto", section: 2 },
-    { count: 3, description: "Foto setelah short love story.", label: "3 foto", section: 4 },
-    { count: 2, description: "Foto setelah gift sebelum closing.", label: "2 foto", section: 6 },
+    {
+      count: 3,
+      description: "Foto setelah informasi acara dan lokasi.",
+      label: "3 foto",
+      section: 2,
+    },
+    {
+      count: 3,
+      description: "Foto setelah short love story.",
+      label: "3 foto",
+      section: 4,
+    },
+    {
+      count: 2,
+      description: "Foto setelah gift sebelum closing.",
+      label: "2 foto",
+      section: 6,
+    },
   ],
   signature: [
-    { count: 3, description: "Foto pembuka setelah waktu dan tempat.", label: "3 foto", section: 2 },
-    { count: 3, description: "Foto setelah love story bagian 01-03.", label: "3 foto", section: 4 },
-    { count: 3, description: "Foto setelah love story bagian 04-06.", label: "3 foto", section: 6 },
-    { count: 3, description: "Foto sebelum RSVP dan ucapan.", label: "3 foto", section: 8 },
-    { count: 2, description: "Foto setelah RSVP sebelum prakiraan cuaca.", label: "2 foto", section: 10 },
+    {
+      count: 3,
+      description: "Foto pembuka setelah waktu dan tempat.",
+      label: "3 foto",
+      section: 2,
+    },
+    {
+      count: 3,
+      description: "Foto setelah love story bagian 01-03.",
+      label: "3 foto",
+      section: 4,
+    },
+    {
+      count: 3,
+      description: "Foto setelah love story bagian 04-06.",
+      label: "3 foto",
+      section: 6,
+    },
+    {
+      count: 3,
+      description: "Foto sebelum RSVP dan ucapan.",
+      label: "3 foto",
+      section: 8,
+    },
+    {
+      count: 2,
+      description: "Foto setelah RSVP sebelum prakiraan cuaca.",
+      label: "2 foto",
+      section: 10,
+    },
   ],
 };
 
@@ -373,11 +444,19 @@ function gallerySlots(value: string): string[] {
   return value ? value.split("\n") : [];
 }
 
-function mediaSectionStart(sections: MediaSectionPlan[], index: number): number {
-  return sections.slice(0, index).reduce((total, section) => total + section.count, 0);
+function mediaSectionStart(
+  sections: MediaSectionPlan[],
+  index: number,
+): number {
+  return sections
+    .slice(0, index)
+    .reduce((total, section) => total + section.count, 0);
 }
 
-function parseCoupleNames(value: string): { partnerOne: string; partnerTwo: string } {
+function parseCoupleNames(value: string): {
+  partnerOne: string;
+  partnerTwo: string;
+} {
   const parts = value
     .split(/\s+(?:dan|and)\s+|\s*&\s*|\s*\+\s*/i)
     .map((part) => part.trim())
@@ -403,7 +482,9 @@ function mediaSectionStatus(
   slots: string[],
 ) {
   const start = mediaSectionStart(sections, sectionIndex);
-  const filled = slots.slice(start, start + section.count).filter((url) => url.trim()).length;
+  const filled = slots
+    .slice(start, start + section.count)
+    .filter((url) => url.trim()).length;
   return {
     filled,
     missing: Math.max(section.count - filled, 0),
@@ -447,8 +528,12 @@ function toDatetimeInput(value?: string | null): string {
 }
 
 function fromDetail(detail: StaffOrderDetail): OrderDetailForm {
-  const ceremony = detail.events.find((event) => event.event_type === "ceremony");
-  const reception = detail.events.find((event) => event.event_type === "reception");
+  const ceremony = detail.events.find(
+    (event) => event.event_type === "ceremony",
+  );
+  const reception = detail.events.find(
+    (event) => event.event_type === "reception",
+  );
   const account = detail.invitation?.bank_accounts?.[0] ?? {};
   const rsvpManual = detail.invitation?.rsvp_manual ?? {};
   const photo = detail.media.find((item) => item.role === "photo");
@@ -484,7 +569,8 @@ function fromDetail(detail: StaffOrderDetail): OrderDetailForm {
     custom_checklist_parallax: Boolean(customChecklist.parallax_plan),
     custom_status: detail.order.custom_status ?? "none",
     gallery_urls: gallery.map((item) => item.asset.secure_url).join("\n"),
-    package_code: detail.order.package_code ?? detail.invitation?.package_code ?? "",
+    package_code:
+      detail.order.package_code ?? detail.invitation?.package_code ?? "",
     payment_status: detail.order.payment_status,
     photo_focal_x: normalizeFocalPoint(photo?.focal_x),
     photo_focal_y: normalizeFocalPoint(photo?.focal_y),
@@ -497,9 +583,15 @@ function fromDetail(detail: StaffOrderDetail): OrderDetailForm {
     reception_map_url: reception?.map_url ?? "",
     reception_starts_at: toDatetimeInput(reception?.starts_at),
     reception_venue_name: reception?.venue_name ?? "",
-    rsvp_declined: String(rsvpManual.total_declined ?? detail.rsvp.total_declined ?? 0),
-    rsvp_invited: String(rsvpManual.total_invited ?? detail.rsvp.total_invited ?? 0),
-    rsvp_confirmed: String(rsvpManual.total_confirmed ?? detail.rsvp.total_confirmed ?? 0),
+    rsvp_declined: String(
+      rsvpManual.total_declined ?? detail.rsvp.total_declined ?? 0,
+    ),
+    rsvp_invited: String(
+      rsvpManual.total_invited ?? detail.rsvp.total_invited ?? 0,
+    ),
+    rsvp_confirmed: String(
+      rsvpManual.total_confirmed ?? detail.rsvp.total_confirmed ?? 0,
+    ),
     status_label: workflowFor(detail.order),
     story_body: story.body ?? "",
     story_conflict: sectionBodies.conflict ?? "",
@@ -523,10 +615,16 @@ function linkLifecycleLabel(detail: StaffOrderDetail | null): string {
   if (!detail?.invitation) {
     return "Data belum lengkap";
   }
-  if (detail.invitation.status === "published" || detail.order.status === "published") {
+  if (
+    detail.invitation.status === "published" ||
+    detail.order.status === "published"
+  ) {
     return "Published";
   }
-  if (detail.invitation.approval_status === "approved_for_publish" || detail.order.status === "approved") {
+  if (
+    detail.invitation.approval_status === "approved_for_publish" ||
+    detail.order.status === "approved"
+  ) {
     return "Ready to Publish";
   }
   return "Draft Preview";
@@ -536,10 +634,16 @@ function linkLifecycleDescription(detail: StaffOrderDetail | null): string {
   if (!detail?.invitation) {
     return "Simpan tema dan paket untuk membuat invitation sebelum link dibagikan.";
   }
-  if (detail.invitation.status === "published" || detail.order.status === "published") {
+  if (
+    detail.invitation.status === "published" ||
+    detail.order.status === "published"
+  ) {
     return "Link sudah menjadi link final dan tidak membutuhkan preview token.";
   }
-  if (detail.invitation.approval_status === "approved_for_publish" || detail.order.status === "approved") {
+  if (
+    detail.invitation.approval_status === "approved_for_publish" ||
+    detail.order.status === "approved"
+  ) {
     return "Final check sudah siap. Ubah status ke Publikasi untuk membuka link final.";
   }
   return "Link sementara untuk customer dan tamu, masih memakai preview token.";
@@ -547,7 +651,8 @@ function linkLifecycleDescription(detail: StaffOrderDetail | null): string {
 
 function paymentReminderMessage(detail: StaffOrderDetail | null): string {
   const clientName = detail?.order.client_name || "Customer";
-  const outstanding = detail?.payment_summary.outstanding ?? detail?.order.total_amount ?? "0";
+  const outstanding =
+    detail?.payment_summary.outstanding ?? detail?.order.total_amount ?? "0";
   return [
     `Halo ${clientName},`,
     "",
@@ -556,11 +661,17 @@ function paymentReminderMessage(detail: StaffOrderDetail | null): string {
   ].join("\n");
 }
 
-function communicationStatus(detail: StaffOrderDetail | null, checklist: ChecklistItem[]): string {
+function communicationStatus(
+  detail: StaffOrderDetail | null,
+  checklist: ChecklistItem[],
+): string {
   if (!detail?.preview_url) {
     return "Belum ada preview";
   }
-  if (detail.order.status === "published" || detail.invitation?.status === "published") {
+  if (
+    detail.order.status === "published" ||
+    detail.invitation?.status === "published"
+  ) {
     return "Publikasi siap dikirim";
   }
   if (checklist.some((item) => !item.done)) {
@@ -583,7 +694,9 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
   const [packages, setPackages] = useState<PackageOption[]>([]);
   const [revisionNote, setRevisionNote] = useState("");
   const [finalCheck, setFinalCheck] = useState(false);
-  const [revisionEdits, setRevisionEdits] = useState<Record<string, string>>({});
+  const [revisionEdits, setRevisionEdits] = useState<Record<string, string>>(
+    {},
+  );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savingPayment, setSavingPayment] = useState(false);
@@ -605,7 +718,9 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
       setThemes(nextThemes.results);
       setPackages(nextPackages);
       setRevisionEdits(
-        Object.fromEntries(nextDetail.revisions.map((revision) => [revision.id, revision.note])),
+        Object.fromEntries(
+          nextDetail.revisions.map((revision) => [revision.id, revision.note]),
+        ),
       );
       if (nextDetail.invitation?.public_slug) {
         const links = await staffFetch<GuestDeliveryLink[]>(
@@ -616,7 +731,9 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
         setGuestLinks([]);
       }
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Detail order gagal dimuat.");
+      setError(
+        caught instanceof Error ? caught.message : "Detail order gagal dimuat.",
+      );
     } finally {
       setLoading(false);
     }
@@ -642,12 +759,19 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
     updateForm("gallery_urls", urls.join("\n"));
   }
 
-  function updatePaymentRecordForm(field: keyof PaymentRecordForm, value: string) {
+  function updatePaymentRecordForm(
+    field: keyof PaymentRecordForm,
+    value: string,
+  ) {
     setPaymentRecordForm((current) => ({ ...current, [field]: value }));
   }
 
-  async function copyStaffMessage(kind: "data" | "final" | "preview" | "revision") {
-    const incompleteItems = completionItems.filter((item) => !item.done).map((item) => item.label);
+  async function copyStaffMessage(
+    kind: "data" | "final" | "preview" | "revision",
+  ) {
+    const incompleteItems = completionItems
+      .filter((item) => !item.done)
+      .map((item) => item.label);
     const clientName = form.client_name.trim() || "Customer";
     const previewUrl = detail?.preview_url || "";
     const messageMap = {
@@ -683,7 +807,9 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
       ],
     } satisfies Record<typeof kind, string[]>;
     try {
-      await navigator.clipboard.writeText(messageMap[kind].filter(Boolean).join("\n"));
+      await navigator.clipboard.writeText(
+        messageMap[kind].filter(Boolean).join("\n"),
+      );
       setNotice("Template pesan WhatsApp disalin.");
     } catch {
       setError("Template pesan WhatsApp gagal disalin.");
@@ -704,7 +830,9 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
       const totalConfirmed = Number(form.rsvp_confirmed || 0);
       const totalDeclined = Number(form.rsvp_declined || 0);
       const responded = totalConfirmed + totalDeclined;
-      const responseRate = totalInvited ? Math.round((responded / totalInvited) * 1000) / 10 : 0;
+      const responseRate = totalInvited
+        ? Math.round((responded / totalInvited) * 1000) / 10
+        : 0;
       const totalAmount = normalizeCurrencyInput(form.total_amount);
       const sectionBodyEntries: Array<[string, string]> = [
         ["conflict", form.story_conflict],
@@ -718,91 +846,100 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
           .map(([key, value]) => [key, value.trim()])
           .filter(([, value]) => Boolean(value)),
       );
-      const updated = await staffFetch<StaffOrderDetail>(`/admin/orders/${reference}`, {
-        body: JSON.stringify({
-          bank_accounts: [
-            {
-              bank: form.bank_account_bank.trim(),
-              name: form.bank_account_name.trim(),
-              number: form.bank_account_number.trim(),
+      const updated = await staffFetch<StaffOrderDetail>(
+        `/admin/orders/${reference}`,
+        {
+          body: JSON.stringify({
+            bank_accounts: [
+              {
+                bank: form.bank_account_bank.trim(),
+                name: form.bank_account_name.trim(),
+                number: form.bank_account_number.trim(),
+              },
+            ].filter(
+              (account) => account.bank || account.name || account.number,
+            ),
+            ceremony: {
+              address: form.ceremony_address.trim(),
+              latitude: form.ceremony_latitude.trim(),
+              longitude: form.ceremony_longitude.trim(),
+              map_url: form.ceremony_map_url.trim(),
+              starts_at: form.ceremony_starts_at,
+              venue_name: form.ceremony_venue_name.trim(),
             },
-          ].filter((account) => account.bank || account.name || account.number),
-          ceremony: {
-            address: form.ceremony_address.trim(),
-            latitude: form.ceremony_latitude.trim(),
-            longitude: form.ceremony_longitude.trim(),
-            map_url: form.ceremony_map_url.trim(),
-            starts_at: form.ceremony_starts_at,
-            venue_name: form.ceremony_venue_name.trim(),
-          },
-          client_email: form.client_email.trim(),
-          client_name: form.client_name.trim(),
-          client_phone: form.client_phone.trim(),
-          custom_approval_notes: form.custom_approval_notes.trim(),
-          custom_brief: form.custom_brief.trim(),
-          custom_checklist: {
-            assets_received: form.custom_checklist_assets,
-            copy_approved: form.custom_checklist_copy,
-            final_approved: form.custom_checklist_final,
-            motion_brief: form.custom_checklist_motion,
-            overlay_assets: form.custom_checklist_overlay,
-            parallax_plan: form.custom_checklist_parallax,
-          },
-          custom_status: form.custom_status,
-          media_urls: {
-            backsound: form.backsound_url.trim(),
-            gallery: form.gallery_urls
-              .split("\n")
-              .map((item) => item.trim())
-              .filter(Boolean),
-            photo: form.photo_url.trim(),
-          },
-          photo_focal: {
-            focal_x: form.photo_focal_x,
-            focal_y: form.photo_focal_y,
-          },
-          package_code: form.package_code || null,
-          payment_status: form.payment_status,
-          reception: {
-            address: form.reception_address.trim(),
-            latitude: form.reception_latitude.trim(),
-            longitude: form.reception_longitude.trim(),
-            map_url: form.reception_map_url.trim(),
-            starts_at: form.reception_starts_at,
-            venue_name: form.reception_venue_name.trim(),
-          },
-          rsvp_manual: {
-            response_rate: responseRate,
-            total_confirmed: totalConfirmed,
-            total_declined: totalDeclined,
-            total_invited: totalInvited,
-          },
-          status: workflowStatusDefaults[form.status_label] ?? "lead",
-          story: {
-            body: form.story_body.trim(),
-            heading: form.story_heading.trim(),
-            sectionBodies,
-          },
-          quote: {
-            attribution: form.quote_attribution.trim(),
-            text: form.quote_text.trim(),
-          },
-          theme_slug: form.theme_slug || null,
-          timeline: Object.fromEntries(
-            timelineBlocks.map((block) => [
-              block.mode,
-              timelineTextToEntries(form[block.field]),
-            ]),
-          ),
-          total_amount: totalAmount,
-        }),
-        method: "PATCH",
-      });
+            client_email: form.client_email.trim(),
+            client_name: form.client_name.trim(),
+            client_phone: form.client_phone.trim(),
+            custom_approval_notes: form.custom_approval_notes.trim(),
+            custom_brief: form.custom_brief.trim(),
+            custom_checklist: {
+              assets_received: form.custom_checklist_assets,
+              copy_approved: form.custom_checklist_copy,
+              final_approved: form.custom_checklist_final,
+              motion_brief: form.custom_checklist_motion,
+              overlay_assets: form.custom_checklist_overlay,
+              parallax_plan: form.custom_checklist_parallax,
+            },
+            custom_status: form.custom_status,
+            media_urls: {
+              backsound: form.backsound_url.trim(),
+              gallery: form.gallery_urls
+                .split("\n")
+                .map((item) => item.trim())
+                .filter(Boolean),
+              photo: form.photo_url.trim(),
+            },
+            photo_focal: {
+              focal_x: form.photo_focal_x,
+              focal_y: form.photo_focal_y,
+            },
+            package_code: form.package_code || null,
+            payment_status: form.payment_status,
+            reception: {
+              address: form.reception_address.trim(),
+              latitude: form.reception_latitude.trim(),
+              longitude: form.reception_longitude.trim(),
+              map_url: form.reception_map_url.trim(),
+              starts_at: form.reception_starts_at,
+              venue_name: form.reception_venue_name.trim(),
+            },
+            rsvp_manual: {
+              response_rate: responseRate,
+              total_confirmed: totalConfirmed,
+              total_declined: totalDeclined,
+              total_invited: totalInvited,
+            },
+            status: workflowStatusDefaults[form.status_label] ?? "lead",
+            story: {
+              body: form.story_body.trim(),
+              heading: form.story_heading.trim(),
+              sectionBodies,
+            },
+            quote: {
+              attribution: form.quote_attribution.trim(),
+              text: form.quote_text.trim(),
+            },
+            theme_slug: form.theme_slug || null,
+            timeline: Object.fromEntries(
+              timelineBlocks.map((block) => [
+                block.mode,
+                timelineTextToEntries(form[block.field]),
+              ]),
+            ),
+            total_amount: totalAmount,
+          }),
+          method: "PATCH",
+        },
+      );
       setDetail(updated);
       setForm(fromDetail(updated));
       setNotice("Perubahan order tersimpan.");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Detail order gagal disimpan.");
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Detail order gagal disimpan.",
+      );
     } finally {
       setSaving(false);
     }
@@ -816,7 +953,9 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
       await navigator.clipboard.writeText(detail.preview_url);
       setNotice("Link undangan disalin.");
     } catch {
-      setError("Link undangan gagal disalin. Buka link lalu copy dari address bar.");
+      setError(
+        "Link undangan gagal disalin. Buka link lalu copy dari address bar.",
+      );
     }
   }
 
@@ -879,7 +1018,9 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
       setPaymentRecordForm(emptyPaymentRecordForm);
       setNotice("Pembayaran dicatat.");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Pembayaran gagal dicatat.");
+      setError(
+        caught instanceof Error ? caught.message : "Pembayaran gagal dicatat.",
+      );
     } finally {
       setSavingPayment(false);
     }
@@ -900,7 +1041,8 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
             review_status: reviewStatus,
             rejection_reason:
               reviewStatus === "rejected"
-                ? payment.rejection_reason || "Bukti transfer perlu dicek ulang."
+                ? payment.rejection_reason ||
+                  "Bukti transfer perlu dicek ulang."
                 : payment.rejection_reason,
           }),
           method: "PATCH",
@@ -909,7 +1051,11 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
       await loadDetail();
       setNotice("Status bukti pembayaran diperbarui.");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Status pembayaran gagal diperbarui.");
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Status pembayaran gagal diperbarui.",
+      );
     } finally {
       setSavingPayment(false);
     }
@@ -924,22 +1070,31 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
     setError("");
     setNotice("");
     try {
-      const updated = await staffFetch<StaffOrderDetail>(`/admin/orders/${reference}/revisions`, {
-        body: JSON.stringify({
-          is_final_check: finalCheck,
-          note: revisionNote.trim(),
-        }),
-        method: "POST",
-      });
+      const updated = await staffFetch<StaffOrderDetail>(
+        `/admin/orders/${reference}/revisions`,
+        {
+          body: JSON.stringify({
+            is_final_check: finalCheck,
+            note: revisionNote.trim(),
+          }),
+          method: "POST",
+        },
+      );
       setDetail(updated);
       setRevisionNote("");
       setFinalCheck(false);
       setRevisionEdits(
-        Object.fromEntries(updated.revisions.map((revision) => [revision.id, revision.note])),
+        Object.fromEntries(
+          updated.revisions.map((revision) => [revision.id, revision.note]),
+        ),
       );
       setNotice("Catatan revisi ditambahkan.");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Catatan revisi gagal ditambahkan.");
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Catatan revisi gagal ditambahkan.",
+      );
     } finally {
       setSavingRevision(false);
     }
@@ -962,11 +1117,17 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
       );
       setDetail(updated);
       setRevisionEdits(
-        Object.fromEntries(updated.revisions.map((item) => [item.id, item.note])),
+        Object.fromEntries(
+          updated.revisions.map((item) => [item.id, item.note]),
+        ),
       );
       setNotice("Catatan revisi diperbarui.");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Catatan revisi gagal diperbarui.");
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Catatan revisi gagal diperbarui.",
+      );
     } finally {
       setSavingRevision(false);
     }
@@ -979,7 +1140,10 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
   const storyCopyBlocks = storyCopyBlocksFor(form.package_code);
   const timelineBlocks = timelineBlocksFor(form.package_code);
   const galleryUrlSlots = gallerySlots(form.gallery_urls);
-  const expectedGalleryCount = mediaSections.reduce((total, section) => total + section.count, 0);
+  const expectedGalleryCount = mediaSections.reduce(
+    (total, section) => total + section.count,
+    0,
+  );
   const filledGalleryCount = galleryUrlSlots.filter((url) => url.trim()).length;
   const nameWarning = coupleNameWarning(form.client_name);
   const missingMediaSections = mediaSections
@@ -996,17 +1160,28 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
     {
       done:
         timelineBlocks.length === 0 ||
-        timelineBlocks.every((block) => timelineTextToEntries(form[block.field]).length > 0),
+        timelineBlocks.every(
+          (block) => timelineTextToEntries(form[block.field]).length > 0,
+        ),
       label: "Timeline cerita",
     },
-    { done: Boolean(form.ceremony_starts_at && form.ceremony_venue_name), label: "Data akad" },
+    {
+      done: Boolean(form.ceremony_starts_at && form.ceremony_venue_name),
+      label: "Data akad",
+    },
     {
       done: Boolean(form.reception_starts_at && form.reception_venue_name),
       label: "Data resepsi",
     },
-    { done: Boolean(form.bank_account_bank && form.bank_account_number), label: "Rekening gift" },
+    {
+      done: Boolean(form.bank_account_bank && form.bank_account_number),
+      label: "Rekening gift",
+    },
     { done: Boolean(form.backsound_url), label: "Musik backsound" },
-    { done: filledGalleryCount >= expectedGalleryCount, label: "Foto per section" },
+    {
+      done: filledGalleryCount >= expectedGalleryCount,
+      label: "Foto per section",
+    },
     { done: guestLinks.length > 0, label: "Link tamu" },
   ];
   const communicationLabel = communicationStatus(detail, completionItems);
@@ -1032,35 +1207,61 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
         </button>
       </div>
 
-      {error ? <NiskalaPreloader compact description={error} state="error" /> : null}
-      {notice ? <NiskalaPreloader compact description={notice} state="success" /> : null}
+      {error ? (
+        <NiskalaPreloader compact description={error} state="error" />
+      ) : null}
+      {notice ? (
+        <NiskalaPreloader compact description={notice} state="success" />
+      ) : null}
       {loading ? <NetworkAwarePreloader compact context="refresh" /> : null}
       {saving || savingPayment || savingRevision ? (
         <NetworkAwarePreloader compact context="save" />
       ) : null}
-      {!loading && nameWarning ? <Notice tone="warn">{nameWarning}</Notice> : null}
+      {!loading && nameWarning ? (
+        <Notice tone="warn">{nameWarning}</Notice>
+      ) : null}
       {!loading && missingMediaSections.length ? (
         <Notice tone="warn">
           Foto belum lengkap untuk{" "}
           {missingMediaSections
-            .map((section) => `Section ${section.section} (${section.missing} kosong)`)
+            .map(
+              (section) =>
+                `Section ${section.section} (${section.missing} kosong)`,
+            )
             .join(", ")}
           .
         </Notice>
       ) : null}
 
+      {!loading && form.package_code === "bespoke" ? (
+        <BespokeWorkspace
+          orderStatus={detail?.order.status ?? ""}
+          previewUrl={detail?.preview_url ?? ""}
+          reference={reference}
+        />
+      ) : null}
+
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
         <div className="space-y-6">
-          <Panel eyebrow="Status pengerjaan" title={detail?.order.reference ?? reference}>
+          <Panel
+            eyebrow="Status pengerjaan"
+            title={detail?.order.reference ?? reference}
+          >
             <div className="grid gap-4 md:grid-cols-3">
               <Field label="Status">
                 <select
                   className={selectClassName}
-                  onChange={(event) => updateForm("status_label", event.target.value)}
+                  onChange={(event) =>
+                    updateForm("status_label", event.target.value)
+                  }
                   value={form.status_label}
                 >
                   {workflowLabels.map((label) => (
-                    <option className={optionClassName} key={label} value={label}>
+                    <option
+                      className={optionClassName}
+                      key={label}
+                      value={label}
+                    >
                       {label}
                     </option>
                   ))}
@@ -1070,12 +1271,19 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
                 <select
                   className={selectClassName}
                   onChange={(event) =>
-                    updateForm("payment_status", event.target.value as PaymentStatus)
+                    updateForm(
+                      "payment_status",
+                      event.target.value as PaymentStatus,
+                    )
                   }
                   value={form.payment_status}
                 >
                   {Object.entries(paymentLabels).map(([value, label]) => (
-                    <option className={optionClassName} key={value} value={value}>
+                    <option
+                      className={optionClassName}
+                      key={value}
+                      value={value}
+                    >
                       {label}
                     </option>
                   ))}
@@ -1084,7 +1292,9 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
               <Field label={`Harga (${pricePreview})`}>
                 <input
                   className={controlClassName}
-                  onChange={(event) => updateForm("total_amount", event.target.value)}
+                  onChange={(event) =>
+                    updateForm("total_amount", event.target.value)
+                  }
                   value={form.total_amount}
                 />
               </Field>
@@ -1093,18 +1303,25 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
 
           <Panel eyebrow="Finance" title="Pembayaran manual.">
             <div className="grid gap-3 md:grid-cols-4">
-              <MiniMetric label="Tagihan" value={formatCurrency(form.total_amount || 0)} />
+              <MiniMetric
+                label="Tagihan"
+                value={formatCurrency(form.total_amount || 0)}
+              />
               <MiniMetric
                 label="Valid"
                 value={formatCurrency(detail?.payment_summary.valid_total ?? 0)}
               />
               <MiniMetric
                 label="Menunggu"
-                value={formatCurrency(detail?.payment_summary.pending_total ?? 0)}
+                value={formatCurrency(
+                  detail?.payment_summary.pending_total ?? 0,
+                )}
               />
               <MiniMetric
                 label="Sisa"
-                value={formatCurrency(detail?.payment_summary.outstanding ?? form.total_amount)}
+                value={formatCurrency(
+                  detail?.payment_summary.outstanding ?? form.total_amount,
+                )}
               />
             </div>
 
@@ -1120,26 +1337,41 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
                   }
                   value={paymentRecordForm.payment_type}
                 >
-                  {Object.entries(manualPaymentTypeLabels).map(([value, label]) => (
-                    <option className={optionClassName} key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
+                  {Object.entries(manualPaymentTypeLabels).map(
+                    ([value, label]) => (
+                      <option
+                        className={optionClassName}
+                        key={value}
+                        value={value}
+                      >
+                        {label}
+                      </option>
+                    ),
+                  )}
                 </select>
               </Field>
               <Field label="Metode">
                 <select
                   className={selectClassName}
                   onChange={(event) =>
-                    updatePaymentRecordForm("method", event.target.value as ManualPaymentMethod)
+                    updatePaymentRecordForm(
+                      "method",
+                      event.target.value as ManualPaymentMethod,
+                    )
                   }
                   value={paymentRecordForm.method}
                 >
-                  {Object.entries(manualPaymentMethodLabels).map(([value, label]) => (
-                    <option className={optionClassName} key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
+                  {Object.entries(manualPaymentMethodLabels).map(
+                    ([value, label]) => (
+                      <option
+                        className={optionClassName}
+                        key={value}
+                        value={value}
+                      >
+                        {label}
+                      </option>
+                    ),
+                  )}
                 </select>
               </Field>
               <Field label="Status Bukti">
@@ -1153,17 +1385,25 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
                   }
                   value={paymentRecordForm.review_status}
                 >
-                  {Object.entries(manualPaymentReviewLabels).map(([value, label]) => (
-                    <option className={optionClassName} key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
+                  {Object.entries(manualPaymentReviewLabels).map(
+                    ([value, label]) => (
+                      <option
+                        className={optionClassName}
+                        key={value}
+                        value={value}
+                      >
+                        {label}
+                      </option>
+                    ),
+                  )}
                 </select>
               </Field>
               <Field label="Nominal">
                 <input
                   className={controlClassName}
-                  onChange={(event) => updatePaymentRecordForm("amount", event.target.value)}
+                  onChange={(event) =>
+                    updatePaymentRecordForm("amount", event.target.value)
+                  }
                   placeholder="99000 atau 99.000"
                   value={paymentRecordForm.amount}
                 />
@@ -1171,7 +1411,9 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
               <Field label="Tanggal Bayar">
                 <input
                   className={controlClassName}
-                  onChange={(event) => updatePaymentRecordForm("paid_at", event.target.value)}
+                  onChange={(event) =>
+                    updatePaymentRecordForm("paid_at", event.target.value)
+                  }
                   type="datetime-local"
                   value={paymentRecordForm.paid_at}
                 />
@@ -1179,7 +1421,9 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
               <Field label="Bukti Transfer Cloudinary URL">
                 <input
                   className={controlClassName}
-                  onChange={(event) => updatePaymentRecordForm("proof_url", event.target.value)}
+                  onChange={(event) =>
+                    updatePaymentRecordForm("proof_url", event.target.value)
+                  }
                   placeholder="https://res.cloudinary.com/..."
                   value={paymentRecordForm.proof_url}
                 />
@@ -1187,7 +1431,9 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
               <Field label="Catatan">
                 <input
                   className={controlClassName}
-                  onChange={(event) => updatePaymentRecordForm("note", event.target.value)}
+                  onChange={(event) =>
+                    updatePaymentRecordForm("note", event.target.value)
+                  }
                   placeholder="DP dari rekening BCA..."
                   value={paymentRecordForm.note}
                 />
@@ -1196,7 +1442,10 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
                 <input
                   className={controlClassName}
                   onChange={(event) =>
-                    updatePaymentRecordForm("rejection_reason", event.target.value)
+                    updatePaymentRecordForm(
+                      "rejection_reason",
+                      event.target.value,
+                    )
                   }
                   placeholder="Nominal tidak sesuai"
                   value={paymentRecordForm.rejection_reason}
@@ -1271,12 +1520,15 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
                       </td>
                       <td className="px-4 py-4 text-white/60">
                         {payment.paid_at
-                          ? new Date(payment.paid_at).toLocaleDateString("id-ID")
+                          ? new Date(payment.paid_at).toLocaleDateString(
+                              "id-ID",
+                            )
                           : "-"}
                       </td>
                       <td className="px-4 py-4 text-white/60">
                         {manualPaymentReviewLabels[payment.review_status]}
-                        {payment.review_status === "rejected" && payment.rejection_reason ? (
+                        {payment.review_status === "rejected" &&
+                        payment.rejection_reason ? (
                           <p className="mt-1 text-xs text-red-200">
                             {payment.rejection_reason}
                           </p>
@@ -1287,7 +1539,9 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
                           <button
                             className={outlineButtonClassName}
                             disabled={savingPayment}
-                            onClick={() => void updatePaymentReview(payment, "valid")}
+                            onClick={() =>
+                              void updatePaymentReview(payment, "valid")
+                            }
                             type="button"
                           >
                             Valid
@@ -1295,7 +1549,9 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
                           <button
                             className={outlineButtonClassName}
                             disabled={savingPayment}
-                            onClick={() => void updatePaymentReview(payment, "rejected")}
+                            onClick={() =>
+                              void updatePaymentReview(payment, "rejected")
+                            }
                             type="button"
                           >
                             Tolak
@@ -1314,23 +1570,33 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
               <Field label="Nama">
                 <input
                   className={controlClassName}
-                  onChange={(event) => updateForm("client_name", event.target.value)}
+                  onChange={(event) =>
+                    updateForm("client_name", event.target.value)
+                  }
                   placeholder="Reno dan Erisa"
                   value={form.client_name}
                 />
-                {nameWarning ? <p className="mt-2 text-xs leading-5 text-[#f4ddb0]">{nameWarning}</p> : null}
+                {nameWarning ? (
+                  <p className="mt-2 text-xs leading-5 text-[#f4ddb0]">
+                    {nameWarning}
+                  </p>
+                ) : null}
               </Field>
               <Field label="Email">
                 <input
                   className={controlClassName}
-                  onChange={(event) => updateForm("client_email", event.target.value)}
+                  onChange={(event) =>
+                    updateForm("client_email", event.target.value)
+                  }
                   value={form.client_email}
                 />
               </Field>
               <Field label="Phone">
                 <input
                   className={controlClassName}
-                  onChange={(event) => updateForm("client_phone", event.target.value)}
+                  onChange={(event) =>
+                    updateForm("client_phone", event.target.value)
+                  }
                   value={form.client_phone}
                 />
               </Field>
@@ -1366,14 +1632,20 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
               <Field label="Tema">
                 <select
                   className={selectClassName}
-                  onChange={(event) => updateForm("theme_slug", event.target.value)}
+                  onChange={(event) =>
+                    updateForm("theme_slug", event.target.value)
+                  }
                   value={form.theme_slug}
                 >
                   <option className={optionClassName} value="">
                     Belum memilih tema
                   </option>
                   {themes.map((theme) => (
-                    <option className={optionClassName} key={theme.slug} value={theme.slug}>
+                    <option
+                      className={optionClassName}
+                      key={theme.slug}
+                      value={theme.slug}
+                    >
                       {theme.name}
                     </option>
                   ))}
@@ -1382,14 +1654,20 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
               <Field label="Paket">
                 <select
                   className={selectClassName}
-                  onChange={(event) => updateForm("package_code", event.target.value)}
+                  onChange={(event) =>
+                    updateForm("package_code", event.target.value)
+                  }
                   value={form.package_code}
                 >
                   <option className={optionClassName} value="">
                     Belum memilih paket
                   </option>
                   {packages.map((pack) => (
-                    <option className={optionClassName} key={pack.code} value={pack.code}>
+                    <option
+                      className={optionClassName}
+                      key={pack.code}
+                      value={pack.code}
+                    >
                       {pack.name}
                     </option>
                   ))}
@@ -1403,7 +1681,9 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
               <Field label="Judul cerita">
                 <input
                   className={controlClassName}
-                  onChange={(event) => updateForm("story_heading", event.target.value)}
+                  onChange={(event) =>
+                    updateForm("story_heading", event.target.value)
+                  }
                   placeholder="Cerita kami"
                   value={form.story_heading}
                 />
@@ -1411,7 +1691,9 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
               <Field label="Opening / cerita utama">
                 <textarea
                   className="min-h-28 w-full border border-white/12 bg-black/20 p-3 text-sm text-white outline-none transition focus:border-[var(--color-gold)]"
-                  onChange={(event) => updateForm("story_body", event.target.value)}
+                  onChange={(event) =>
+                    updateForm("story_body", event.target.value)
+                  }
                   placeholder="Tulis paragraf pembuka pasangan. Jika dikosongkan, preview memakai copy default tema."
                   value={form.story_body}
                 />
@@ -1421,10 +1703,15 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
             {storyCopyBlocks.length ? (
               <div className="mt-5 grid gap-4 md:grid-cols-2">
                 {storyCopyBlocks.map((block) => (
-                  <Field key={block.field} label={`${block.label} - ${block.description}`}>
+                  <Field
+                    key={block.field}
+                    label={`${block.label} - ${block.description}`}
+                  >
                     <textarea
                       className="min-h-28 w-full border border-white/12 bg-black/20 p-3 text-sm text-white outline-none transition focus:border-[var(--color-gold)]"
-                      onChange={(event) => updateForm(block.field, event.target.value)}
+                      onChange={(event) =>
+                        updateForm(block.field, event.target.value)
+                      }
                       placeholder="Kosongkan untuk memakai copy default template."
                       value={form[block.field]}
                     />
@@ -1439,16 +1726,18 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
                   Kutipan undangan
                 </p>
                 <p className="mt-2 text-sm leading-6 text-white/55">
-                  Teks dan sumber berlaku pada preview serta undangan terpublikasi. Field kosong
-                  memakai kutipan default template. Copy paket lain tetap tersimpan saat paket
-                  diganti.
+                  Teks dan sumber berlaku pada preview serta undangan
+                  terpublikasi. Field kosong memakai kutipan default template.
+                  Copy paket lain tetap tersimpan saat paket diganti.
                 </p>
               </div>
               <div className="grid gap-4 md:grid-cols-[1.4fr_0.6fr]">
                 <Field label="Teks kutipan">
                   <textarea
                     className="min-h-24 w-full border border-white/12 bg-black/20 p-3 text-sm text-white outline-none transition focus:border-[var(--color-gold)]"
-                    onChange={(event) => updateForm("quote_text", event.target.value)}
+                    onChange={(event) =>
+                      updateForm("quote_text", event.target.value)
+                    }
                     placeholder="Dan di antara tanda-tanda kebesaran-Nya ialah Dia menciptakan pasangan-pasangan untukmu."
                     value={form.quote_text}
                   />
@@ -1456,7 +1745,9 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
                 <Field label="Sumber / atribusi">
                   <input
                     className={controlClassName}
-                    onChange={(event) => updateForm("quote_attribution", event.target.value)}
+                    onChange={(event) =>
+                      updateForm("quote_attribution", event.target.value)
+                    }
                     placeholder="Ar-Rum · 21"
                     value={form.quote_attribution}
                   />
@@ -1468,8 +1759,10 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
               <div className="mt-5 grid gap-4">
                 <div className="border border-[var(--color-gold)]/35 bg-[var(--color-gold)]/10 p-4 text-sm leading-6 text-white/70">
                   Isi satu timeline per baris dengan format{" "}
-                  <span className="font-semibold text-white">01 | Judul | Deskripsi</span>.
-                  Kosongkan blok yang ingin memakai timeline default template.
+                  <span className="font-semibold text-white">
+                    01 | Judul | Deskripsi
+                  </span>
+                  . Kosongkan blok yang ingin memakai timeline default template.
                 </div>
                 {timelineBlocks.map((block) => (
                   <Field
@@ -1478,8 +1771,12 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
                   >
                     <textarea
                       className="min-h-32 w-full border border-white/12 bg-black/20 p-3 text-sm text-white outline-none transition focus:border-[var(--color-gold)]"
-                      onChange={(event) => updateForm(block.field, event.target.value)}
-                      placeholder={"01 | Bertemu | Sebuah awal yang sederhana...\n02 | Bertumbuh | Cerita itu tumbuh melalui waktu..."}
+                      onChange={(event) =>
+                        updateForm(block.field, event.target.value)
+                      }
+                      placeholder={
+                        "01 | Bertemu | Sebuah awal yang sederhana...\n02 | Bertumbuh | Cerita itu tumbuh melalui waktu..."
+                      }
                       value={form[block.field]}
                     />
                   </Field>
@@ -1487,8 +1784,9 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
               </div>
             ) : (
               <p className="mt-4 border border-white/10 bg-black/20 p-4 text-sm leading-6 text-white/55">
-                Paket Essential memakai short love story tanpa timeline panjang. Signature dan
-                Couture akan menampilkan blok timeline tambahan sesuai struktur paket.
+                Paket Essential memakai short love story tanpa timeline panjang.
+                Signature dan Couture akan menampilkan blok timeline tambahan
+                sesuai struktur paket.
               </p>
             )}
           </Panel>
@@ -1499,12 +1797,19 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
                 <select
                   className={selectClassName}
                   onChange={(event) =>
-                    updateForm("custom_status", event.target.value as CustomStatus)
+                    updateForm(
+                      "custom_status",
+                      event.target.value as CustomStatus,
+                    )
                   }
                   value={form.custom_status}
                 >
                   {Object.entries(customStatusLabels).map(([value, label]) => (
-                    <option className={optionClassName} key={value} value={value}>
+                    <option
+                      className={optionClassName}
+                      key={value}
+                      value={value}
+                    >
                       {label}
                     </option>
                   ))}
@@ -1513,7 +1818,9 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
               <Field label="Catatan approval">
                 <input
                   className={controlClassName}
-                  onChange={(event) => updateForm("custom_approval_notes", event.target.value)}
+                  onChange={(event) =>
+                    updateForm("custom_approval_notes", event.target.value)
+                  }
                   placeholder="Scope disetujui, estimasi, batas revisi, atau alasan ditolak."
                   value={form.custom_approval_notes}
                 />
@@ -1522,7 +1829,9 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
             <Field label="Brief custom">
               <textarea
                 className="min-h-36 w-full border border-white/12 bg-black/20 p-3 text-sm text-white outline-none transition focus:border-[var(--color-gold)]"
-                onChange={(event) => updateForm("custom_brief", event.target.value)}
+                onChange={(event) =>
+                  updateForm("custom_brief", event.target.value)
+                }
                 placeholder="Mood, referensi, love story/timeline, art direction, parallax, overlay motion, deadline, dan batasan request."
                 value={form.custom_brief}
               />
@@ -1532,42 +1841,60 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
                 checked={form.custom_checklist_assets}
                 label="Asset lengkap"
                 onChange={(checked) =>
-                  setForm((current) => ({ ...current, custom_checklist_assets: checked }))
+                  setForm((current) => ({
+                    ...current,
+                    custom_checklist_assets: checked,
+                  }))
                 }
               />
               <CustomChecklistItem
                 checked={form.custom_checklist_motion}
                 label="Brief motion jelas"
                 onChange={(checked) =>
-                  setForm((current) => ({ ...current, custom_checklist_motion: checked }))
+                  setForm((current) => ({
+                    ...current,
+                    custom_checklist_motion: checked,
+                  }))
                 }
               />
               <CustomChecklistItem
                 checked={form.custom_checklist_overlay}
                 label="Overlay asset siap"
                 onChange={(checked) =>
-                  setForm((current) => ({ ...current, custom_checklist_overlay: checked }))
+                  setForm((current) => ({
+                    ...current,
+                    custom_checklist_overlay: checked,
+                  }))
                 }
               />
               <CustomChecklistItem
                 checked={form.custom_checklist_parallax}
                 label="Parallax plan aman"
                 onChange={(checked) =>
-                  setForm((current) => ({ ...current, custom_checklist_parallax: checked }))
+                  setForm((current) => ({
+                    ...current,
+                    custom_checklist_parallax: checked,
+                  }))
                 }
               />
               <CustomChecklistItem
                 checked={form.custom_checklist_copy}
                 label="Copy/story approved"
                 onChange={(checked) =>
-                  setForm((current) => ({ ...current, custom_checklist_copy: checked }))
+                  setForm((current) => ({
+                    ...current,
+                    custom_checklist_copy: checked,
+                  }))
                 }
               />
               <CustomChecklistItem
                 checked={form.custom_checklist_final}
                 label="Final approval"
                 onChange={(checked) =>
-                  setForm((current) => ({ ...current, custom_checklist_final: checked }))
+                  setForm((current) => ({
+                    ...current,
+                    custom_checklist_final: checked,
+                  }))
                 }
               />
             </div>
@@ -1578,7 +1905,9 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
               <Field label="Foto cover utama (Cloudinary URL)">
                 <input
                   className={controlClassName}
-                  onChange={(event) => updateForm("photo_url", event.target.value)}
+                  onChange={(event) =>
+                    updateForm("photo_url", event.target.value)
+                  }
                   placeholder="https://res.cloudinary.com/..."
                   value={form.photo_url}
                 />
@@ -1602,9 +1931,9 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
                       Galeri per section
                     </p>
                     <p className="mt-2 text-sm leading-6 text-white/55">
-                      Paket {form.package_code || "Essential"} membutuhkan {expectedGalleryCount}{" "}
-                      foto. Isi berurutan sesuai section agar preview customer dan undangan final
-                      tidak tertukar.
+                      Paket {form.package_code || "Essential"} membutuhkan{" "}
+                      {expectedGalleryCount} foto. Isi berurutan sesuai section
+                      agar preview customer dan undangan final tidak tertukar.
                     </p>
                   </div>
                   <p className="text-xs uppercase tracking-[0.14em] text-[var(--color-gold)]">
@@ -1613,9 +1942,15 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
                 </div>
                 <div className="mt-5 grid gap-4">
                   {mediaSections.map((section, sectionIndex) => {
-                    const start = mediaSectionStart(mediaSections, sectionIndex);
+                    const start = mediaSectionStart(
+                      mediaSections,
+                      sectionIndex,
+                    );
                     return (
-                      <div className="border border-white/10 p-4" key={section.section}>
+                      <div
+                        className="border border-white/10 p-4"
+                        key={section.section}
+                      >
                         <div className="flex flex-wrap items-start justify-between gap-3">
                           <div>
                             <p className="text-sm font-semibold text-white">
@@ -1653,24 +1988,29 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
                           </span>
                         </div>
                         <div className="mt-4 grid gap-3 md:grid-cols-3">
-                          {Array.from({ length: section.count }).map((_, index) => {
-                            const galleryIndex = start + index;
-                            return (
-                              <label className="block" key={galleryIndex}>
-                                <span className="text-[0.62rem] uppercase tracking-[0.14em] text-white/40">
-                                  Foto {index + 1}
-                                </span>
-                                <input
-                                  className={`${controlClassName} mt-2`}
-                                  onChange={(event) =>
-                                    updateGallerySlot(galleryIndex, event.target.value)
-                                  }
-                                  placeholder="https://res.cloudinary.com/..."
-                                  value={galleryUrlSlots[galleryIndex] ?? ""}
-                                />
-                              </label>
-                            );
-                          })}
+                          {Array.from({ length: section.count }).map(
+                            (_, index) => {
+                              const galleryIndex = start + index;
+                              return (
+                                <label className="block" key={galleryIndex}>
+                                  <span className="text-[0.62rem] uppercase tracking-[0.14em] text-white/40">
+                                    Foto {index + 1}
+                                  </span>
+                                  <input
+                                    className={`${controlClassName} mt-2`}
+                                    onChange={(event) =>
+                                      updateGallerySlot(
+                                        galleryIndex,
+                                        event.target.value,
+                                      )
+                                    }
+                                    placeholder="https://res.cloudinary.com/..."
+                                    value={galleryUrlSlots[galleryIndex] ?? ""}
+                                  />
+                                </label>
+                              );
+                            },
+                          )}
                         </div>
                       </div>
                     );
@@ -1680,7 +2020,9 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
               <Field label="Musik / backsound Cloudinary URL">
                 <input
                   className={controlClassName}
-                  onChange={(event) => updateForm("backsound_url", event.target.value)}
+                  onChange={(event) =>
+                    updateForm("backsound_url", event.target.value)
+                  }
                   placeholder="https://res.cloudinary.com/.../song.mp3"
                   value={form.backsound_url}
                 />
@@ -1693,42 +2035,54 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
               <Field label="Bank">
                 <input
                   className={controlClassName}
-                  onChange={(event) => updateForm("bank_account_bank", event.target.value)}
+                  onChange={(event) =>
+                    updateForm("bank_account_bank", event.target.value)
+                  }
                   value={form.bank_account_bank}
                 />
               </Field>
               <Field label="Atas nama">
                 <input
                   className={controlClassName}
-                  onChange={(event) => updateForm("bank_account_name", event.target.value)}
+                  onChange={(event) =>
+                    updateForm("bank_account_name", event.target.value)
+                  }
                   value={form.bank_account_name}
                 />
               </Field>
               <Field label="Nomor rekening">
                 <input
                   className={controlClassName}
-                  onChange={(event) => updateForm("bank_account_number", event.target.value)}
+                  onChange={(event) =>
+                    updateForm("bank_account_number", event.target.value)
+                  }
                   value={form.bank_account_number}
                 />
               </Field>
               <Field label="RSVP invited">
                 <input
                   className={controlClassName}
-                  onChange={(event) => updateForm("rsvp_invited", event.target.value)}
+                  onChange={(event) =>
+                    updateForm("rsvp_invited", event.target.value)
+                  }
                   value={form.rsvp_invited}
                 />
               </Field>
               <Field label="RSVP hadir">
                 <input
                   className={controlClassName}
-                  onChange={(event) => updateForm("rsvp_confirmed", event.target.value)}
+                  onChange={(event) =>
+                    updateForm("rsvp_confirmed", event.target.value)
+                  }
                   value={form.rsvp_confirmed}
                 />
               </Field>
               <Field label="RSVP tidak hadir">
                 <input
                   className={controlClassName}
-                  onChange={(event) => updateForm("rsvp_declined", event.target.value)}
+                  onChange={(event) =>
+                    updateForm("rsvp_declined", event.target.value)
+                  }
                   value={form.rsvp_declined}
                 />
               </Field>
@@ -1738,13 +2092,14 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
           <Panel eyebrow="Link Tamu & Delivery" title="Form client.">
             <div className="border border-[var(--color-gold)]/35 bg-[var(--color-gold)]/10 p-4">
               <p className="text-sm leading-relaxed text-white/70">
-                Bagikan link ini ke client setelah undangan sudah fix dan siap publikasi. Client
-                dapat import CSV, export CSV, mencari tamu, copy link personal, dan menandai link
-                yang sudah dikirim.
+                Bagikan link ini ke client setelah undangan sudah fix dan siap
+                publikasi. Client dapat import CSV, export CSV, mencari tamu,
+                copy link personal, dan menandai link yang sudah dikirim.
               </p>
               <div className="mt-4 border border-white/10 bg-black/20 p-4">
                 <p className="break-all text-sm text-white/80">
-                  {detail?.guest_management_url || "Simpan detail order dulu agar link tersedia."}
+                  {detail?.guest_management_url ||
+                    "Simpan detail order dulu agar link tersedia."}
                 </p>
               </div>
               <div className="mt-4 flex flex-wrap gap-3">
@@ -1760,7 +2115,8 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
                 <a
                   className={cn(
                     outlineButtonClassName,
-                    !detail?.guest_management_url && "pointer-events-none opacity-50",
+                    !detail?.guest_management_url &&
+                      "pointer-events-none opacity-50",
                   )}
                   href={detail?.guest_management_url || "#"}
                   rel="noreferrer"
@@ -1774,21 +2130,33 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
 
             <div className="mt-5 grid gap-3 text-sm md:grid-cols-4">
               <div className="border border-white/10 p-3">
-                <p className="text-[10px] uppercase tracking-[0.14em] text-white/40">Tamu</p>
-                <p className="mt-2 text-lg text-white">{detail?.rsvp.total_invited ?? 0}</p>
+                <p className="text-[10px] uppercase tracking-[0.14em] text-white/40">
+                  Tamu
+                </p>
+                <p className="mt-2 text-lg text-white">
+                  {detail?.rsvp.total_invited ?? 0}
+                </p>
               </div>
               <div className="border border-white/10 p-3">
-                <p className="text-[10px] uppercase tracking-[0.14em] text-white/40">Hadir</p>
-                <p className="mt-2 text-lg text-white">{detail?.rsvp.total_confirmed ?? 0}</p>
+                <p className="text-[10px] uppercase tracking-[0.14em] text-white/40">
+                  Hadir
+                </p>
+                <p className="mt-2 text-lg text-white">
+                  {detail?.rsvp.total_confirmed ?? 0}
+                </p>
               </div>
               <div className="border border-white/10 p-3">
                 <p className="text-[10px] uppercase tracking-[0.14em] text-white/40">
                   Tidak Hadir
                 </p>
-                <p className="mt-2 text-lg text-white">{detail?.rsvp.total_declined ?? 0}</p>
+                <p className="mt-2 text-lg text-white">
+                  {detail?.rsvp.total_declined ?? 0}
+                </p>
               </div>
               <div className="border border-white/10 p-3">
-                <p className="text-[10px] uppercase tracking-[0.14em] text-white/40">Response</p>
+                <p className="text-[10px] uppercase tracking-[0.14em] text-white/40">
+                  Response
+                </p>
                 <p className="mt-2 text-lg text-[var(--color-gold)]">
                   {detail?.rsvp.response_rate ?? 0}%
                 </p>
@@ -1803,7 +2171,9 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
               <p className="text-[0.58rem] uppercase tracking-[0.16em] text-white/40">
                 Status komunikasi
               </p>
-              <p className="mt-2 font-serif text-2xl text-white">{communicationLabel}</p>
+              <p className="mt-2 font-serif text-2xl text-white">
+                {communicationLabel}
+              </p>
             </div>
             <div className="mt-4 grid gap-3">
               <button
@@ -1863,10 +2233,13 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
           </Panel>
 
           <Panel eyebrow="Link Undangan" title={lifecycleLabel}>
-            <p className="mb-4 text-sm leading-6 text-white/55">{lifecycleDescription}</p>
+            <p className="mb-4 text-sm leading-6 text-white/55">
+              {lifecycleDescription}
+            </p>
             <div className="border border-white/12 bg-black/20 p-4">
               <p className="break-all text-sm leading-6 text-white/70">
-                {detail?.preview_url || "Pilih tema lalu simpan untuk membuat link preview."}
+                {detail?.preview_url ||
+                  "Pilih tema lalu simpan untuk membuat link preview."}
               </p>
             </div>
             <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
@@ -1920,11 +2293,18 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
             </button>
             <div className="mt-6 space-y-3">
               {detail?.revisions.map((revision) => (
-                <article className="border border-white/10 bg-black/20 p-4" key={revision.id}>
+                <article
+                  className="border border-white/10 bg-black/20 p-4"
+                  key={revision.id}
+                >
                   <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-semibold text-white">{revision.label}</p>
+                    <p className="text-sm font-semibold text-white">
+                      {revision.label}
+                    </p>
                     <p className="text-xs text-white/35">
-                      {new Date(revision.created_at).toLocaleDateString("id-ID")}
+                      {new Date(revision.created_at).toLocaleDateString(
+                        "id-ID",
+                      )}
                     </p>
                   </div>
                   <textarea
@@ -1986,7 +2366,10 @@ function EventFields({
           <input
             className={controlClassName}
             onChange={(event) =>
-              onChange(`${prefix}_starts_at` as keyof OrderDetailForm, event.target.value)
+              onChange(
+                `${prefix}_starts_at` as keyof OrderDetailForm,
+                event.target.value,
+              )
             }
             type="datetime-local"
             value={startsAt}
@@ -1996,7 +2379,10 @@ function EventFields({
           <input
             className={controlClassName}
             onChange={(event) =>
-              onChange(`${prefix}_venue_name` as keyof OrderDetailForm, event.target.value)
+              onChange(
+                `${prefix}_venue_name` as keyof OrderDetailForm,
+                event.target.value,
+              )
             }
             value={venueName}
           />
@@ -2005,7 +2391,10 @@ function EventFields({
           <textarea
             className="min-h-20 w-full border border-white/12 bg-black/20 p-3 text-sm text-white outline-none transition focus:border-[var(--color-gold)]"
             onChange={(event) =>
-              onChange(`${prefix}_address` as keyof OrderDetailForm, event.target.value)
+              onChange(
+                `${prefix}_address` as keyof OrderDetailForm,
+                event.target.value,
+              )
             }
             value={address}
           />
@@ -2014,7 +2403,10 @@ function EventFields({
           <input
             className={controlClassName}
             onChange={(event) =>
-              onChange(`${prefix}_map_url` as keyof OrderDetailForm, event.target.value)
+              onChange(
+                `${prefix}_map_url` as keyof OrderDetailForm,
+                event.target.value,
+              )
             }
             value={mapUrl}
           />
@@ -2025,7 +2417,10 @@ function EventFields({
               className={controlClassName}
               inputMode="decimal"
               onChange={(event) =>
-                onChange(`${prefix}_latitude` as keyof OrderDetailForm, event.target.value)
+                onChange(
+                  `${prefix}_latitude` as keyof OrderDetailForm,
+                  event.target.value,
+                )
               }
               placeholder="-6.200000"
               value={latitude}
@@ -2036,7 +2431,10 @@ function EventFields({
               className={controlClassName}
               inputMode="decimal"
               onChange={(event) =>
-                onChange(`${prefix}_longitude` as keyof OrderDetailForm, event.target.value)
+                onChange(
+                  `${prefix}_longitude` as keyof OrderDetailForm,
+                  event.target.value,
+                )
               }
               placeholder="106.816666"
               value={longitude}
@@ -2071,7 +2469,9 @@ function Panel({
 function Field({ children, label }: { children: ReactNode; label: string }) {
   return (
     <label className="block">
-      <span className="text-xs uppercase tracking-[0.14em] text-white/45">{label}</span>
+      <span className="text-xs uppercase tracking-[0.14em] text-white/45">
+        {label}
+      </span>
       <div className="mt-2">{children}</div>
     </label>
   );
@@ -2102,13 +2502,21 @@ function CustomChecklistItem({
 function MiniMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="border border-white/10 bg-black/20 p-4">
-      <p className="text-[0.58rem] uppercase tracking-[0.16em] text-white/40">{label}</p>
+      <p className="text-[0.58rem] uppercase tracking-[0.16em] text-white/40">
+        {label}
+      </p>
       <p className="mt-2 font-serif text-xl text-white">{value}</p>
     </div>
   );
 }
 
-function Notice({ children, tone }: { children: ReactNode; tone: "ok" | "warn" }) {
+function Notice({
+  children,
+  tone,
+}: {
+  children: ReactNode;
+  tone: "ok" | "warn";
+}) {
   return (
     <div
       className={cn(

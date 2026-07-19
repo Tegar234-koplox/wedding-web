@@ -9,6 +9,11 @@ from django.http import HttpRequest, HttpResponse
 
 logger = logging.getLogger("wedding.request")
 SAFE_REQUEST_ID = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
+SENSITIVE_PATH = re.compile(r"(/(?:api/v1/)?(?:bespoke-reviews|guest-management)/)[^/]+")
+
+
+def safe_log_path(path: str) -> str:
+    return SENSITIVE_PATH.sub(r"\1<redacted>", path)
 
 
 class RequestIdMiddleware:
@@ -33,7 +38,7 @@ class RequestIdMiddleware:
             extra={
                 "request_id": request_id,
                 "method": request.method,
-                "path": request.path,
+                "path": safe_log_path(request.path),
                 "status_code": response.status_code,
                 "duration_ms": round((time.monotonic() - started_at) * 1000, 2),
             },

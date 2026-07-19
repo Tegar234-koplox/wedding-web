@@ -196,7 +196,7 @@ export const packages: ServicePackage[] = [
   {
     code: "bespoke",
     name: "Bespoke",
-    price: "Rp 849K",
+    price: "Mulai Rp 849K",
     description: {
       id: "Pengalaman undangan full custom yang dibangun dari brief, karakter, dan arah visual perayaan Anda.",
       en: "A fully custom invitation experience shaped around your brief, character, and visual direction.",

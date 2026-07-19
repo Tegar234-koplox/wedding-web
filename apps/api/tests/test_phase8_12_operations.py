@@ -768,7 +768,15 @@ def test_staff_publishing_order_turns_preview_link_into_public_link(client):
         is_staff=True,
     )
     theme = create_theme()
-    order = Order.objects.create(reference="N011", client_name="Fahri", theme=theme)
+    invitation = create_invitation(theme=theme, status="draft", public_slug="n011")
+    invitation.approval_status = Invitation.ApprovalStatus.APPROVED_FOR_PUBLISH
+    invitation.save(update_fields=["approval_status", "updated_at"])
+    order = Order.objects.create(
+        reference="N011",
+        client_name="Fahri",
+        theme=theme,
+        invitation=invitation,
+    )
     client.force_login(staff)
 
     response = client.patch(
@@ -973,7 +981,11 @@ def test_staff_order_package_update_syncs_linked_invitation_package(client):
     theme = create_theme()
     essential = create_package(code="essential")
     couture = create_package(code="couture")
-    invitation = create_invitation(theme=theme, public_slug="package-sync")
+    invitation = create_invitation(
+        theme=theme,
+        status=Invitation.Status.DRAFT,
+        public_slug="package-sync",
+    )
     invitation.package = essential
     invitation.save(update_fields=["package", "updated_at"])
     order = Order.objects.create(
