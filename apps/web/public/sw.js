@@ -1,8 +1,9 @@
-const CACHE_NAME = "niskala-offline-v2";
+const CACHE_NAME = "niskala-offline-v3";
+const OFFLINE_IMAGE = "/preloader/no-connection.png";
 const OFFLINE_ASSETS = [
   "/offline-id.html",
   "/offline-en.html",
-  "/preloader/no-connection.png",
+  OFFLINE_IMAGE,
 ];
 
 self.addEventListener("install", (event) => {
@@ -31,9 +32,14 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
 
-  if (url.pathname === "/preloader/no-connection.png") {
+  const isOfflineImage =
+    url.pathname === OFFLINE_IMAGE ||
+    (url.pathname === "/_next/image" &&
+      url.searchParams.get("url") === OFFLINE_IMAGE);
+
+  if (isOfflineImage) {
     event.respondWith(
-      caches.match(event.request).then((cached) => cached || fetch(event.request)),
+      caches.match(OFFLINE_IMAGE).then((cached) => cached || fetch(OFFLINE_IMAGE)),
     );
     return;
   }

@@ -127,6 +127,7 @@ function LoadingVisual({ state }: { state: PreloaderState }) {
         height={1477}
         priority
         src="/preloader/no-connection.png"
+        unoptimized
         width={1536}
       />
     );

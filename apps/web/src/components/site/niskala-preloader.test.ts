@@ -31,6 +31,16 @@ describe("getPreloaderCopy", () => {
 });
 
 describe("preloader assets", () => {
+  it("renders the offline illustration from the raw precached URL", () => {
+    const preloader = readFileSync(
+      resolve(process.cwd(), "src/components/site/niskala-preloader.tsx"),
+      "utf8",
+    );
+
+    expect(preloader).toContain('src="/preloader/no-connection.png"');
+    expect(preloader).toMatch(/src="\/preloader\/no-connection\.png"\s+unoptimized/);
+  });
+
   it("keeps the dual balls inside their visual bounds", () => {
     const css = readFileSync(
       resolve(process.cwd(), "src/components/site/niskala-preloader.module.css"),
@@ -64,5 +74,10 @@ describe("preloader assets", () => {
     expect(serviceWorker).toContain('url.pathname.startsWith("/en/")');
     expect(serviceWorker).toContain('? "/offline-en.html"');
     expect(serviceWorker).toContain(': "/offline-id.html"');
+    expect(serviceWorker).toContain('const CACHE_NAME = "niskala-offline-v3"');
+    expect(serviceWorker).toContain(
+      'url.searchParams.get("url") === OFFLINE_IMAGE',
+    );
+    expect(serviceWorker).toContain("caches.match(OFFLINE_IMAGE)");
   });
 });
