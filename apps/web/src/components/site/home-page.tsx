@@ -333,9 +333,7 @@ export function EditorialHome({ locale }: { locale: Locale }) {
           </div>
 
           <div className="grid gap-px bg-white/15 lg:grid-cols-3" data-reveal>
-            {packages
-              .filter((item) => item.code !== "bespoke")
-              .map((item) => (
+            {packages.map((item) => (
               <article
                 className={`relative min-h-[30rem] p-7 ${
                   item.featured

@@ -1,4 +1,3 @@
-import copy
 import csv
 import hashlib
 import io
@@ -26,7 +25,6 @@ from analytics.models import AnalyticsEvent
 from common.models import AuditEvent
 from common.notifications import enqueue_client_notification
 from common.permissions import require_recent_staff_mfa
-from invitations.bespoke import publish_invitation
 from invitations.models import Guest, Invitation, InvitationMedia
 from invitations.preview import (
     guest_management_token_payload,
@@ -71,20 +69,6 @@ class InvitationDetailView(RetrieveAPIView):
 
     def get_queryset(self):
         return public_invitations()
-
-    def get(self, request, *args, **kwargs) -> Response:
-        invitation = self.get_object()
-        if invitation.renderer_key == "bespoke":
-            publication = invitation.publications.filter(is_active=True).first()
-            if publication is None:
-                raise Http404
-            payload = copy.deepcopy(publication.snapshot)
-            payload["guest"] = PublicInvitationSerializer(
-                invitation,
-                context={"request": request},
-            ).data.get("guest")
-            return Response(payload)
-        return super().get(request, *args, **kwargs)
 
 
 class InvitationPreviewDetailView(APIView):
@@ -1003,7 +987,14 @@ class StaffInvitationPublishView(APIView):
             return Response(
                 {"status": invitation.status, "approval_status": invitation.approval_status}
             )
-        invitation = publish_invitation(invitation, actor=request.user)
+        if invitation.approval_status != Invitation.ApprovalStatus.APPROVED_FOR_PUBLISH:
+            raise ValidationError(
+                {"approval_status": "Invitation must be approved before publication."}
+            )
+        invitation.status = Invitation.Status.PUBLISHED
+        invitation.approval_status = Invitation.ApprovalStatus.PUBLISHED
+        invitation.published_at = timezone.now()
+        invitation.save(update_fields=["status", "approval_status", "published_at", "updated_at"])
         _transition_order_status(
             invitation=invitation,
             status=Order.Status.PUBLISHED,

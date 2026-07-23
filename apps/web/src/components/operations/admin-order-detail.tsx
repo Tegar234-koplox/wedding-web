@@ -21,7 +21,6 @@ import {
 import { cn } from "@/lib/utils";
 
 import { CoverFocalPreview, normalizeFocalPoint } from "./cover-focal-preview";
-import { BespokeWorkspace } from "./bespoke-workspace";
 import {
   customStatusLabels,
   formatCurrency,
@@ -330,12 +329,11 @@ const mediaSectionPlans: Record<string, MediaSectionPlan[]> = {
 };
 
 function mediaPlanFor(packageCode: string): MediaSectionPlan[] {
-  const baselinePackage = packageCode === "bespoke" ? "couture" : packageCode;
-  return mediaSectionPlans[baselinePackage] ?? mediaSectionPlans.essential!;
+  return mediaSectionPlans[packageCode] ?? mediaSectionPlans.essential!;
 }
 
 function timelineBlocksFor(packageCode: string): TimelineBlock[] {
-  if (packageCode === "couture" || packageCode === "bespoke") {
+  if (packageCode === "couture") {
     return [
       {
         description: "Section 3, bagian awal cerita.",
@@ -397,7 +395,7 @@ function timelineBlocksFor(packageCode: string): TimelineBlock[] {
 }
 
 function storyCopyBlocksFor(packageCode: string): StoryCopyBlock[] {
-  if (packageCode === "couture" || packageCode === "bespoke") {
+  if (packageCode === "couture") {
     return [
       {
         description: "Copy lanjutan untuk bagian konflik dan penyadaran.",
@@ -1231,14 +1229,6 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
             .join(", ")}
           .
         </Notice>
-      ) : null}
-
-      {!loading && form.package_code === "bespoke" ? (
-        <BespokeWorkspace
-          orderStatus={detail?.order.status ?? ""}
-          previewUrl={detail?.preview_url ?? ""}
-          reference={reference}
-        />
       ) : null}
 
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">

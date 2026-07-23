@@ -3,11 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   invitationContentSchema,
   invitationEnvelopeSchema,
-  defaultBespokeConfig,
   packageCapabilities,
   packageCodes,
   rendererKeys,
-  standardRendererKeys,
   supportsRenderer,
 } from "./schema";
 
@@ -63,16 +61,9 @@ describe("invitation cover snapshot", () => {
 
 describe("renderer manifest", () => {
   it("registers all seven renderers at versions one and two", () => {
-    expect(standardRendererKeys).toHaveLength(7);
-    expect(
-      standardRendererKeys.every((key) => supportsRenderer(key, 1, 1)),
-    ).toBe(true);
-    expect(
-      standardRendererKeys.every((key) => supportsRenderer(key, 2, 1)),
-    ).toBe(true);
-    expect(rendererKeys).toContain("bespoke");
-    expect(supportsRenderer("bespoke", 1, 2)).toBe(true);
-    expect(supportsRenderer("bespoke", 2, 2)).toBe(false);
+    expect(rendererKeys).toHaveLength(7);
+    expect(rendererKeys.every((key) => supportsRenderer(key, 1, 1))).toBe(true);
+    expect(rendererKeys.every((key) => supportsRenderer(key, 2, 1))).toBe(true);
   });
 
   it("rejects unsupported versions", () => {
@@ -88,53 +79,6 @@ describe("renderer manifest", () => {
 });
 
 describe("invitation envelope", () => {
-  it("requires a validated structured config for the Bespoke renderer", () => {
-    const baseContent = {
-      couple: { partnerOne: "Alya", partnerTwo: "Raka", monogram: "A&R" },
-      opening: {
-        eyebrow: "Wedding",
-        title: "A celebration",
-        message: "Together.",
-      },
-      event: {
-        dateLabel: "12 September 2026",
-        ceremonyLabel: "Akad",
-        ceremonyTime: "09.00 WIB",
-        receptionLabel: "Resepsi",
-        receptionTime: "11.00 WIB",
-        venue: "Venue",
-        address: "Jakarta",
-        mapUrl: "https://maps.google.com",
-      },
-      story: { heading: "Our story", body: "A long story." },
-      quote: { text: "A quote.", attribution: "Us" },
-      gallery: [
-        { src: "/one.jpg", alt: "One" },
-        { src: "/two.jpg", alt: "Two" },
-        { src: "/three.jpg", alt: "Three" },
-      ],
-      closing: { heading: "Thank you", message: "See you." },
-    };
-    expect(
-      invitationEnvelopeSchema.safeParse({
-        rendererKey: "bespoke",
-        rendererVersion: 1,
-        contentSchemaVersion: 2,
-        locale: "id",
-        content: baseContent,
-      }).success,
-    ).toBe(false);
-    expect(
-      invitationEnvelopeSchema.safeParse({
-        rendererKey: "bespoke",
-        rendererVersion: 1,
-        contentSchemaVersion: 2,
-        locale: "id",
-        content: { ...baseContent, bespoke: defaultBespokeConfig },
-      }).success,
-    ).toBe(true);
-  });
-
   it("rejects unsafe map protocols", () => {
     const result = invitationEnvelopeSchema.safeParse({
       rendererKey: "elegant-classic",

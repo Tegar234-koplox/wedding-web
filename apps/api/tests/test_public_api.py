@@ -33,7 +33,9 @@ def test_package_list_returns_public_features(client):
     response = client.get(reverse("package-list"), {"locale": "id"})
 
     assert response.status_code == 200
-    signature = next(item for item in response.json() if item["code"] == "signature")
+    payload = response.json()
+    assert {item["code"] for item in payload} == {"essential", "signature", "couture"}
+    signature = next(item for item in payload if item["code"] == "signature")
     assert signature["features"][4]["label"] == "Prakiraan cuaca di lokasi acara"
 
 

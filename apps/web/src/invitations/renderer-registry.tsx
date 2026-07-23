@@ -2,7 +2,6 @@ import type {
   InvitationEnvelope,
   PackageCode,
   RendererKey,
-  StandardRendererKey,
 } from "@wedding/invitation-themes";
 import {
   CalendarDays,
@@ -16,7 +15,6 @@ import Image from "next/image";
 import type { ComponentType, ReactNode } from "react";
 
 import { RendererV2 } from "@/invitations/renderer-v2";
-import { BespokeRenderer } from "@/invitations/bespoke-renderer";
 import type {
   InvitationAudio,
   InvitationCover,
@@ -33,7 +31,7 @@ export type RendererProps = {
 };
 
 type Design = {
-  key: StandardRendererKey;
+  key: RendererKey;
   page: string;
   surface: string;
   muted: string;
@@ -44,7 +42,7 @@ type Design = {
   ornament?: string;
 };
 
-const designs: Record<StandardRendererKey, Design> = {
+const designs: Record<RendererKey, Design> = {
   "elegant-classic": {
     key: "elegant-classic",
     page: "bg-[#eee8dd] text-[#171510]",
@@ -599,7 +597,7 @@ function InvitationDocument({
 }
 
 function createRenderer(
-  key: StandardRendererKey,
+  key: RendererKey,
 ): ComponentType<RendererProps> {
   function RegisteredRenderer(props: RendererProps) {
     return <InvitationDocument design={designs[key]} {...props} />;
@@ -623,7 +621,6 @@ export const rendererRegistry: Record<
     1: createRenderer("javanese-traditional"),
     2: RendererV2,
   },
-  bespoke: { 1: BespokeRenderer },
 };
 
 export function InvitationRenderer({

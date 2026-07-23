@@ -1,6 +1,6 @@
 import {
   packageCodes,
-  standardRendererKeys as rendererKeys,
+  rendererKeys,
 } from "@wedding/invitation-themes";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
@@ -218,7 +218,7 @@ describe("premium presentation configuration", () => {
     expect(resolvePackageCode("essential")).toBe("essential");
     expect(resolvePackageCode("signature")).toBe("signature");
     expect(resolvePackageCode("couture")).toBe("couture");
-    expect(resolvePackageCode("bespoke")).toBe("couture");
+    expect(resolvePackageCode("unknown")).toBe("essential");
     expect(resolvePackageCode("unknown")).toBe("essential");
     expect(resolvePackageCode(undefined)).toBe("essential");
   });

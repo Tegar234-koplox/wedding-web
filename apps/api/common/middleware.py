@@ -9,7 +9,7 @@ from django.http import HttpRequest, HttpResponse
 
 logger = logging.getLogger("wedding.request")
 SAFE_REQUEST_ID = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
-SENSITIVE_PATH = re.compile(r"(/(?:api/v1/)?(?:bespoke-reviews|guest-management)/)[^/]+")
+SENSITIVE_PATH = re.compile(r"(/(?:api/v1/)?guest-management/)[^/]+")
 
 
 def safe_log_path(path: str) -> str:

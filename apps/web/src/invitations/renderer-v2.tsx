@@ -4,7 +4,7 @@ import {
   packageCapabilities,
   type InvitationEnvelope,
   type PackageCode,
-  type StandardRendererKey,
+  type RendererKey,
 } from "@wedding/invitation-themes";
 import {
   AnimatePresence,
@@ -266,7 +266,7 @@ function sectionPhotosFromGallery(
   }).filter((photo): photo is GalleryPhoto => Boolean(photo));
 }
 
-const signatureGiftFolders: Record<StandardRendererKey, string> = {
+const signatureGiftFolders: Record<RendererKey, string> = {
   "dark-cinematic": "dark-cinematic",
   "elegant-classic": "elegant-classic",
   "floral-romantic": "floral-romantic",
@@ -276,7 +276,7 @@ const signatureGiftFolders: Record<StandardRendererKey, string> = {
   "minimalist-white": "minimalist-white",
 };
 
-const coutureGiftSoundEffects: Record<StandardRendererKey, string> = {
+const coutureGiftSoundEffects: Record<RendererKey, string> = {
   "dark-cinematic":
     "https://res.cloudinary.com/djhewrs1n/video/upload/v1783150346/chest_treasure_tntcss.mp3",
   "elegant-classic":
@@ -1378,7 +1378,7 @@ function SignatureGiftSection({
   const id = invitation.locale === "id";
   const account = getGiftAccount(invitation, id);
   const folder =
-    signatureGiftFolders[invitation.rendererKey as StandardRendererKey];
+    signatureGiftFolders[invitation.rendererKey as RendererKey];
 
   return (
     <section
@@ -1457,9 +1457,9 @@ function CoutureGiftSection({
   const id = invitation.locale === "id";
   const account = getGiftAccount(invitation, id);
   const folder =
-    signatureGiftFolders[invitation.rendererKey as StandardRendererKey];
+    signatureGiftFolders[invitation.rendererKey as RendererKey];
   const effectUrl =
-    coutureGiftSoundEffects[invitation.rendererKey as StandardRendererKey];
+    coutureGiftSoundEffects[invitation.rendererKey as RendererKey];
 
   function openGift() {
     setOpened(true);
@@ -2123,7 +2123,7 @@ export function RendererV2({
   rsvpSlot,
   weather,
 }: RendererV2Props) {
-  const rendererKey = invitation.rendererKey as StandardRendererKey;
+  const rendererKey = invitation.rendererKey as RendererKey;
   const design = themeVisualConfig[rendererKey];
   const premium = getPremiumVisualConfig(rendererKey, packageCode);
   const reducedMotion = useReducedMotion();

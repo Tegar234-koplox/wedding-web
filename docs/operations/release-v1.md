@@ -39,6 +39,3 @@ verified backup.
 Store the release tag, commit SHA, frontend deployment ID, Railway deployment
 IDs, applied migrations, backup ID, smoke-test result, approver, and rollback
 target in the release notes.
-
-Phase 13 configured Bespoke remains a `v1.1.0` change. Do not merge its schema
-or renderer changes into the frozen `v1.0.0` release candidate.

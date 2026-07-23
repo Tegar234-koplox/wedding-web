@@ -3,7 +3,6 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { MobileWhatsApp } from "@/components/site/mobile-whatsapp";
-import { BespokeLink } from "@/components/site/bespoke-link";
 import { SiteFooter } from "@/components/site/site-footer";
 import { SiteNav } from "@/components/site/site-nav";
 import { WhatsAppLink } from "@/components/site/whatsapp-link";
@@ -28,7 +27,6 @@ export default async function PackagesPage({ params }: PackagesPageProps) {
 
   const id = locale === "id";
   const packages = await getPublicPackages(locale);
-  const standardPackages = packages.filter((item) => item.code !== "bespoke");
 
   return (
     <>
@@ -56,7 +54,7 @@ export default async function PackagesPage({ params }: PackagesPageProps) {
 
         <section className="px-[var(--space-gutter)] pb-[var(--space-section)]">
           <div className="grid gap-px bg-white/15 lg:grid-cols-3">
-            {standardPackages.map((item) => (
+            {packages.map((item) => (
               <article
                 className={`relative flex min-h-[42rem] flex-col p-7 md:p-9 ${
                   item.featured
@@ -105,22 +103,11 @@ export default async function PackagesPage({ params }: PackagesPageProps) {
             ))}
           </div>
 
-          <div className="mt-16 flex flex-col items-center gap-5 border-y border-white/10 py-14 text-center">
-            <p className="max-w-xl text-sm leading-7 text-[var(--color-muted)]">
-              {id
-                ? "Membutuhkan arah visual yang dibangun sepenuhnya dari cerita dan brief Anda?"
-                : "Need a visual direction built entirely around your story and brief?"}
-            </p>
-            <BespokeLink href={`/${locale}/packages/bespoke`}>
-              Bespoke
-            </BespokeLink>
-          </div>
-
           <div className="mt-12 grid gap-7 border-t border-white/15 pt-8 text-sm text-[var(--color-muted)] md:grid-cols-3">
             <p>
               {id
                 ? "Harga berlaku untuk satu undangan dan dapat berubah untuk kebutuhan khusus."
-                : "Prices cover one invitation and may change for bespoke requirements."}
+                : "Prices cover one invitation and may change for special requirements."}
             </p>
             <p>
               {id
@@ -130,7 +117,7 @@ export default async function PackagesPage({ params }: PackagesPageProps) {
             <p>
               {id
                 ? "Konsultasikan kebutuhan khusus sebelum memilih paket."
-                : "Discuss bespoke requirements with us before selecting a package."}
+                : "Discuss special requirements with us before selecting a package."}
             </p>
           </div>
         </section>

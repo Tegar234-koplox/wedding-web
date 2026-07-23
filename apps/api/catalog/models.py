@@ -17,7 +17,7 @@ class Theme(UUIDTimeStampedModel, ArchivableModel):
 
     slug = models.SlugField(max_length=80, unique=True)
     renderer_key = models.CharField(
-        max_length=80,
+        max_length=80, 
         validators=[validate_renderer_key],
     )
     renderer_version = models.PositiveSmallIntegerField(default=2)
