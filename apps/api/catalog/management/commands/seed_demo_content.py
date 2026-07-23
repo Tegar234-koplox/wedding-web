@@ -36,27 +36,19 @@ PACKAGE_FEATURES = {
     "essential": [
         ("theme", "1 tema pilihan", "1 selected theme"),
         ("event-info", "Informasi acara", "Event details"),
-        ("gallery-8", "Galeri 8 foto", "8-photo gallery"),
         ("location-map", "Peta lokasi", "Location map"),
         ("gift", "Gift", "Gift"),
         ("backsound", "Musik latar belakang", "Background music"),
-        ("revisions-3", "Revisi 3 kali", "3 revisions"),
     ],
     "signature": [
         ("essential", "Semua fitur Essential", "Everything in Essential"),
         ("story-timeline", "Love story & timeline", "Love story & timeline"),
         ("rsvp-wishes", "RSVP dan ucapan", "RSVP and wishes"),
         (
-            "gallery-plus-3",
-            "Galeri +3 foto dari paket Essential",
-            "Gallery +3 photos from Essential",
-        ),
-        (
             "weather",
             "Prakiraan cuaca di lokasi acara",
             "Weather forecast at the event location",
         ),
-        ("revisions-5", "Revisi 5 kali", "5 revisions"),
     ],
     "couture": [
         ("signature", "Semua fitur Signature", "Everything in Signature"),
@@ -67,12 +59,6 @@ PACKAGE_FEATURES = {
             "More vivid display",
         ),
         ("story-details", "Detail love story dan timeline", "Love story details and timeline"),
-        ("revisions-8", "Revisi 8 kali", "8 revisions"),
-        (
-            "gallery-plus-4",
-            "Galeri +4 foto dari paket Signature",
-            "Gallery +4 photos from Signature",
-        ),
     ],
 }
 

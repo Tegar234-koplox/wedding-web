@@ -35,8 +35,21 @@ def test_package_list_returns_public_features(client):
     assert response.status_code == 200
     payload = response.json()
     assert {item["code"] for item in payload} == {"essential", "signature", "couture"}
+    essential = next(item for item in payload if item["code"] == "essential")
     signature = next(item for item in payload if item["code"] == "signature")
-    assert signature["features"][4]["label"] == "Prakiraan cuaca di lokasi acara"
+    assert [feature["label"] for feature in essential["features"]] == [
+        "1 tema pilihan",
+        "Informasi acara",
+        "Peta lokasi",
+        "Gift",
+        "Musik latar belakang",
+    ]
+    assert [feature["label"] for feature in signature["features"]] == [
+        "Semua fitur Essential",
+        "Love story & timeline",
+        "RSVP dan ucapan",
+        "Prakiraan cuaca di lokasi acara",
+    ]
 
 
 @pytest.mark.django_db
@@ -53,8 +66,6 @@ def test_couture_package_uses_latest_catalog_copy(client):
         "Kompleksitas desain dan motion",
         "Tampilan lebih hidup",
         "Detail love story dan timeline",
-        "Revisi 8 kali",
-        "Galeri +4 foto dari paket Signature",
     ]
 
 
