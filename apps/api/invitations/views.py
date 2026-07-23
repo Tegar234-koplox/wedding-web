@@ -25,6 +25,10 @@ from analytics.models import AnalyticsEvent
 from common.models import AuditEvent
 from common.notifications import enqueue_client_notification
 from common.permissions import require_recent_staff_mfa
+from invitations.capabilities import (
+    invitation_supports_guest_wishes,
+    invitation_supports_rsvp,
+)
 from invitations.models import Guest, Invitation, InvitationMedia
 from invitations.preview import (
     guest_management_token_payload,
@@ -243,6 +247,10 @@ def _guest_management_detail_payload(
             "theme_slug": invitation.theme.slug,
             "package_name": invitation.package.code if invitation.package_id else "",
             "package_code": invitation.package.code if invitation.package_id else "",
+        },
+        "capabilities": {
+            "rsvp": invitation_supports_rsvp(invitation),
+            "guest_wishes": invitation_supports_guest_wishes(invitation),
         },
         "rsvp": _guest_aggregate_rows(invitation)[0]
         if _guest_aggregate_rows(invitation)
@@ -840,7 +848,7 @@ class InvitationRSVPView(APIView):
 
     def post(self, request, public_slug: str) -> Response:
         invitation = _rsvp_invitation_for_request(request, public_slug)
-        if invitation is None:
+        if invitation is None or not invitation_supports_rsvp(invitation):
             raise Http404
         serializer = PublicRSVPSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -902,7 +910,7 @@ class PublicGuestRSVPCreateView(APIView):
 
     def post(self, request, public_slug: str) -> Response:
         invitation = public_invitations().filter(public_slug=public_slug).first()
-        if invitation is None:
+        if invitation is None or not invitation_supports_rsvp(invitation):
             raise Http404
         serializer = PublicGuestRSVPCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -941,7 +949,11 @@ class PublicInvitationWishesView(APIView):
             .first()
         )
         access_token = request.query_params.get("access", "")
-        if invitation is None or not wishes_token_is_valid(invitation, access_token):
+        if (
+            invitation is None
+            or not invitation_supports_guest_wishes(invitation)
+            or not wishes_token_is_valid(invitation, access_token)
+        ):
             raise Http404
 
         return Response(_invitation_wishes_payload(invitation))
@@ -1206,7 +1218,7 @@ class GuestManagementWishesView(APIView):
 
     def get(self, request, token: str) -> Response:
         invitation = _guest_management_invitation(token)
-        if invitation is None:
+        if invitation is None or not invitation_supports_guest_wishes(invitation):
             raise Http404
         return Response(_invitation_wishes_payload(invitation))
 

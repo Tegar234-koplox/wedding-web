@@ -1,4 +1,7 @@
-import type { InvitationEnvelope } from "@wedding/invitation-themes";
+import {
+  packageCapabilities,
+  type InvitationEnvelope,
+} from "@wedding/invitation-themes";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
@@ -62,28 +65,25 @@ export default async function PublicInvitationPage({
     guest: invitation.guest,
   };
   const packageCode = resolvePackageCode(invitation.package_code);
-  const renderRsvpInsideInvitation =
-    packageCode === "signature" || packageCode === "couture";
-  const rsvpForm = (
-    <PublicRSVPForm
-      embedded={renderRsvpInsideInvitation}
-      initialToken={query?.guest}
-      previewToken={query?.preview}
-      publicSlug={publicSlug}
-    />
-  );
+  const rsvpEnabled = packageCapabilities[packageCode].rsvp;
 
   return (
-    <>
-      <InvitationRenderer
-        audio={invitation.audio}
-        cover={invitation.cover}
-        invitation={localizedInvitation}
-        packageCode={packageCode}
-        rsvpSlot={renderRsvpInsideInvitation ? rsvpForm : undefined}
-        weather={weather}
-      />
-      {renderRsvpInsideInvitation ? null : rsvpForm}
-    </>
+    <InvitationRenderer
+      audio={invitation.audio}
+      cover={invitation.cover}
+      invitation={localizedInvitation}
+      packageCode={packageCode}
+      rsvpSlot={
+        rsvpEnabled ? (
+          <PublicRSVPForm
+            embedded
+            initialToken={query?.guest}
+            previewToken={query?.preview}
+            publicSlug={publicSlug}
+          />
+        ) : undefined
+      }
+      weather={weather}
+    />
   );
 }

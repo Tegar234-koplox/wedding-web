@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   NetworkAwarePreloader,
@@ -31,6 +31,11 @@ type GuestDeliveryDetail = {
     couple_name: string;
     theme_name: string;
     package_name: string;
+    package_code: string;
+  };
+  capabilities: {
+    rsvp: boolean;
+    guest_wishes: boolean;
   };
   rsvp: {
     total_invited: number;
@@ -242,7 +247,7 @@ function formatRespondedAt(value: string | null): string {
   }).format(new Date(value));
 }
 
-function whatsappUrl(guest: GuestDeliveryLink): string {
+function whatsappUrl(guest: GuestDeliveryLink, rsvpEnabled: boolean): string {
   const digits = guest.phone.replace(/\D/g, "");
   const message = [
     `Halo ${guest.display_name},`,
@@ -250,7 +255,9 @@ function whatsappUrl(guest: GuestDeliveryLink): string {
     "Kami mengundang Anda melalui link undangan personal berikut:",
     guest.delivery_url ?? "",
     "",
-    "Mohon konfirmasi kehadiran melalui form RSVP di dalam undangan.",
+    rsvpEnabled
+      ? "Mohon konfirmasi kehadiran melalui form RSVP di dalam undangan."
+      : "Silakan buka link tersebut untuk melihat undangan.",
   ]
     .filter(Boolean)
     .join("\n");
@@ -289,11 +296,13 @@ export function GuestDeliveryWorkspace({
   const loadWorkspace = useCallback(async () => {
     setError("");
     try {
-      const [nextDetail, nextGuests, nextWishes] = await Promise.all([
+      const [nextDetail, nextGuests] = await Promise.all([
         guestFetch<GuestDeliveryDetail>(token),
         guestFetch<GuestDeliveryLink[]>(token, "/guest-links"),
-        guestFetch<GuestWishesPayload>(token, "/wishes"),
       ]);
+      const nextWishes = nextDetail.capabilities.guest_wishes
+        ? await guestFetch<GuestWishesPayload>(token, "/wishes")
+        : null;
       setDetail(nextDetail);
       setGuests(nextGuests);
       setWishes(nextWishes);
@@ -321,6 +330,8 @@ export function GuestDeliveryWorkspace({
   const importHref = `/guest-delivery/${encodeURIComponent(token)}` as Route;
   const listHref = `/guest-delivery/${encodeURIComponent(token)}/guests` as Route;
   const wishesHref = `/guest-delivery/${encodeURIComponent(token)}/wishes` as Route;
+  const rsvpEnabled = detail?.capabilities.rsvp ?? false;
+  const guestWishesEnabled = detail?.capabilities.guest_wishes ?? false;
 
   function updateForm(field: keyof GuestForm, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -467,8 +478,9 @@ export function GuestDeliveryWorkspace({
             {detail?.invitation.couple_name ?? "Daftar tamu."}
           </h1>
           <p className="mt-5 max-w-2xl text-sm leading-7 text-white/65">
-            Kelola link undangan personal untuk tamu. Tamu tidak perlu membuat akun; cukup buka
-            link personal, lalu isi RSVP di undangan.
+            {rsvpEnabled
+              ? "Kelola link undangan personal untuk tamu. Tamu tidak perlu membuat akun; cukup buka link personal, lalu isi RSVP di undangan."
+              : "Kelola link undangan personal untuk tamu. Tamu tidak perlu membuat akun; cukup buka link personal untuk melihat undangan."}
           </p>
         </div>
         <nav className="flex flex-wrap gap-3">
@@ -490,23 +502,32 @@ export function GuestDeliveryWorkspace({
           >
             Daftar Tamu
           </Link>
-          <Link
-            className={cn(
-              outlineButtonClassName,
-              mode === "wishes" && "border-[var(--color-gold)] text-[var(--color-gold)]",
-            )}
-            href={wishesHref}
-          >
-            Ucapan Tamu
-          </Link>
+          {guestWishesEnabled ? (
+            <Link
+              className={cn(
+                outlineButtonClassName,
+                mode === "wishes" && "border-[var(--color-gold)] text-[var(--color-gold)]",
+              )}
+              href={wishesHref}
+            >
+              Ucapan Tamu
+            </Link>
+          ) : null}
         </nav>
       </header>
 
-      <section className="mx-auto mt-8 grid max-w-6xl gap-3 md:grid-cols-4">
+      <section
+        className={cn(
+          "mx-auto mt-8 grid max-w-6xl gap-3",
+          rsvpEnabled ? "md:grid-cols-4" : "md:grid-cols-3",
+        )}
+      >
         <StatCard label="Total Tamu" value={detail?.delivery.total_guests ?? 0} />
         <StatCard label="Sudah Dikirim" value={detail?.delivery.sent_count ?? 0} />
         <StatCard label="Belum Dikirim" value={detail?.delivery.not_sent_count ?? 0} />
-        <StatCard label="RSVP Hadir" value={detail?.rsvp.total_confirmed ?? 0} />
+        {rsvpEnabled ? (
+          <StatCard label="RSVP Hadir" value={detail?.rsvp.total_confirmed ?? 0} />
+        ) : null}
       </section>
 
       {busy ? (
@@ -533,7 +554,7 @@ export function GuestDeliveryWorkspace({
             </p>
             <h2 className="mt-3 font-serif text-3xl">Cara isi daftar tamu.</h2>
             <ol className="mt-5 space-y-4 text-sm leading-7 text-white/65">
-              <li>1. Download template CSV dari tombol di samping.</li>
+              <li>1. Download template CSV dari tombol di bawah.</li>
               <li>2. Buka file di Excel atau Google Sheets.</li>
               <li>3. Isi kolom nama tamu. Nomor WhatsApp dan email boleh dikosongkan.</li>
               <li>4. Kolom jumlah berarti kuota orang untuk satu link, misalnya 2 untuk pasangan.</li>
@@ -724,7 +745,7 @@ export function GuestDeliveryWorkspace({
                 <tr>
                   <th className="px-5 py-4">Tamu</th>
                   <th className="px-5 py-4">Kontak</th>
-                  <th className="px-5 py-4">RSVP</th>
+                  {rsvpEnabled ? <th className="px-5 py-4">RSVP</th> : null}
                   <th className="px-5 py-4">Link</th>
                   <th className="px-5 py-4">Delivery</th>
                   <th className="px-5 py-4">Action</th>
@@ -733,7 +754,7 @@ export function GuestDeliveryWorkspace({
               <tbody>
                 {filteredGuests.length === 0 ? (
                   <tr>
-                    <td className="px-5 py-8 text-white/45" colSpan={6}>
+                    <td className="px-5 py-8 text-white/45" colSpan={rsvpEnabled ? 6 : 5}>
                       Belum ada tamu yang cocok. Tambahkan atau import daftar tamu di halaman
                       Import CSV.
                     </td>
@@ -748,10 +769,12 @@ export function GuestDeliveryWorkspace({
                     <td className="px-5 py-5 text-white/60">
                       {[guest.email, guest.phone].filter(Boolean).join(" / ") || "-"}
                     </td>
-                    <td className="px-5 py-5 text-white/60">
-                      {rsvpLabel(guest.rsvp_status)}
-                      {guest.attendance_count ? ` / ${guest.attendance_count} hadir` : ""}
-                    </td>
+                    {rsvpEnabled ? (
+                      <td className="px-5 py-5 text-white/60">
+                        {rsvpLabel(guest.rsvp_status)}
+                        {guest.attendance_count ? ` / ${guest.attendance_count} hadir` : ""}
+                      </td>
+                    ) : null}
                     <td className="max-w-[16rem] px-5 py-5">
                       <p className="truncate text-white/50">{guest.delivery_url ?? "-"}</p>
                     </td>
@@ -789,7 +812,7 @@ export function GuestDeliveryWorkspace({
                             outlineButtonClassName,
                             (!guest.delivery_url || !guest.phone) && "pointer-events-none opacity-45",
                           )}
-                          href={whatsappUrl(guest)}
+                          href={whatsappUrl(guest, rsvpEnabled)}
                           rel="noreferrer"
                           target="_blank"
                         >
@@ -815,7 +838,7 @@ export function GuestDeliveryWorkspace({
             </table>
           </div>
         </section>
-      ) : (
+      ) : guestWishesEnabled ? (
         <section className="mx-auto mt-8 max-w-6xl">
           <div className="grid gap-6 border border-white/10 bg-white/[0.025] p-5 lg:grid-cols-[1fr_0.9fr] lg:items-end">
             <div>
@@ -871,6 +894,19 @@ export function GuestDeliveryWorkspace({
               </article>
             ))}
           </div>
+        </section>
+      ) : (
+        <section className="mx-auto mt-8 max-w-6xl border border-white/10 bg-white/[0.025] p-6">
+          <p className="text-[0.66rem] uppercase tracking-[0.24em] text-[var(--color-gold)]">
+            Fitur Paket
+          </p>
+          <h2 className="mt-3 font-serif text-3xl">Ucapan Tamu tidak tersedia.</h2>
+          <p className="mt-4 max-w-2xl text-sm leading-7 text-white/60">
+            Paket Essential hanya menyediakan pengelolaan dan pengiriman link undangan personal.
+          </p>
+          <Link className={cn(outlineButtonClassName, "mt-6")} href={listHref}>
+            Kembali ke Daftar Tamu
+          </Link>
         </section>
       )}
     </main>

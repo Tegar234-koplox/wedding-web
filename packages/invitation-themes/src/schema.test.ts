@@ -72,6 +72,12 @@ describe("renderer manifest", () => {
 
   it("defines progressive capabilities for all packages", () => {
     expect(packageCodes).toEqual(["essential", "signature", "couture"]);
+    expect(packageCapabilities.essential.rsvp).toBe(false);
+    expect(packageCapabilities.essential.guestWishes).toBe(false);
+    expect(packageCapabilities.signature.rsvp).toBe(true);
+    expect(packageCapabilities.signature.guestWishes).toBe(true);
+    expect(packageCapabilities.couture.rsvp).toBe(true);
+    expect(packageCapabilities.couture.guestWishes).toBe(true);
     expect(packageCapabilities.essential.weather).toBe(false);
     expect(packageCapabilities.signature.weather).toBe(true);
     expect(packageCapabilities.couture.motion).toBe("refined");

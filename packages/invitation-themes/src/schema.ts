@@ -23,6 +23,8 @@ export type PackageCode = z.infer<typeof packageCodeSchema>;
 export type PackageCapabilities = {
   cover: true;
   audio: true;
+  rsvp: boolean;
+  guestWishes: boolean;
   weather: boolean;
   overlay: "restrained" | "themed" | "layered";
   motion: "light" | "standard" | "refined";
@@ -33,6 +35,8 @@ export const packageCapabilities: Record<PackageCode, PackageCapabilities> = {
   essential: {
     cover: true,
     audio: true,
+    rsvp: false,
+    guestWishes: false,
     weather: false,
     overlay: "restrained",
     motion: "light",
@@ -41,6 +45,8 @@ export const packageCapabilities: Record<PackageCode, PackageCapabilities> = {
   signature: {
     cover: true,
     audio: true,
+    rsvp: true,
+    guestWishes: true,
     weather: true,
     overlay: "themed",
     motion: "standard",
@@ -49,6 +55,8 @@ export const packageCapabilities: Record<PackageCode, PackageCapabilities> = {
   couture: {
     cover: true,
     audio: true,
+    rsvp: true,
+    guestWishes: true,
     weather: true,
     overlay: "layered",
     motion: "refined",

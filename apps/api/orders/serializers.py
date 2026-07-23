@@ -5,6 +5,7 @@ from rest_framework import serializers
 from catalog.models import Package, Theme
 from common.models import AuditEvent
 from common.notifications import enqueue_client_notification
+from invitations.capabilities import invitation_supports_guest_wishes
 from invitations.models import (
     Guest,
     Invitation,
@@ -271,7 +272,11 @@ class StaffOrderDetailSerializer(serializers.Serializer):
             "payments": PaymentRecordSerializer(order.manual_payments.all(), many=True).data,
             "payment_summary": self._payment_summary(order),
             "preview_url": self._preview_url(invitation, request),
-            "wishes_url": self._wishes_url(invitation, request),
+            "wishes_url": (
+                self._wishes_url(invitation, request)
+                if invitation_supports_guest_wishes(invitation)
+                else ""
+            ),
             "guest_management_url": self._guest_management_url(invitation, request),
             "revisions": [
                 self._revision_payload(revision) for revision in invitation.revisions.all()

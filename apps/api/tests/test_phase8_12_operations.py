@@ -32,7 +32,11 @@ def create_user(*, username: str, email: str, role: str = "client", is_staff: bo
     )
 
 
-def create_staff_order_fixture(reference: str = "staff-ops-001"):
+def create_staff_order_fixture(
+    reference: str = "staff-ops-001",
+    *,
+    package_code: str = "signature",
+):
     staff = create_user(
         username=f"staff-{reference}",
         email=f"{reference}@staff.test",
@@ -40,7 +44,7 @@ def create_staff_order_fixture(reference: str = "staff-ops-001"):
         is_staff=True,
     )
     theme = create_theme(slug=f"theme-{reference}")
-    package = create_package(code=f"pkg-{reference}")
+    package = create_package(code=package_code)
     invitation = create_invitation(theme=theme, public_slug=f"inv-{reference}", is_sample=False)
     invitation.package = package
     invitation.content = {
@@ -1112,6 +1116,8 @@ def test_staff_lists_pending_publish_invitations_by_state(client):
 def test_public_rsvp_requires_personal_token_and_records_event(client):
     theme = create_theme()
     invitation = create_invitation(theme=theme)
+    invitation.package = create_package(code="signature")
+    invitation.save(update_fields=["package", "updated_at"])
 
     response = client.post(
         reverse("invitation-rsvp", kwargs={"public_slug": invitation.public_slug}),
@@ -1138,6 +1144,8 @@ def test_public_rsvp_requires_personal_token_and_records_event(client):
 def test_public_guest_rsvp_create_is_write_only(client):
     theme = create_theme()
     invitation = create_invitation(theme=theme, public_slug="public-write-rsvp")
+    invitation.package = create_package(code="signature")
+    invitation.save(update_fields=["package", "updated_at"])
 
     response = client.post(
         reverse("invitation-public-rsvp-create", kwargs={"public_slug": invitation.public_slug}),
@@ -1163,6 +1171,8 @@ def test_staff_creates_guest_delivery_link_and_guest_uses_it_for_rsvp(client):
     staff = create_user(username="staff", email="staff@example.com", role="staff", is_staff=True)
     theme = create_theme()
     invitation = create_invitation(theme=theme, public_slug="delivery-link")
+    invitation.package = create_package(code="signature")
+    invitation.save(update_fields=["package", "updated_at"])
     client.force_login(staff)
 
     response = client.post(
@@ -1253,6 +1263,8 @@ def test_draft_guest_delivery_link_accepts_rsvp_with_preview_token(client):
         public_slug="draft-delivery-rsvp",
         status=Invitation.Status.DRAFT,
     )
+    invitation.package = create_package(code="signature")
+    invitation.save(update_fields=["package", "updated_at"])
     client.force_login(staff)
 
     response = client.post(
@@ -1298,11 +1310,12 @@ def test_draft_guest_delivery_link_accepts_rsvp_with_preview_token(client):
 def test_public_wishes_requires_access_token_and_hides_guest_contact(client):
     theme = create_theme()
     invitation = create_invitation(theme=theme, public_slug="client-wishes")
+    invitation.package = create_package(code="signature")
     invitation.content = {
         **invitation.content,
         "couple": {"partnerOne": "Reno", "partnerTwo": "Erisa"},
     }
-    invitation.save(update_fields=["content", "updated_at"])
+    invitation.save(update_fields=["package", "content", "updated_at"])
     Guest.objects.create(
         invitation=invitation,
         access_token_hash="wish-token-1",
@@ -1385,6 +1398,55 @@ def test_staff_exports_guest_delivery_links_as_csv(client):
 
 
 @pytest.mark.django_db
+def test_essential_guest_management_disables_rsvp_and_wishes(client):
+    staff, order = create_staff_order_fixture(
+        "guest-management-essential",
+        package_code="essential",
+    )
+    client.force_login(staff)
+    order_detail = client.get(
+        reverse("admin-order-detail", kwargs={"reference": order.reference}),
+        HTTP_ORIGIN="https://wedding.example",
+    )
+    token = order_detail.json()["guest_management_url"].rsplit("/", 1)[-1]
+    client.logout()
+
+    detail = client.get(reverse("guest-management-detail", kwargs={"token": token}))
+    wishes = client.get(reverse("guest-management-wishes", kwargs={"token": token}))
+    public_wishes = client.get(
+        reverse(
+            "invitation-wishes",
+            kwargs={"public_slug": order.invitation.public_slug},
+        ),
+        {"access": wishes_token_for(order.invitation)},
+    )
+    rsvp = client.post(
+        reverse(
+            "invitation-rsvp",
+            kwargs={"public_slug": order.invitation.public_slug},
+        ),
+        {
+            "token": "not-used-for-essential",
+            "rsvp_status": Guest.RSVPStatus.ACCEPTED,
+            "attendance_count": 1,
+        },
+        content_type="application/json",
+    )
+
+    assert order_detail.status_code == 200
+    assert order_detail.json()["wishes_url"] == ""
+    assert detail.status_code == 200
+    assert detail.json()["invitation"]["package_code"] == "essential"
+    assert detail.json()["capabilities"] == {
+        "rsvp": False,
+        "guest_wishes": False,
+    }
+    assert wishes.status_code == 404
+    assert public_wishes.status_code == 404
+    assert rsvp.status_code == 404
+
+
+@pytest.mark.django_db
 def test_guest_management_link_allows_client_import_and_delivery_tracking(client):
     staff, order = create_staff_order_fixture("guest-management-001")
     client.force_login(staff)
@@ -1398,6 +1460,10 @@ def test_guest_management_link_allows_client_import_and_delivery_tracking(client
     detail = client.get(reverse("guest-management-detail", kwargs={"token": token}))
     assert detail.status_code == 200
     assert detail.json()["invitation"]["public_slug"] == order.invitation.public_slug
+    assert detail.json()["capabilities"] == {
+        "rsvp": True,
+        "guest_wishes": True,
+    }
 
     wishes_response = client.get(reverse("guest-management-wishes", kwargs={"token": token}))
     assert wishes_response.status_code == 200
