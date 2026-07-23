@@ -8,7 +8,7 @@ vi.mock("@/lib/env", () => ({
   },
 }));
 
-import { fetchPublicInvitation } from "./public";
+import { fetchPublicInvitation, fetchPublicPackages } from "./public";
 
 const invitationPayload = {
   ...getSampleInvitation("elegant-classic", "id"),
@@ -166,5 +166,40 @@ describe("fetchPublicInvitation", () => {
       "CF_ACCESS_CLIENT_ID and CF_ACCESS_CLIENT_SECRET must be configured together",
     );
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("fetchPublicPackages", () => {
+  it("drops package codes that are no longer supported", async () => {
+    const packagePayload = {
+      code: "signature",
+      currency: "IDR",
+      features: [
+        {
+          feature_key: "weather",
+          is_included: true,
+          label: "Prakiraan cuaca",
+          value: "",
+        },
+      ],
+      is_featured: true,
+      name: "Signature",
+      price: "249000.00",
+      summary: "Pengalaman lengkap.",
+    };
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json([
+        packagePayload,
+        {
+          ...packagePayload,
+          code: "bespoke",
+          name: "Legacy package",
+        },
+      ]),
+    );
+
+    await expect(fetchPublicPackages("id")).resolves.toEqual([
+      expect.objectContaining({ code: "signature" }),
+    ]);
   });
 });

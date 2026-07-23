@@ -36,7 +36,7 @@ export const publicThemePageSchema = z.object({
 });
 
 export const publicPackageSchema = z.object({
-  code: z.string(),
+  code: packageCodeSchema,
   price: z.string(),
   currency: z.string(),
   is_featured: z.boolean(),

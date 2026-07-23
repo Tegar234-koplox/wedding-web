@@ -208,9 +208,14 @@ export async function fetchPublicPackages(
   locale: Locale,
 ): Promise<PublicPackage[] | null> {
   try {
-    return publicPackageSchema
-      .array()
-      .parse(await apiFetch(`/packages?locale=${locale}`));
+    const payload = await apiFetch(`/packages?locale=${locale}`);
+    if (!Array.isArray(payload)) {
+      return null;
+    }
+    return payload.flatMap((item) => {
+      const parsed = publicPackageSchema.safeParse(item);
+      return parsed.success ? [parsed.data] : [];
+    });
   } catch {
     return null;
   }
