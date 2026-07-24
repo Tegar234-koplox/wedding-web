@@ -2,14 +2,21 @@ from decimal import Decimal
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.urls import reverse
 from django.utils import timezone
 
+from common.validators import validate_invitation_content
 from invitations.models import Invitation, InvitationMedia
 from invitations.preview import preview_token_for
 from media_library.models import MediaAsset
 from orders.models import Order
-from tests.factories import create_invitation, create_package, create_theme
+from tests.factories import (
+    create_invitation,
+    create_package,
+    create_theme,
+    invitation_content,
+)
 
 
 def _staff_order_with_photo(reference: str):
@@ -65,6 +72,10 @@ def test_staff_copy_and_replaced_cover_round_trip_to_preview_and_public(client):
     client.force_login(staff)
 
     cover_url = "https://res.cloudinary.com/demo/image/upload/custom-cover.jpg"
+    gallery_urls = [
+        f"https://res.cloudinary.com/demo/image/upload/gallery-{index}.jpg"
+        for index in range(1, 15)
+    ]
     response = client.patch(
         reverse("admin-order-detail", kwargs={"reference": order.reference}),
         {
@@ -83,7 +94,11 @@ def test_staff_copy_and_replaced_cover_round_trip_to_preview_and_public(client):
                 "text": " Kutipan pilihan pasangan. ",
                 "attribution": " Alya dan Raka ",
             },
-            "media_urls": {"photo": cover_url},
+            "couple": {
+                "partnerOneDescription": " Putri terkasih dari keluarga. ",
+                "partnerTwoDescription": " Putra terkasih dari keluarga. ",
+            },
+            "media_urls": {"gallery": gallery_urls, "photo": cover_url},
             "photo_focal": {"focal_x": "24.25", "focal_y": 73.5},
         },
         content_type="application/json",
@@ -106,6 +121,10 @@ def test_staff_copy_and_replaced_cover_round_trip_to_preview_and_public(client):
         "text": "Kutipan pilihan pasangan.",
         "attribution": "Alya dan Raka",
     }
+    assert detail["invitation"]["couple"] == {
+        "partnerOneDescription": "Putri terkasih dari keluarga.",
+        "partnerTwoDescription": "Putra terkasih dari keluarga.",
+    }
     photo_payload = next(item for item in detail["media"] if item["role"] == "photo")
     assert photo_payload["asset"]["secure_url"] == cover_url
     assert photo_payload["focal_x"] == 24.25
@@ -121,6 +140,22 @@ def test_staff_copy_and_replaced_cover_round_trip_to_preview_and_public(client):
     assert photo.asset.secure_url == cover_url
     assert photo.focal_x == Decimal("24.25")
     assert photo.focal_y == Decimal("73.50")
+    assert len(invitation.content["gallery"]) == 14
+
+    rename_response = client.patch(
+        reverse("admin-order-detail", kwargs={"reference": order.reference}),
+        {"client_name": "Nadia & Faris"},
+        content_type="application/json",
+    )
+    assert rename_response.status_code == 200
+    invitation.refresh_from_db()
+    assert invitation.content["couple"] == {
+        "partnerOne": "Nadia",
+        "partnerOneDescription": "Putri terkasih dari keluarga.",
+        "partnerTwo": "Faris",
+        "partnerTwoDescription": "Putra terkasih dari keluarga.",
+        "monogram": "N&F",
+    }
 
     invitation.status = Invitation.Status.PUBLISHED
     invitation.approval_status = Invitation.ApprovalStatus.PUBLISHED
@@ -148,6 +183,13 @@ def test_staff_copy_and_replaced_cover_round_trip_to_preview_and_public(client):
             "Bagian tengah yang dapat diganti."
         )
         assert payload["content"]["quote"] == detail["invitation"]["quote"]
+        assert payload["content"]["couple"]["partnerOneDescription"] == (
+            "Putri terkasih dari keluarga."
+        )
+        assert payload["content"]["couple"]["partnerTwoDescription"] == (
+            "Putra terkasih dari keluarga."
+        )
+        assert len(payload["content"]["gallery"]) == 14
 
     clear_response = client.patch(
         reverse("admin-order-detail", kwargs={"reference": order.reference}),
@@ -176,6 +218,10 @@ def test_staff_copy_and_replaced_cover_round_trip_to_preview_and_public(client):
         ),
         ({"quote": {"text": "x" * 501}}, "quote.text"),
         ({"quote": {"attribution": "x" * 121}}, "quote.attribution"),
+        (
+            {"couple": {"partnerOneDescription": "x" * 301}},
+            "couple.partnerOneDescription",
+        ),
         ({"photo_focal": {"focal_x": -1, "focal_y": 50}}, "photo_focal.focal_x"),
         ({"photo_focal": {"focal_x": 50, "focal_y": 101}}, "photo_focal.focal_y"),
     ],
@@ -194,6 +240,25 @@ def test_staff_rejects_invalid_editable_copy_and_focal_point(client, payload, er
 
     assert response.status_code == 400
     assert error_field in response.json()["error"]["details"]
+
+
+def test_invitation_content_validator_accepts_fourteen_http_gallery_items():
+    content = invitation_content()
+    content["gallery"] = [
+        {
+            "src": f"https://res.cloudinary.com/demo/image/upload/gallery-{index}.jpg",
+            "alt": f"Gallery {index}",
+        }
+        for index in range(1, 15)
+    ]
+
+    validate_invitation_content(content)
+
+    content["gallery"] = [
+        {"src": f"/images/gallery-{index}.jpg", "alt": f"Gallery {index}"} for index in range(1, 20)
+    ]
+    with pytest.raises(ValidationError, match="between 3 and 18"):
+        validate_invitation_content(content)
 
 
 @pytest.mark.django_db

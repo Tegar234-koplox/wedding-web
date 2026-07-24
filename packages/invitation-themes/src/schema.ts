@@ -110,7 +110,9 @@ export const invitationContentSchema = z.object({
     .optional(),
   couple: z.object({
     partnerOne: safeText.max(80),
+    partnerOneDescription: safeText.max(300).optional(),
     partnerTwo: safeText.max(80),
+    partnerTwoDescription: safeText.max(300).optional(),
     monogram: safeText.max(8),
   }),
   opening: z.object({

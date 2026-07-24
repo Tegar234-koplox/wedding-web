@@ -124,7 +124,10 @@ export type DetailTimelineEntry = {
 };
 
 export type DetailTimeline = Partial<
-  Record<"opening" | "middle" | "final" | "conflict" | "intimacy" | "trust", DetailTimelineEntry[]>
+  Record<
+    "opening" | "middle" | "final" | "conflict" | "intimacy" | "trust",
+    DetailTimelineEntry[]
+  >
 >;
 
 export type GuestDeliveryLink = {
@@ -213,6 +216,10 @@ export type StaffOrderDetail = {
     package_code: string | null;
     renderer_key: string;
     bank_accounts: Array<Record<string, string>>;
+    couple?: {
+      partnerOneDescription?: string;
+      partnerTwoDescription?: string;
+    };
     rsvp_manual: Record<string, number | string>;
     story: {
       body?: string;
@@ -274,7 +281,10 @@ export const manualPaymentMethodLabels: Record<ManualPaymentMethod, string> = {
   other: "Lainnya",
 };
 
-export const manualPaymentReviewLabels: Record<ManualPaymentReviewStatus, string> = {
+export const manualPaymentReviewLabels: Record<
+  ManualPaymentReviewStatus,
+  string
+> = {
   pending: "Belum dicek",
   valid: "Valid",
   rejected: "Ditolak",
@@ -324,9 +334,15 @@ export class StaffFetchError extends Error {
 
 const staffRequestTimeoutMs = 30_000;
 
-async function requestStaffApi(path: string, init?: RequestInit): Promise<Response> {
+async function requestStaffApi(
+  path: string,
+  init?: RequestInit,
+): Promise<Response> {
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), staffRequestTimeoutMs);
+  const timeout = window.setTimeout(
+    () => controller.abort(),
+    staffRequestTimeoutMs,
+  );
   try {
     return await fetch(staffApiPath(path), {
       ...init,
@@ -370,7 +386,10 @@ async function csrfToken(): Promise<string> {
   return payload.csrfToken;
 }
 
-export async function staffFetch<T>(path: string, init?: RequestInit): Promise<T> {
+export async function staffFetch<T>(
+  path: string,
+  init?: RequestInit,
+): Promise<T> {
   const method = (init?.method ?? "GET").toUpperCase();
   const unsafe = !["GET", "HEAD", "OPTIONS"].includes(method);
   const headers: Record<string, string> = {
@@ -428,13 +447,19 @@ export async function staffDownload(path: string): Promise<Blob> {
   });
 
   if (!response.ok) {
-    throw new StaffFetchError(`Download CSV gagal (${response.status})`, response.status);
+    throw new StaffFetchError(
+      `Download CSV gagal (${response.status})`,
+      response.status,
+    );
   }
 
   return response.blob();
 }
 
-export async function staffUpload<T>(path: string, formData: FormData): Promise<T> {
+export async function staffUpload<T>(
+  path: string,
+  formData: FormData,
+): Promise<T> {
   const response = await requestStaffApi(path, {
     body: formData,
     credentials: "include",
@@ -468,7 +493,9 @@ export async function staffUpload<T>(path: string, formData: FormData): Promise<
   return response.json() as Promise<T>;
 }
 
-export function workflowFor(order: Pick<Order, "status" | "workflow_label">): string {
+export function workflowFor(
+  order: Pick<Order, "status" | "workflow_label">,
+): string {
   return order.workflow_label ?? statusWorkflow[order.status] ?? order.status;
 }
 
@@ -497,7 +524,10 @@ export function normalizeCurrencyInput(value: string): string {
     const last = parts.at(-1) ?? "";
     normalized =
       parts.length > 1 && last.length > 0 && last.length <= 2
-        ? `${parts.slice(0, -1).join("").replace(/[^\d-]/g, "")}.${last}`
+        ? `${parts
+            .slice(0, -1)
+            .join("")
+            .replace(/[^\d-]/g, "")}.${last}`
         : cleaned.replace(/[^\d-]/g, "");
   }
 
@@ -512,5 +542,7 @@ export function formatDate(value?: string | null): string {
   if (!value) {
     return "-";
   }
-  return new Intl.DateTimeFormat("id-ID", { dateStyle: "medium" }).format(new Date(value));
+  return new Intl.DateTimeFormat("id-ID", { dateStyle: "medium" }).format(
+    new Date(value),
+  );
 }

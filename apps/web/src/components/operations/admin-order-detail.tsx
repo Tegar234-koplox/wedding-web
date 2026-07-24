@@ -70,6 +70,8 @@ type OrderDetailForm = {
   custom_checklist_overlay: boolean;
   custom_checklist_parallax: boolean;
   custom_status: CustomStatus;
+  bride_description: string;
+  groom_description: string;
   gallery_urls: string;
   package_code: string;
   payment_status: PaymentStatus;
@@ -120,6 +122,7 @@ type MediaSectionPlan = {
   count: number;
   description: string;
   label: string;
+  photoLabels?: string[];
   section: number;
 };
 
@@ -179,6 +182,8 @@ const emptyForm: OrderDetailForm = {
   custom_checklist_overlay: false,
   custom_checklist_parallax: false,
   custom_status: "none",
+  bride_description: "",
+  groom_description: "",
   gallery_urls: "",
   package_code: "",
   payment_status: "unpaid",
@@ -276,9 +281,10 @@ const mediaSectionPlans: Record<string, MediaSectionPlan[]> = {
   ],
   essential: [
     {
-      count: 3,
-      description: "Foto setelah informasi acara dan lokasi.",
-      label: "3 foto",
+      count: 2,
+      description: "Foto interaktif kedua mempelai setelah waktu dan tempat.",
+      label: "2 foto",
+      photoLabels: ["Mempelai pria", "Mempelai wanita"],
       section: 2,
     },
     {
@@ -288,9 +294,9 @@ const mediaSectionPlans: Record<string, MediaSectionPlan[]> = {
       section: 4,
     },
     {
-      count: 2,
-      description: "Foto setelah gift sebelum closing.",
-      label: "2 foto",
+      count: 9,
+      description: "Galeri 3 x 3 setelah gift sebelum closing.",
+      label: "9 foto",
       section: 6,
     },
   ],
@@ -566,6 +572,8 @@ function fromDetail(detail: StaffOrderDetail): OrderDetailForm {
     custom_checklist_overlay: Boolean(customChecklist.overlay_assets),
     custom_checklist_parallax: Boolean(customChecklist.parallax_plan),
     custom_status: detail.order.custom_status ?? "none",
+    bride_description: detail.invitation?.couple?.partnerOneDescription ?? "",
+    groom_description: detail.invitation?.couple?.partnerTwoDescription ?? "",
     gallery_urls: gallery.map((item) => item.asset.secure_url).join("\n"),
     package_code:
       detail.order.package_code ?? detail.invitation?.package_code ?? "",
@@ -868,6 +876,14 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
             client_email: form.client_email.trim(),
             client_name: form.client_name.trim(),
             client_phone: form.client_phone.trim(),
+            ...(form.package_code === "essential"
+              ? {
+                  couple: {
+                    partnerOneDescription: form.bride_description.trim(),
+                    partnerTwoDescription: form.groom_description.trim(),
+                  },
+                }
+              : {}),
             custom_approval_notes: form.custom_approval_notes.trim(),
             custom_brief: form.custom_brief.trim(),
             custom_checklist: {
@@ -1591,6 +1607,32 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
                 />
               </Field>
             </div>
+            {form.package_code === "essential" ? (
+              <div className="mt-5 grid gap-4 md:grid-cols-2">
+                <Field label="Keterangan mempelai pria">
+                  <textarea
+                    className={`${controlClassName} min-h-28 py-3`}
+                    maxLength={300}
+                    onChange={(event) =>
+                      updateForm("groom_description", event.target.value)
+                    }
+                    placeholder="Contoh: Putra dari Bapak ... dan Ibu ..."
+                    value={form.groom_description}
+                  />
+                </Field>
+                <Field label="Keterangan mempelai wanita">
+                  <textarea
+                    className={`${controlClassName} min-h-28 py-3`}
+                    maxLength={300}
+                    onChange={(event) =>
+                      updateForm("bride_description", event.target.value)
+                    }
+                    placeholder="Contoh: Putri dari Bapak ... dan Ibu ..."
+                    value={form.bride_description}
+                  />
+                </Field>
+              </div>
+            ) : null}
             <div className="mt-5 grid gap-4 md:grid-cols-2">
               <EventFields
                 address={form.ceremony_address}
@@ -1984,7 +2026,8 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
                               return (
                                 <label className="block" key={galleryIndex}>
                                   <span className="text-[0.62rem] uppercase tracking-[0.14em] text-white/40">
-                                    Foto {index + 1}
+                                    {section.photoLabels?.[index] ??
+                                      `Foto ${index + 1}`}
                                   </span>
                                   <input
                                     className={`${controlClassName} mt-2`}

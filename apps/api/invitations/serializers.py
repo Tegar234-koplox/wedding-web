@@ -432,7 +432,17 @@ class PublicInvitationSerializer(serializers.ModelSerializer[Invitation]):
             **content,
             "couple": {
                 "partnerOne": partner_one or "Nama Pasangan",
+                **(
+                    {"partnerOneDescription": str(couple.get("partnerOneDescription")).strip()}
+                    if str(couple.get("partnerOneDescription") or "").strip()
+                    else {}
+                ),
                 "partnerTwo": partner_two or "Nama Pasangan",
+                **(
+                    {"partnerTwoDescription": str(couple.get("partnerTwoDescription")).strip()}
+                    if str(couple.get("partnerTwoDescription") or "").strip()
+                    else {}
+                ),
                 "monogram": monogram[:8],
             },
             "opening": {

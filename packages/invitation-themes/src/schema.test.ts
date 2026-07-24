@@ -37,6 +37,31 @@ describe("section story copy", () => {
   });
 });
 
+describe("couple profile copy", () => {
+  it("accepts optional descriptions up to 300 characters", () => {
+    const result = invitationContentSchema.shape.couple.safeParse({
+      partnerOne: "Alya",
+      partnerOneDescription: "Putra terkasih dari keluarga.",
+      partnerTwo: "Raka",
+      partnerTwoDescription: "Putri terkasih dari keluarga.",
+      monogram: "A&R",
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects a description longer than 300 characters", () => {
+    const result = invitationContentSchema.shape.couple.safeParse({
+      partnerOne: "Alya",
+      partnerOneDescription: "a".repeat(301),
+      partnerTwo: "Raka",
+      monogram: "A&R",
+    });
+
+    expect(result.success).toBe(false);
+  });
+});
+
 describe("invitation cover snapshot", () => {
   it("accepts a responsive Cloudinary cover focal point", () => {
     const result = invitationContentSchema.shape.cover.safeParse({

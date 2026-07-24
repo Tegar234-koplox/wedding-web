@@ -3,6 +3,7 @@ import {
   type InvitationContent,
   type InvitationEnvelope,
   type InvitationLocale,
+  type PackageCode,
   type RendererKey,
 } from "@wedding/invitation-themes";
 
@@ -104,10 +105,7 @@ const identities: Record<RendererKey, SampleIdentity> = {
   },
 };
 
-const galleryByTheme: Record<
-  RendererKey,
-  InvitationContent["gallery"]
-> = {
+const galleryByTheme: Record<RendererKey, InvitationContent["gallery"]> = {
   "elegant-classic": [
     {
       src: "/images/hero-editorial.webp",
@@ -184,9 +182,31 @@ const galleryByTheme: Record<
   ],
 };
 
+const essentialGallery: InvitationContent["gallery"] = [
+  {
+    src: "/images/invitation-essential/section-2/groom.webp",
+    alt: "Portrait of the groom",
+  },
+  {
+    src: "/images/invitation-essential/section-2/bride.webp",
+    alt: "Portrait of the bride",
+  },
+  ...Array.from({ length: 3 }, (_, index) => ({
+    src: `/images/invitation-essential/section-4/section-4-0${index + 1}.webp`,
+    alt: `Essential story portrait ${index + 1}`,
+  })),
+  ...Array.from({ length: 9 }, (_, index) => ({
+    src: `/images/invitation-essential/section-6/gallery-${String(
+      index + 1,
+    ).padStart(2, "0")}.webp`,
+    alt: `Essential gallery portrait ${index + 1}`,
+  })),
+];
+
 function createContent(
   key: RendererKey,
   locale: InvitationLocale,
+  packageCode?: PackageCode,
 ): InvitationContent {
   const identity = identities[key];
   const id = locale === "id";
@@ -195,7 +215,13 @@ function createContent(
   return {
     couple: {
       partnerOne: identity.partnerOne,
+      partnerOneDescription: id
+        ? "Mempelai wanita, putri terkasih dari keluarga."
+        : "The bride, a beloved daughter of the family.",
       partnerTwo: identity.partnerTwo,
+      partnerTwoDescription: id
+        ? "Mempelai pria, putra terkasih dari keluarga."
+        : "The groom, a beloved son of the family.",
       monogram: `${identity.partnerOne[0]}&${identity.partnerTwo[0]}`,
     },
     opening: {
@@ -229,7 +255,8 @@ function createContent(
         : "And among His signs is that He created for you partners from among yourselves.",
       attribution: "Ar-Rum · 21",
     },
-    gallery: galleryByTheme[key],
+    gallery:
+      packageCode === "essential" ? essentialGallery : galleryByTheme[key],
     closing: {
       heading: id ? "Sampai bertemu" : "We hope to see you",
       message: id
@@ -242,12 +269,13 @@ function createContent(
 export function getSampleInvitation(
   key: RendererKey,
   locale: InvitationLocale,
+  packageCode?: PackageCode,
 ): InvitationEnvelope {
   return parseInvitationEnvelope({
     rendererKey: key,
     rendererVersion: 2,
     contentSchemaVersion: 1,
     locale,
-    content: createContent(key, locale),
+    content: createContent(key, locale, packageCode),
   });
 }

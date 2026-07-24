@@ -160,7 +160,11 @@ def _couple_from_client_name(client_name: str) -> dict[str, str]:
 
 def _sync_invitation_couple(invitation: Invitation, client_name: str) -> None:
     content = invitation.content if isinstance(invitation.content, dict) else {}
-    content["couple"] = _couple_from_client_name(client_name)
+    current_couple = content.get("couple") if isinstance(content.get("couple"), dict) else {}
+    content["couple"] = {
+        **current_couple,
+        **_couple_from_client_name(client_name),
+    }
     invitation.content = content
     invitation.save(update_fields=["content", "updated_at"])
 
@@ -319,6 +323,24 @@ def _update_event(invitation: Invitation, event_type: str, data: dict) -> None:
 def _update_invitation_content(invitation: Invitation, data: dict) -> None:
     content = invitation.content if isinstance(invitation.content, dict) else {}
     changed = False
+    if "couple" in data:
+        raw_couple = data.get("couple")
+        if not isinstance(raw_couple, dict):
+            raise ValidationError({"couple": "Couple must be an object."})
+        current_couple = content.get("couple") if isinstance(content.get("couple"), dict) else {}
+        updated_couple = dict(current_couple)
+        for field in ["partnerOneDescription", "partnerTwoDescription"]:
+            if field not in raw_couple:
+                continue
+            value = str(raw_couple.get(field) or "").strip()
+            if len(value) > 300:
+                raise ValidationError({f"couple.{field}": "Must be 300 characters or fewer."})
+            if value:
+                updated_couple[field] = value
+            else:
+                updated_couple.pop(field, None)
+        content["couple"] = updated_couple
+        changed = True
     if "story" in data:
         raw_story = data.get("story")
         if not isinstance(raw_story, dict):
@@ -684,6 +706,7 @@ class StaffOrderDetailView(RetrieveUpdateAPIView):
             "ceremony",
             "reception",
             "bank_accounts",
+            "couple",
             "rsvp_manual",
             "media_urls",
             "photo_focal",

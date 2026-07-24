@@ -1,4 +1,11 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { rendererKeys } from "@wedding/invitation-themes";
 import React from "react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -59,9 +66,7 @@ describe("renderer v2 invitation experience", () => {
       />,
     );
     const fallbackCover = screen.getByAltText(/Wedding cover/);
-    expect(fallbackCover.getAttribute("src")).toContain(
-      "elegant-classic.webp",
-    );
+    expect(fallbackCover.getAttribute("src")).toContain("elegant-classic.webp");
     expect(fallbackCover.getAttribute("style")).toContain("50% 50%");
     expect(fallbackCover.getAttribute("data-cover-source")).toBe("theme");
   });
@@ -144,7 +149,8 @@ describe("renderer v2 invitation experience", () => {
       />,
     );
     expect(
-      premium.container.querySelector('[data-cover-frame="signature"]')
+      premium.container
+        .querySelector('[data-cover-frame="signature"]')
         ?.getAttribute("data-frame-motion"),
     ).toBe("static");
     premium.unmount();
@@ -159,10 +165,10 @@ describe("renderer v2 invitation experience", () => {
       '[data-cover-frame="signature"]',
     ) as HTMLElement;
     expect(minimalistCover.style.getPropertyValue("--card-border")).toBe(
-      "#33412F",
+      "#3F7D5A",
     );
     expect(minimalistCover.style.getPropertyValue("--card-shine")).toBe(
-      "#33412F",
+      "#3F7D5A",
     );
     minimalist.unmount();
 
@@ -173,11 +179,13 @@ describe("renderer v2 invitation experience", () => {
       />,
     );
     expect(
-      unchanged.container.querySelector('[data-cover-frame="couture"]')
+      unchanged.container
+        .querySelector('[data-cover-frame="couture"]')
         ?.getAttribute("data-frame-style"),
     ).toBe("standard");
     expect(
-      unchanged.container.querySelector('[data-cover-frame="couture"]')
+      unchanged.container
+        .querySelector('[data-cover-frame="couture"]')
         ?.getAttribute("data-frame-motion"),
     ).toBe("static");
   });
@@ -356,9 +364,8 @@ describe("renderer v2 invitation experience", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Buka Undangan" }));
     expect(
-      essential.container.querySelectorAll(
-        '[data-invitation-card="essential"]',
-      ).length,
+      essential.container.querySelectorAll('[data-invitation-card="essential"]')
+        .length,
     ).toBeGreaterThan(0);
     expect(
       essential.container.querySelector('[data-ambient-dots="essential"]'),
@@ -373,9 +380,8 @@ describe("renderer v2 invitation experience", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Buka Undangan" }));
     expect(
-      signature.container.querySelectorAll(
-        '[data-invitation-card="signature"]',
-      ).length,
+      signature.container.querySelectorAll('[data-invitation-card="signature"]')
+        .length,
     ).toBeGreaterThan(0);
     expect(
       signature.container.querySelector(
@@ -432,6 +438,140 @@ describe("renderer v2 invitation experience", () => {
     expect(screen.getByText("Rekening pengantin")).toBeTruthy();
     expect(screen.getByText("BCA 615xxxxx")).toBeTruthy();
   });
+
+  it("renders the new Essential section order and toggles the couple reveal", () => {
+    const invitation = getSampleInvitation(
+      "elegant-classic",
+      "id",
+      "essential",
+    );
+    const { container } = render(
+      <RendererV2 invitation={invitation} packageCode="essential" />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Buka Undangan" }));
+
+    expect(
+      Array.from(
+        container.querySelectorAll<HTMLElement>("[data-essential-section]"),
+      ).map((section) => section.dataset.essentialSection),
+    ).toEqual(["1", "2", "3", "4", "5", "6", "7"]);
+    expect(
+      container.querySelectorAll("[data-essential-gallery-item]"),
+    ).toHaveLength(9);
+    expect(
+      Array.from(container.querySelectorAll("[data-couple-panel]")).map(
+        (panel) => panel.getAttribute("data-couple-panel"),
+      ),
+    ).toEqual(["groom", "bride"]);
+
+    const toggle = screen.getByRole("button", {
+      name: "Buka foto kedua mempelai",
+    });
+    expect(screen.queryByText(/belum terlihat/i)).toBeNull();
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(toggle.getAttribute("data-heart-state")).toBe("broken");
+    expect(container.querySelectorAll("[data-couple-photo] img")).toHaveLength(
+      2,
+    );
+
+    fireEvent.click(toggle);
+
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(toggle.getAttribute("data-heart-state")).toBe("whole");
+    expect(
+      screen.getByText("Mempelai pria, putra terkasih dari keluarga."),
+    ).toBeTruthy();
+    expect(
+      screen.getByText("Mempelai wanita, putri terkasih dari keluarga."),
+    ).toBeTruthy();
+    expect(
+      container
+        .querySelector('[data-couple-panel="groom"] img')
+        ?.getAttribute("src"),
+    ).toContain("section-2%2Fgroom.webp");
+    expect(
+      container
+        .querySelector('[data-couple-panel="bride"] img')
+        ?.getAttribute("src"),
+    ).toContain("section-2%2Fbride.webp");
+    expect(
+      container
+        .querySelector('[data-couple-panel="groom"] h2')
+        ?.textContent?.trim(),
+    ).toBe("Raka");
+    expect(
+      container
+        .querySelector('[data-couple-panel="bride"] h2')
+        ?.textContent?.trim(),
+    ).toBe("Alya");
+    const groomCaption = container.querySelector(
+      '[data-couple-caption="groom"]',
+    ) as HTMLElement;
+    expect(groomCaption.classList.contains("border")).toBe(false);
+    expect(groomCaption.classList.contains("bottom-14")).toBe(true);
+    expect(
+      groomCaption
+        .querySelector("[data-couple-caption-surface]")
+        ?.classList.contains("opacity-40"),
+    ).toBe(true);
+
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(toggle.getAttribute("data-heart-state")).toBe("broken");
+  });
+
+  it.each(rendererKeys)(
+    "uses the %s heart assets for Essential without adding the interaction to premium packages",
+    (rendererKey) => {
+      const invitation = getSampleInvitation(rendererKey, "en", "essential");
+      const essential = render(
+        <RendererV2 invitation={invitation} packageCode="essential" />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Open Invitation" }));
+      const toggle = screen.getByRole("button", {
+        name: "Reveal couple photos",
+      });
+      const heartSources = Array.from(toggle.querySelectorAll("img")).map(
+        (image) => image.getAttribute("src"),
+      );
+      expect(
+        heartSources.some((src) => src?.includes(`${rendererKey}-broken.svg`)),
+      ).toBe(true);
+      expect(
+        heartSources.some((src) => src?.includes(`${rendererKey}-whole.svg`)),
+      ).toBe(true);
+      fireEvent.click(toggle);
+      const couplePanels = essential.container.querySelectorAll(
+        "[data-couple-panel]",
+      );
+      expect(couplePanels[0]?.getAttribute("data-couple-panel")).toBe("groom");
+      expect(couplePanels[1]?.getAttribute("data-couple-panel")).toBe("bride");
+      expect(couplePanels[0]?.querySelector("h2")?.textContent?.trim()).toBe(
+        invitation.content.couple.partnerTwo,
+      );
+      expect(couplePanels[1]?.querySelector("h2")?.textContent?.trim()).toBe(
+        invitation.content.couple.partnerOne,
+      );
+      essential.unmount();
+
+      for (const packageCode of ["signature", "couture"] as const) {
+        const premium = render(
+          <RendererV2
+            invitation={getSampleInvitation(rendererKey, "en")}
+            packageCode={packageCode}
+          />,
+        );
+        fireEvent.click(
+          screen.getByRole("button", { name: "Open Invitation" }),
+        );
+        expect(
+          premium.container.querySelector('[data-essential-section="2"]'),
+        ).toBeNull();
+        premium.unmount();
+      }
+    },
+  );
 
   it("renders saved bank account details in the gift section", () => {
     const invitation = getSampleInvitation("luxury-gold", "id");

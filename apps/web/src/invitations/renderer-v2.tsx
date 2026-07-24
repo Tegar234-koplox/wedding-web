@@ -98,31 +98,38 @@ function timelineOverride(
   return normalized.length ? normalized : null;
 }
 
-const essentialSectionFourPhotos = [
+const essentialCouplePhotos = [
   {
-    alt: "Essential wedding portrait top composition",
-    src: "/images/invitation-essential/section-4/top.webp",
+    alt: "Essential groom portrait",
+    src: "/images/invitation-essential/section-2/groom.webp",
   },
   {
-    alt: "Essential wedding portrait middle composition",
-    src: "/images/invitation-essential/section-4/middle.webp",
-  },
-  {
-    alt: "Essential wedding portrait bottom composition",
-    src: "/images/invitation-essential/section-4/bottom.webp",
+    alt: "Essential bride portrait",
+    src: "/images/invitation-essential/section-2/bride.webp",
   },
 ] as const;
 
-const essentialSectionSixPhotos = [
+const essentialSectionFourPhotos = [
   {
-    alt: "Essential wedding portrait top closing composition",
-    src: "/images/invitation-essential/section-6/top.webp",
+    alt: "Essential wedding portrait top composition",
+    src: "/images/invitation-essential/section-4/section-4-01.webp",
   },
   {
-    alt: "Essential wedding portrait bottom closing composition",
-    src: "/images/invitation-essential/section-6/bottom.webp",
+    alt: "Essential wedding portrait middle composition",
+    src: "/images/invitation-essential/section-4/section-4-02.webp",
+  },
+  {
+    alt: "Essential wedding portrait bottom composition",
+    src: "/images/invitation-essential/section-4/section-4-03.webp",
   },
 ] as const;
+
+const essentialSectionSixPhotos = Array.from({ length: 9 }, (_, index) => ({
+  alt: `Essential gallery portrait ${index + 1}`,
+  src: `/images/invitation-essential/section-6/gallery-${String(
+    index + 1,
+  ).padStart(2, "0")}.webp`,
+}));
 
 const signatureSectionPhotos = {
   4: [
@@ -593,7 +600,10 @@ function EssentialPhotoSection({
   variant: "three" | "two";
 }) {
   return (
-    <section className="relative overflow-hidden px-2 py-2">
+    <section
+      className="relative overflow-hidden px-2 py-2"
+      data-essential-section="4"
+    >
       <div className="sr-only">{title}</div>
       <div
         className={`grid gap-2 ${
@@ -635,28 +645,268 @@ function EssentialPhotoSection({
   );
 }
 
-function EssentialGallerySection({
+function useDesktopCoupleLayout() {
+  const [desktop, setDesktop] = useState(false);
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") {
+      return;
+    }
+    const query = window.matchMedia("(min-width: 1024px)");
+    const sync = () => setDesktop(query.matches);
+    sync();
+    query.addEventListener("change", sync);
+    return () => query.removeEventListener("change", sync);
+  }, []);
+
+  return desktop;
+}
+
+function EssentialCoupleRevealSection({
+  design,
+  invitation,
+}: {
+  design: ThemeVisual;
+  invitation: InvitationEnvelope;
+}) {
+  const [opened, setOpened] = useState(false);
+  const desktop = useDesktopCoupleLayout();
+  const reducedMotion = useReducedMotion();
+  const id = invitation.locale === "id";
+  const { couple, gallery } = invitation.content;
+  const photos = sectionPhotosFromGallery(gallery, 0, 2, essentialCouplePhotos);
+  const people = [
+    {
+      description:
+        couple.partnerTwoDescription ?? (id ? "Mempelai pria" : "Groom"),
+      name: couple.partnerTwo,
+      photo: photos[0] ?? essentialCouplePhotos[0],
+      role: "groom",
+    },
+    {
+      description:
+        couple.partnerOneDescription ?? (id ? "Mempelai wanita" : "Bride"),
+      name: couple.partnerOne,
+      photo: photos[1] ?? essentialCouplePhotos[1],
+      role: "bride",
+    },
+  ] as const;
+  const hiddenPhotoPositions: readonly [
+    { x: string; y: string },
+    { x: string; y: string },
+  ] = desktop
+    ? [
+        { x: "100%", y: "0%" },
+        { x: "-100%", y: "0%" },
+      ]
+    : [
+        { x: "0%", y: "100%" },
+        { x: "0%", y: "-100%" },
+      ];
+  const buttonLabel = opened
+    ? id
+      ? "Tutup foto kedua mempelai"
+      : "Hide couple photos"
+    : id
+      ? "Buka foto kedua mempelai"
+      : "Reveal couple photos";
+  const heartBase =
+    "/images/invitation-essential/section-2/hearts/" + invitation.rendererKey;
+
+  return (
+    <section
+      className={`${design.page} relative overflow-hidden`}
+      data-essential-section="2"
+    >
+      <div
+        className="relative grid min-h-[100svh] grid-rows-2 lg:grid-cols-2 lg:grid-rows-1"
+        id="essential-couple-reveal-panels"
+      >
+        {people.map((person, index) => (
+          <div
+            className={`relative min-h-[50svh] overflow-hidden lg:min-h-[100svh] ${
+              index === 0 ? "border-b lg:border-b-0 lg:border-r" : ""
+            } ${design.border}`}
+            data-couple-panel={person.role}
+            key={person.role}
+          >
+            <motion.div
+              animate={{
+                opacity: 1,
+                x:
+                  opened
+                    ? "0%"
+                    : hiddenPhotoPositions[index === 0 ? 0 : 1].x,
+                y:
+                  opened
+                    ? "0%"
+                    : hiddenPhotoPositions[index === 0 ? 0 : 1].y,
+              }}
+              aria-hidden={!opened}
+              className="absolute inset-0 will-change-transform"
+              data-couple-photo={person.role}
+              initial={false}
+              transition={{
+                duration: reducedMotion ? 0 : 0.75,
+                ease: [0.22, 1, 0.36, 1],
+              }}
+            >
+              <Image
+                alt={person.photo.alt}
+                className="object-cover"
+                fill
+                loading="eager"
+                sizes="(max-width: 1023px) 100vw, 50vw"
+                src={person.photo.src}
+              />
+            </motion.div>
+
+            <AnimatePresence>
+              {opened ? (
+                <motion.div
+                  animate={{ opacity: 1, y: 0 }}
+                  className="absolute inset-x-10 bottom-14 z-20 px-4 pb-2 pt-4 text-center shadow-lg sm:inset-x-16 md:inset-x-20 md:bottom-16 lg:inset-x-12 lg:bottom-8"
+                  data-couple-caption={person.role}
+                  exit={{
+                    opacity: 0,
+                    transition: { duration: reducedMotion ? 0 : 0.18 },
+                    y: reducedMotion ? 0 : 8,
+                  }}
+                  initial={reducedMotion ? false : { opacity: 0, y: 14 }}
+                  key={`${person.role}-caption`}
+                  transition={{
+                    delay: reducedMotion ? 0 : 0.76,
+                    duration: reducedMotion ? 0 : 0.45,
+                    ease: [0.22, 1, 0.36, 1],
+                  }}
+                >
+                  <div
+                    aria-hidden="true"
+                    className={`${design.surface} absolute inset-0 opacity-40`}
+                    data-couple-caption-surface
+                  />
+                  <div
+                    className={`relative ${design.ink} [text-shadow:0_1px_2px_rgba(255,255,255,0.55),0_2px_7px_rgba(0,0,0,0.8)]`}
+                  >
+                    <h2 className="font-serif text-2xl italic leading-tight tracking-[0.03em] md:text-3xl">
+                      {person.name}
+                    </h2>
+                    <p className="mt-2 font-serif text-sm font-medium leading-relaxed tracking-[0.02em]">
+                      {person.description}
+                    </p>
+                  </div>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
+          </div>
+        ))}
+
+        <button
+          aria-controls="essential-couple-reveal-panels"
+          aria-expanded={opened}
+          aria-label={buttonLabel}
+          className={`${design.surface} ${design.border} ${design.glow} absolute left-1/2 top-1/2 z-40 grid size-20 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border transition hover:scale-105 focus:outline-none focus:ring-2 focus:ring-current/40`}
+          data-heart-state={opened ? "whole" : "broken"}
+          onClick={() => setOpened((current) => !current)}
+          type="button"
+        >
+          {[
+            {
+              active: !opened,
+              key: "broken",
+              src: `${heartBase}-broken.svg`,
+            },
+            {
+              active: opened,
+              key: "whole",
+              src: `${heartBase}-whole.svg`,
+            },
+          ].map((icon) => (
+            <motion.span
+              animate={{
+                opacity: icon.active ? 1 : 0,
+                scale: icon.active ? 1 : 0.92,
+              }}
+              aria-hidden
+              className="absolute inset-4"
+              initial={false}
+              key={icon.key}
+              transition={{ duration: reducedMotion ? 0 : 0.3 }}
+            >
+              <Image
+                alt=""
+                className="object-contain"
+                fill
+                sizes="3rem"
+                src={icon.src}
+                unoptimized
+              />
+            </motion.span>
+          ))}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function EssentialNinePhotoGallery({
   design,
   gallery,
 }: {
   design: ThemeVisual;
   gallery: InvitationEnvelope["content"]["gallery"];
 }) {
+  const reducedMotion = useReducedMotion();
+  const photos = sectionPhotosFromGallery(
+    gallery,
+    5,
+    9,
+    essentialSectionSixPhotos,
+  );
+
   return (
-    <section className="relative overflow-hidden px-2 py-2">
-      <div className="grid gap-2 md:grid-cols-3">
-        {gallery.slice(0, 3).map((image, index) => (
+    <section
+      className={`${design.page} relative overflow-hidden px-2 py-16 md:px-4 md:py-24`}
+      data-essential-section="6"
+    >
+      <motion.div
+        className="grid grid-cols-3 gap-2 md:gap-3"
+        initial={reducedMotion ? false : "hidden"}
+        variants={{
+          hidden: {},
+          visible: {
+            transition: {
+              staggerChildren: reducedMotion ? 0 : 0.07,
+            },
+          },
+        }}
+        viewport={{ once: true, amount: 0.2 }}
+        whileInView="visible"
+      >
+        {photos.map((image, index) => (
           <motion.div
-            initial={{ opacity: 0, scale: 1.015 }}
+            data-essential-gallery-item
             key={`${image.src}-${index}`}
-            viewport={{ once: true, amount: 0.18 }}
-            whileInView={{ opacity: 1, scale: 1 }}
+            variants={{
+              hidden: {
+                opacity: 0,
+                scale: 0.98,
+                y: 22,
+              },
+              visible: {
+                opacity: 1,
+                scale: 1,
+                transition: {
+                  duration: reducedMotion ? 0 : 0.55,
+                  ease: [0.22, 1, 0.36, 1],
+                },
+                y: 0,
+              },
+            }}
           >
             <InvitationCard
               className="h-full"
-              contentClassName={`relative min-h-[58svh] ${
-                index === 1 ? "md:min-h-[70svh]" : ""
-              }`}
+              contentClassName="relative aspect-[4/5]"
               design={design}
               packageCode="essential"
               photo
@@ -665,13 +915,13 @@ function EssentialGallerySection({
                 alt={image.alt}
                 className="object-cover"
                 fill
-                sizes="(max-width: 767px) 100vw, 33vw"
+                sizes="33vw"
                 src={image.src}
               />
             </InvitationCard>
           </motion.div>
         ))}
-      </div>
+      </motion.div>
     </section>
   );
 }
@@ -690,6 +940,7 @@ function EssentialGiftSection({
   return (
     <section
       className={`${design.surface} relative grid min-h-[78svh] place-items-center overflow-hidden px-6 py-24 text-center md:px-12`}
+      data-essential-section="5"
     >
       <FadeText className="mx-auto max-w-3xl">
         <p
@@ -1377,8 +1628,7 @@ function SignatureGiftSection({
   const [opened, setOpened] = useState(false);
   const id = invitation.locale === "id";
   const account = getGiftAccount(invitation, id);
-  const folder =
-    signatureGiftFolders[invitation.rendererKey as RendererKey];
+  const folder = signatureGiftFolders[invitation.rendererKey as RendererKey];
 
   return (
     <section
@@ -1456,8 +1706,7 @@ function CoutureGiftSection({
   const effectPlayedRef = useRef(false);
   const id = invitation.locale === "id";
   const account = getGiftAccount(invitation, id);
-  const folder =
-    signatureGiftFolders[invitation.rendererKey as RendererKey];
+  const folder = signatureGiftFolders[invitation.rendererKey as RendererKey];
   const effectUrl =
     coutureGiftSoundEffects[invitation.rendererKey as RendererKey];
 
@@ -1916,6 +2165,7 @@ function EventStory({
       <>
         <motion.section
           className={`${design.surface} relative overflow-hidden px-6 py-24 md:px-12 md:py-36`}
+          data-essential-section="1"
           initial={{ opacity: 0, y: revealDistance }}
           transition={{ duration: 0.85 }}
           viewport={{ once: true, amount: 0.18 }}
@@ -1939,9 +2189,12 @@ function EventStory({
           </div>
         </motion.section>
 
-        <EssentialGallerySection design={design} gallery={gallery} />
+        <EssentialCoupleRevealSection design={design} invitation={invitation} />
 
-        <section className="relative overflow-hidden px-6 py-24 md:px-12 md:py-36">
+        <section
+          className="relative overflow-hidden px-6 py-24 md:px-12 md:py-36"
+          data-essential-section="3"
+        >
           <InvitationCard
             className="relative z-30 mx-auto max-w-6xl"
             contentClassName="grid gap-14 p-7 md:p-12 lg:grid-cols-[0.85fr_1.15fr]"
@@ -1987,7 +2240,7 @@ function EventStory({
           design={design}
           photos={sectionPhotosFromGallery(
             gallery,
-            3,
+            2,
             3,
             essentialSectionFourPhotos,
           )}
@@ -1995,17 +2248,7 @@ function EventStory({
           variant="three"
         />
         <EssentialGiftSection design={design} invitation={invitation} />
-        <EssentialPhotoSection
-          design={design}
-          photos={sectionPhotosFromGallery(
-            gallery,
-            6,
-            2,
-            essentialSectionSixPhotos,
-          )}
-          title={id ? "Galeri penutup" : "Closing gallery"}
-          variant="two"
-        />
+        <EssentialNinePhotoGallery design={design} gallery={gallery} />
       </>
     );
   }
@@ -2366,6 +2609,7 @@ export function RendererV2({
             ) : null}
             <motion.section
               className={`${design.surface} relative grid min-h-[78svh] place-items-center overflow-hidden px-6 py-24 text-center`}
+              data-essential-section={essential ? "7" : undefined}
               initial={reducedMotion ? false : { opacity: 0 }}
               viewport={{ once: true, amount: 0.25 }}
               whileInView={{ opacity: 1 }}

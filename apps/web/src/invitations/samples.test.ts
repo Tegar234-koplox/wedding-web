@@ -14,4 +14,15 @@ describe("sample invitation catalog", () => {
     expect(idSample.content.gallery).toHaveLength(3);
     expect(enSample.content.event.mapUrl).toMatch(/^https:/);
   });
+
+  it.each(rendererKeys)(
+    "creates a fourteen-photo Essential live preview for %s",
+    (key) => {
+      const sample = getSampleInvitation(key, "id", "essential");
+
+      expect(sample.content.gallery).toHaveLength(14);
+      expect(sample.content.couple.partnerOneDescription).toBeTruthy();
+      expect(sample.content.couple.partnerTwoDescription).toBeTruthy();
+    },
+  );
 });

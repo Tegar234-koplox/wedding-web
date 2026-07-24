@@ -285,6 +285,7 @@ class StaffOrderDetailSerializer(serializers.Serializer):
 
     def _invitation_payload(self, invitation: Invitation) -> dict:
         content = invitation.content if isinstance(invitation.content, dict) else {}
+        couple = content.get("couple") if isinstance(content.get("couple"), dict) else {}
         story = content.get("story") if isinstance(content.get("story"), dict) else {}
         quote = content.get("quote") if isinstance(content.get("quote"), dict) else {}
         timeline = content.get("timeline") if isinstance(content.get("timeline"), dict) else {}
@@ -298,14 +299,16 @@ class StaffOrderDetailSerializer(serializers.Serializer):
             "package_code": invitation.package.code if invitation.package_id else None,
             "renderer_key": invitation.renderer_key,
             "bank_accounts": content.get("bank_accounts", []),
+            "couple": {
+                "partnerOneDescription": couple.get("partnerOneDescription", ""),
+                "partnerTwoDescription": couple.get("partnerTwoDescription", ""),
+            },
             "rsvp_manual": content.get("rsvp_manual", {}),
             "story": story,
             "quote": quote,
             "timeline": timeline,
-            "partner_one": content.get("couple", {}).get("partner_one")
-            or content.get("couple", {}).get("partnerOne", {}),
-            "partner_two": content.get("couple", {}).get("partner_two")
-            or content.get("couple", {}).get("partnerTwo", {}),
+            "partner_one": couple.get("partner_one") or couple.get("partnerOne", {}),
+            "partner_two": couple.get("partner_two") or couple.get("partnerTwo", {}),
         }
 
     def _event_payload(self, event: WeddingEvent) -> dict:

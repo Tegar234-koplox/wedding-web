@@ -57,11 +57,12 @@ export default async function PreviewPage({
     notFound();
   }
 
+  const packageCode = resolvePackageCode(query.package);
   const invitation = getSampleInvitation(
     theme.slug as RendererKey,
     locale,
+    packageCode,
   );
-  const packageCode = resolvePackageCode(query.package);
 
   return (
     <>
