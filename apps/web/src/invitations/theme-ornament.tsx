@@ -503,8 +503,9 @@ export function ThemeCoverDecoration({ config }: DecorationProps) {
 
 export function ThemeSectionDecoration({
   config,
+  front = false,
   showOverlay,
-}: DecorationProps & { showOverlay: boolean }) {
+}: DecorationProps & { front?: boolean; showOverlay: boolean }) {
   const layerRef = useRef<HTMLDivElement>(null);
   const reducedMotion = useReducedMotion();
   const isNearViewport = useInView(layerRef, {
@@ -521,7 +522,10 @@ export function ThemeSectionDecoration({
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute inset-0 z-20 overflow-hidden"
+      className={`pointer-events-none absolute inset-0 overflow-hidden ${
+        front ? "z-[60]" : "z-20"
+      }`}
+      data-decoration-front={front || undefined}
       data-decoration-layer="section"
       ref={layerRef}
     >

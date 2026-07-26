@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" fill="none">
+  <title>Mahkota retak hampir patah — Luxury Gold</title>
+  <g stroke="#9B762F" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M13 20 23 31l9-18 9 18 10-11-4 27H17l-4-27Z" fill="#F7E7B2"/>
+    <path d="M17 47h30v6H17z"/>
+    <path d="m34 19-6 9 7 5-6 8 5 6"/>
+    <path d="M30 35h-8" stroke-dasharray="3.5 4"/>
+  </g>
+</svg>

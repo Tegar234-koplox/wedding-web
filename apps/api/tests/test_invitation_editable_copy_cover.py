@@ -242,22 +242,23 @@ def test_staff_rejects_invalid_editable_copy_and_focal_point(client, payload, er
     assert error_field in response.json()["error"]["details"]
 
 
-def test_invitation_content_validator_accepts_fourteen_http_gallery_items():
+def test_invitation_content_validator_accepts_twenty_eight_http_gallery_items():
     content = invitation_content()
     content["gallery"] = [
         {
             "src": f"https://res.cloudinary.com/demo/image/upload/gallery-{index}.jpg",
             "alt": f"Gallery {index}",
         }
-        for index in range(1, 15)
+        for index in range(1, 29)
     ]
 
     validate_invitation_content(content)
 
     content["gallery"] = [
-        {"src": f"/images/gallery-{index}.jpg", "alt": f"Gallery {index}"} for index in range(1, 20)
+        {"src": f"/images/gallery-{index}.jpg", "alt": f"Gallery {index}"}
+        for index in range(1, 34)
     ]
-    with pytest.raises(ValidationError, match="between 3 and 18"):
+    with pytest.raises(ValidationError, match="between 3 and 32"):
         validate_invitation_content(content)
 
 

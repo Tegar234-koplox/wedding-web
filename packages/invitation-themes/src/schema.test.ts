@@ -147,7 +147,7 @@ describe("invitation envelope", () => {
     expect(result.success).toBe(false);
   });
 
-  it("accepts sectioned Cloudinary gallery media for Couture", () => {
+  it("accepts 28 sectioned Cloudinary gallery items for Signature", () => {
     const result = invitationEnvelopeSchema.safeParse({
       rendererKey: "elegant-classic",
       rendererVersion: 2,
@@ -178,7 +178,7 @@ describe("invitation envelope", () => {
         },
         story: { heading: "Our story", body: "A long story." },
         quote: { text: "A quote.", attribution: "Us" },
-        gallery: Array.from({ length: 18 }, (_, index) => ({
+        gallery: Array.from({ length: 28 }, (_, index) => ({
           alt: `Gallery ${index + 1}`,
           src: `https://res.cloudinary.com/demo/image/upload/gallery-${index + 1}.jpg`,
         })),

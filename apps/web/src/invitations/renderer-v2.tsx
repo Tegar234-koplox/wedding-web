@@ -14,6 +14,8 @@ import {
 } from "framer-motion";
 import {
   CalendarDays,
+  ChevronLeft,
+  ChevronRight,
   MapPin,
   Music2,
   Pause,
@@ -131,60 +133,71 @@ const essentialSectionSixPhotos = Array.from({ length: 9 }, (_, index) => ({
   ).padStart(2, "0")}.webp`,
 }));
 
-const signatureSectionPhotos = {
-  4: [
+const signatureCouplePhotos = [
+  {
+    alt: "Signature groom portrait",
+    src: "/images/invitation-signature/section-2/groom.webp",
+  },
+  {
+    alt: "Signature bride portrait",
+    src: "/images/invitation-signature/section-2/bride.webp",
+  },
+] as const;
+
+const signatureSectionFourPhotos = Array.from({ length: 3 }, (_, index) => ({
+  alt: `Signature story portrait ${index + 1}`,
+  src: `/images/invitation-signature/section-4/photo-${String(
+    index + 1,
+  ).padStart(2, "0")}.webp`,
+}));
+
+const signatureSectionSixPhotos = [
+  {
+    alt: "Signature full gallery portrait",
+    src: "/images/invitation-signature/section-6/cover.webp",
+  },
+  ...Array.from({ length: 4 }, (_, index) => ({
+    alt: `Signature quadrant portrait ${index + 1}`,
+    src: `/images/invitation-signature/section-6/quadrant-${String(
+      index + 1,
+    ).padStart(2, "0")}.webp`,
+  })),
+];
+
+const signatureSectionEightPhotos = Array.from({ length: 9 }, (_, index) => ({
+  alt: `Signature gallery portrait ${index + 1}`,
+  src: `/images/invitation-signature/section-8/photo-${String(
+    index + 1,
+  ).padStart(2, "0")}.webp`,
+}));
+
+const signatureSectionTenPhotos = Array.from({ length: 9 }, (_, index) => ({
+  alt: `Signature carousel portrait ${index + 1}`,
+  src: `/images/invitation-signature/section-10/photo-${String(
+    index + 1,
+  ).padStart(2, "0")}.webp`,
+}));
+
+const signatureToggleIcons: Record<
+  RendererKey,
+  { after: string; before: string }
+> = Object.fromEntries(
+  [
+    "dark-cinematic",
+    "elegant-classic",
+    "floral-romantic",
+    "islamic-soft",
+    "javanese-traditional",
+    "luxury-gold",
+    "minimalist-white",
+  ].map((key) => [
+    key,
     {
-      alt: "Signature wedding story photo top",
-      src: "/images/invitation-signature/section-4/top.jpg",
+      after: `/images/invitation-signature/section-2/icons/${key}-after.svg`,
+      before: `/images/invitation-signature/section-2/icons/${key}-before.svg`,
     },
-    {
-      alt: "Signature wedding story photo middle",
-      src: "/images/invitation-signature/section-4/middle.jpg",
-    },
-    {
-      alt: "Signature wedding story photo bottom",
-      src: "/images/invitation-signature/section-4/bottom.jpg",
-    },
-  ],
-  6: [
-    {
-      alt: "Signature timeline photo top",
-      src: "/images/invitation-signature/section-6/top.jpg",
-    },
-    {
-      alt: "Signature timeline photo middle",
-      src: "/images/invitation-signature/section-6/middle.jpg",
-    },
-    {
-      alt: "Signature timeline photo bottom",
-      src: "/images/invitation-signature/section-6/bottom.jpg",
-    },
-  ],
-  8: [
-    {
-      alt: "Signature blessing photo top",
-      src: "/images/invitation-signature/section-8/top.webp",
-    },
-    {
-      alt: "Signature blessing photo middle",
-      src: "/images/invitation-signature/section-8/middle.webp",
-    },
-    {
-      alt: "Signature blessing photo bottom",
-      src: "/images/invitation-signature/section-8/bottom.webp",
-    },
-  ],
-  10: [
-    {
-      alt: "Signature RSVP closing photo top",
-      src: "/images/invitation-signature/section-10/top.webp",
-    },
-    {
-      alt: "Signature RSVP closing photo bottom",
-      src: "/images/invitation-signature/section-10/bottom.webp",
-    },
-  ],
-} as const;
+  ]),
+) as Record<RendererKey, { after: string; before: string }>;
 
 const coutureSectionPhotos = {
   4: [
@@ -733,14 +746,8 @@ function EssentialCoupleRevealSection({
             <motion.div
               animate={{
                 opacity: 1,
-                x:
-                  opened
-                    ? "0%"
-                    : hiddenPhotoPositions[index === 0 ? 0 : 1].x,
-                y:
-                  opened
-                    ? "0%"
-                    : hiddenPhotoPositions[index === 0 ? 0 : 1].y,
+                x: opened ? "0%" : hiddenPhotoPositions[index === 0 ? 0 : 1].x,
+                y: opened ? "0%" : hiddenPhotoPositions[index === 0 ? 0 : 1].y,
               }}
               aria-hidden={!opened}
               className="absolute inset-0 will-change-transform"
@@ -843,6 +850,613 @@ function EssentialCoupleRevealSection({
               />
             </motion.span>
           ))}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function SignatureToggleButton({
+  design,
+  invitation,
+  label,
+  onToggle,
+  opened,
+}: {
+  design: ThemeVisual;
+  invitation: InvitationEnvelope;
+  label: string;
+  onToggle: () => void;
+  opened: boolean;
+}) {
+  const reducedMotion = useReducedMotion();
+  const icons =
+    signatureToggleIcons[invitation.rendererKey as RendererKey] ??
+    signatureToggleIcons["elegant-classic"];
+
+  return (
+    <button
+      aria-expanded={opened}
+      aria-label={label}
+      className={`${design.surface} ${design.glow} group relative grid size-20 place-items-center rounded-full border transition hover:scale-105 focus:outline-none focus:ring-2 focus:ring-current/45`}
+      data-signature-toggle-state={opened ? "opened" : "closed"}
+      onClick={onToggle}
+      style={{
+        borderColor: design.cardBorderColor,
+        boxShadow: `0 0 0 1px ${design.cardBorderColor}, 0 0 28px ${design.cardGlowColor}`,
+      }}
+      type="button"
+    >
+      {[
+        { active: !opened, key: "before", src: icons.before },
+        { active: opened, key: "after", src: icons.after },
+      ].map((icon) => (
+        <motion.span
+          animate={{
+            filter: icon.active ? "blur(0px)" : "blur(5px)",
+            opacity: icon.active ? 1 : 0,
+            scale: icon.active ? 1 : 0.9,
+          }}
+          aria-hidden
+          className="absolute inset-3"
+          initial={false}
+          key={icon.key}
+          transition={{
+            duration: reducedMotion ? 0 : 0.34,
+            ease: [0.22, 1, 0.36, 1],
+          }}
+        >
+          <Image
+            alt=""
+            className="object-contain"
+            fill
+            sizes="3.5rem"
+            src={icon.src}
+            unoptimized
+          />
+        </motion.span>
+      ))}
+    </button>
+  );
+}
+
+function SignatureCoupleRevealSection({
+  design,
+  invitation,
+  premium,
+}: {
+  design: ThemeVisual;
+  invitation: InvitationEnvelope;
+  premium: PremiumVisualConfig;
+}) {
+  const [opened, setOpened] = useState(false);
+  const desktop = useDesktopCoupleLayout();
+  const reducedMotion = useReducedMotion();
+  const id = invitation.locale === "id";
+  const { couple, gallery } = invitation.content;
+  const photos = sectionPhotosFromGallery(gallery, 0, 2, signatureCouplePhotos);
+  const people = [
+    {
+      description:
+        couple.partnerTwoDescription ?? (id ? "Mempelai pria" : "Groom"),
+      name: couple.partnerTwo,
+      photo: photos[0] ?? signatureCouplePhotos[0],
+      role: "groom",
+    },
+    {
+      description:
+        couple.partnerOneDescription ?? (id ? "Mempelai wanita" : "Bride"),
+      name: couple.partnerOne,
+      photo: photos[1] ?? signatureCouplePhotos[1],
+      role: "bride",
+    },
+  ] as const;
+  const hiddenPhotoPositions: readonly [
+    { x: string; y: string },
+    { x: string; y: string },
+  ] = desktop
+    ? [
+        { x: "100%", y: "0%" },
+        { x: "-100%", y: "0%" },
+      ]
+    : [
+        { x: "0%", y: "100%" },
+        { x: "0%", y: "-100%" },
+      ];
+  const buttonLabel = opened
+    ? id
+      ? "Tutup foto Signature kedua mempelai"
+      : "Hide Signature couple photos"
+    : id
+      ? "Buka foto Signature kedua mempelai"
+      : "Reveal Signature couple photos";
+
+  return (
+    <section
+      className={`${design.page} relative overflow-hidden`}
+      data-signature-section="2"
+    >
+      <ThemeSectionDecoration front config={premium} showOverlay={false} />
+      <div
+        className="relative grid min-h-[100svh] grid-rows-2 lg:grid-cols-2 lg:grid-rows-1"
+        id="signature-couple-reveal-panels"
+      >
+        {people.map((person, index) => (
+          <div
+            className="relative min-h-[50svh] overflow-hidden lg:min-h-[100svh]"
+            data-signature-couple-panel={person.role}
+            key={person.role}
+          >
+            <motion.div
+              animate={{
+                x: opened ? "0%" : hiddenPhotoPositions[index === 0 ? 0 : 1].x,
+                y: opened ? "0%" : hiddenPhotoPositions[index === 0 ? 0 : 1].y,
+              }}
+              aria-hidden={!opened}
+              className="absolute inset-0 will-change-transform"
+              data-signature-couple-photo={person.role}
+              initial={false}
+              transition={{
+                duration: reducedMotion ? 0 : 0.75,
+                ease: [0.22, 1, 0.36, 1],
+              }}
+            >
+              <InvitationCard
+                className="!absolute inset-0 h-full"
+                contentClassName="relative h-full"
+                design={design}
+                packageCode="signature"
+                photo
+                surfaceClassName="bg-transparent"
+              >
+                <Image
+                  alt={person.photo.alt}
+                  className="object-cover object-[center_28%]"
+                  fill
+                  loading="eager"
+                  sizes="(max-width: 1023px) 100vw, 50vw"
+                  src={person.photo.src}
+                />
+              </InvitationCard>
+            </motion.div>
+
+            <AnimatePresence>
+              {opened ? (
+                <motion.div
+                  animate={{ opacity: 1, y: 0 }}
+                  className="absolute inset-x-10 bottom-14 z-30 px-4 pb-2 pt-4 text-center shadow-lg sm:inset-x-16 md:inset-x-20 md:bottom-16 lg:inset-x-12 lg:bottom-8"
+                  data-signature-couple-caption={person.role}
+                  exit={{
+                    opacity: 0,
+                    transition: { duration: reducedMotion ? 0 : 0.18 },
+                    y: reducedMotion ? 0 : 8,
+                  }}
+                  initial={reducedMotion ? false : { opacity: 0, y: 14 }}
+                  transition={{
+                    delay: reducedMotion ? 0 : 0.76,
+                    duration: reducedMotion ? 0 : 0.45,
+                    ease: [0.22, 1, 0.36, 1],
+                  }}
+                >
+                  <div
+                    aria-hidden="true"
+                    className={`${design.surface} absolute inset-0 opacity-40`}
+                  />
+                  <div
+                    className={`relative ${design.ink} [text-shadow:0_1px_2px_rgba(255,255,255,0.55),0_2px_7px_rgba(0,0,0,0.8)]`}
+                  >
+                    <h2 className="font-serif text-2xl italic leading-tight tracking-[0.03em] md:text-3xl">
+                      {person.name}
+                    </h2>
+                    <p className="mt-2 font-serif text-sm font-medium leading-relaxed tracking-[0.02em]">
+                      {person.description}
+                    </p>
+                  </div>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
+          </div>
+        ))}
+
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-1/2 z-30 h-px lg:inset-y-0 lg:bottom-0 lg:left-1/2 lg:right-auto lg:top-0 lg:h-auto lg:w-px"
+          data-signature-divider
+          style={{
+            backgroundColor: design.cardShineColor,
+            boxShadow: `0 0 18px ${design.cardGlowColor}, 0 0 5px ${design.cardShineColor}`,
+          }}
+        />
+
+        <div className="absolute left-1/2 top-1/2 z-40 -translate-x-1/2 -translate-y-1/2">
+          <SignatureToggleButton
+            design={design}
+            invitation={invitation}
+            label={buttonLabel}
+            onToggle={() => setOpened((current) => !current)}
+            opened={opened}
+          />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function SignatureThreePhotoSection({
+  design,
+  gallery,
+  premium,
+}: {
+  design: ThemeVisual;
+  gallery: InvitationEnvelope["content"]["gallery"];
+  premium: PremiumVisualConfig;
+}) {
+  const photos = sectionPhotosFromGallery(
+    gallery,
+    2,
+    3,
+    signatureSectionFourPhotos,
+  );
+
+  return (
+    <section
+      className={`${design.page} relative overflow-hidden px-2 py-2`}
+      data-signature-section="4"
+    >
+      <ThemeSectionDecoration front config={premium} showOverlay={false} />
+      <div className="relative z-30 grid gap-2 md:grid-cols-3">
+        {photos.map((image, index) => (
+          <motion.div
+            data-signature-section-four-photo={index + 1}
+            initial={{ opacity: 0, scale: 1.015 }}
+            key={`${image.src}-${index}`}
+            viewport={{ once: true, amount: 0.18 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+          >
+            <InvitationCard
+              className="h-full"
+              contentClassName={`relative min-h-[58svh] ${
+                index === 1 ? "md:min-h-[70svh]" : ""
+              }`}
+              design={design}
+              packageCode="signature"
+              photo
+            >
+              <Image
+                alt={image.alt}
+                className="object-cover"
+                fill
+                sizes="(max-width: 767px) 100vw, 33vw"
+                src={image.src}
+              />
+            </InvitationCard>
+          </motion.div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function SignatureQuadrantRevealSection({
+  design,
+  invitation,
+  premium,
+}: {
+  design: ThemeVisual;
+  invitation: InvitationEnvelope;
+  premium: PremiumVisualConfig;
+}) {
+  const [opened, setOpened] = useState(false);
+  const reducedMotion = useReducedMotion();
+  const id = invitation.locale === "id";
+  const photos = sectionPhotosFromGallery(
+    invitation.content.gallery,
+    5,
+    5,
+    signatureSectionSixPhotos,
+  );
+  const coverPhoto = photos[0] ?? signatureSectionSixPhotos[0];
+  const quadrantPhotos = Array.from(
+    { length: 4 },
+    (_, index) => photos[index + 1] ?? signatureSectionSixPhotos[index + 1],
+  ).filter((photo): photo is GalleryPhoto => Boolean(photo));
+  const hiddenPositions = [
+    { x: "100%", y: "100%" },
+    { x: "-100%", y: "100%" },
+    { x: "100%", y: "-100%" },
+    { x: "-100%", y: "-100%" },
+  ] as const;
+  const buttonLabel = opened
+    ? id
+      ? "Tutup galeri empat foto"
+      : "Close four-photo gallery"
+    : id
+      ? "Buka galeri empat foto"
+      : "Reveal four-photo gallery";
+
+  return (
+    <section
+      className={`${design.page} relative min-h-[100svh] overflow-hidden p-2`}
+      data-signature-section="6"
+    >
+      <ThemeSectionDecoration front config={premium} showOverlay={false} />
+      <div className="relative z-30 min-h-[calc(100svh-1rem)] overflow-hidden">
+        <div
+          className="absolute inset-0 will-change-transform"
+          data-signature-section-six-cover
+        >
+          <InvitationCard
+            className="!absolute inset-0 h-full"
+            contentClassName="relative h-full"
+            design={design}
+            packageCode="signature"
+            photo
+            surfaceClassName="bg-transparent"
+          >
+            <Image
+              alt={coverPhoto?.alt ?? "Signature full gallery portrait"}
+              className="object-cover object-[center_30%]"
+              fill
+              loading="eager"
+              sizes="100vw"
+              src={
+                coverPhoto?.src ??
+                "/images/invitation-signature/section-6/cover.webp"
+              }
+            />
+            <div
+              aria-hidden
+              className={`${design.surface} absolute inset-0 opacity-50`}
+              data-signature-section-six-overlay
+            />
+          </InvitationCard>
+        </div>
+
+        <div className="absolute inset-0 grid grid-cols-2 grid-rows-2">
+          {quadrantPhotos.map((image, index) => (
+            <motion.div
+              animate={{
+                opacity: opened ? 1 : 0,
+                x: opened ? "0%" : hiddenPositions[index]?.x,
+                y: opened ? "0%" : hiddenPositions[index]?.y,
+              }}
+              aria-hidden={!opened}
+              className="relative min-h-0 min-w-0 will-change-transform"
+              data-signature-quadrant={index + 1}
+              initial={false}
+              key={`${image.src}-${index}`}
+              transition={{
+                delay: reducedMotion
+                  ? 0
+                  : opened
+                    ? index * 0.16
+                    : (3 - index) * 0.16,
+                duration: reducedMotion ? 0 : 0.62,
+                ease: [0.22, 1, 0.36, 1],
+              }}
+            >
+              <InvitationCard
+                className="!absolute inset-0 h-full"
+                contentClassName="relative h-full"
+                design={design}
+                packageCode="signature"
+                photo
+                surfaceClassName="bg-transparent"
+              >
+                <Image
+                  alt={image.alt}
+                  className="object-cover object-center"
+                  fill
+                  loading="eager"
+                  sizes="50vw"
+                  src={image.src}
+                />
+              </InvitationCard>
+            </motion.div>
+          ))}
+        </div>
+
+        <div className="absolute left-1/2 top-1/2 z-40 -translate-x-1/2 -translate-y-1/2">
+          <SignatureToggleButton
+            design={design}
+            invitation={invitation}
+            label={buttonLabel}
+            onToggle={() => setOpened((current) => !current)}
+            opened={opened}
+          />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function SignatureNinePhotoGallery({
+  design,
+  gallery,
+  premium,
+}: {
+  design: ThemeVisual;
+  gallery: InvitationEnvelope["content"]["gallery"];
+  premium: PremiumVisualConfig;
+}) {
+  const reducedMotion = useReducedMotion();
+  const photos = sectionPhotosFromGallery(
+    gallery,
+    10,
+    9,
+    signatureSectionEightPhotos,
+  );
+
+  return (
+    <section
+      className={`${design.page} relative overflow-hidden px-2 py-16 md:px-4 md:py-24`}
+      data-signature-section="8"
+    >
+      <ThemeSectionDecoration front config={premium} showOverlay={false} />
+      <motion.div
+        className="relative z-30 grid grid-cols-3 gap-2 md:gap-3"
+        initial={reducedMotion ? false : "hidden"}
+        variants={{
+          hidden: {},
+          visible: {
+            transition: { staggerChildren: reducedMotion ? 0 : 0.07 },
+          },
+        }}
+        viewport={{ once: true, amount: 0.2 }}
+        whileInView="visible"
+      >
+        {photos.map((image, index) => (
+          <motion.div
+            data-signature-gallery-item
+            key={`${image.src}-${index}`}
+            variants={{
+              hidden: { opacity: 0, scale: 0.98, y: 22 },
+              visible: {
+                opacity: 1,
+                scale: 1,
+                transition: {
+                  duration: reducedMotion ? 0 : 0.55,
+                  ease: [0.22, 1, 0.36, 1],
+                },
+                y: 0,
+              },
+            }}
+          >
+            <InvitationCard
+              className="h-full"
+              contentClassName="relative aspect-[4/5]"
+              design={design}
+              packageCode="signature"
+              photo
+            >
+              <Image
+                alt={image.alt}
+                className="object-contain"
+                fill
+                sizes="33vw"
+                src={image.src}
+              />
+            </InvitationCard>
+          </motion.div>
+        ))}
+      </motion.div>
+    </section>
+  );
+}
+
+function useSignatureCarouselColumns() {
+  const [columns, setColumns] = useState(1);
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") {
+      return;
+    }
+    const query = window.matchMedia("(min-width: 768px)");
+    const sync = () => setColumns(query.matches ? 3 : 1);
+    sync();
+    query.addEventListener("change", sync);
+    return () => query.removeEventListener("change", sync);
+  }, []);
+
+  return columns;
+}
+
+function SignatureCarouselSection({
+  design,
+  gallery,
+  id,
+  premium,
+}: {
+  design: ThemeVisual;
+  gallery: InvitationEnvelope["content"]["gallery"];
+  id: boolean;
+  premium: PremiumVisualConfig;
+}) {
+  const reducedMotion = useReducedMotion();
+  const columns = useSignatureCarouselColumns();
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const photos = sectionPhotosFromGallery(
+    gallery,
+    19,
+    9,
+    signatureSectionTenPhotos,
+  );
+  const maxIndex = Math.max(photos.length - columns, 0);
+  const boundedActiveIndex = Math.min(activeIndex, maxIndex);
+
+  function moveTo(nextIndex: number) {
+    const next = Math.min(Math.max(nextIndex, 0), maxIndex);
+    setActiveIndex(next);
+    window.requestAnimationFrame(() => {
+      const viewport = viewportRef.current;
+      const slide = viewport?.children[next] as HTMLElement | undefined;
+      if (!viewport || !slide) {
+        return;
+      }
+      viewport.scrollTo({
+        behavior: reducedMotion ? "auto" : "smooth",
+        left: slide.offsetLeft,
+      });
+    });
+  }
+
+  return (
+    <section
+      className={`${design.page} relative overflow-hidden px-5 py-20 md:px-12 md:py-28`}
+      data-signature-section="10"
+    >
+      <ThemeSectionDecoration front config={premium} showOverlay={false} />
+      <div className="relative z-30 mx-auto max-w-7xl">
+        <div
+          className="grid snap-x snap-mandatory grid-flow-col auto-cols-[100%] gap-3 overflow-x-auto scroll-smooth [scrollbar-width:none] md:auto-cols-[calc((100%-1.5rem)/3)] [&::-webkit-scrollbar]:hidden"
+          data-signature-carousel
+          ref={viewportRef}
+        >
+          {photos.map((image, index) => (
+            <div
+              className="snap-start"
+              data-signature-carousel-slide={index + 1}
+              key={`${image.src}-${index}`}
+            >
+              <InvitationCard
+                contentClassName="relative aspect-[4/5]"
+                design={design}
+                packageCode="signature"
+                photo
+              >
+                <Image
+                  alt={image.alt}
+                  className="object-contain"
+                  fill
+                  loading="eager"
+                  sizes="(max-width: 767px) 100vw, 33vw"
+                  src={image.src}
+                />
+              </InvitationCard>
+            </div>
+          ))}
+        </div>
+
+        <button
+          aria-label={id ? "Foto sebelumnya" : "Previous photo"}
+          className={`${design.surface} ${design.glow} absolute left-3 top-1/2 z-30 grid size-12 -translate-y-1/2 place-items-center rounded-full border transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-35`}
+          disabled={boundedActiveIndex === 0}
+          onClick={() => moveTo(boundedActiveIndex - 1)}
+          style={{ borderColor: design.cardBorderColor }}
+          type="button"
+        >
+          <ChevronLeft aria-hidden size={22} />
+        </button>
+        <button
+          aria-label={id ? "Foto berikutnya" : "Next photo"}
+          className={`${design.surface} ${design.glow} absolute right-3 top-1/2 z-30 grid size-12 -translate-y-1/2 place-items-center rounded-full border transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-35`}
+          disabled={boundedActiveIndex === maxIndex}
+          onClick={() => moveTo(boundedActiveIndex + 1)}
+          style={{ borderColor: design.cardBorderColor }}
+          type="button"
+        >
+          <ChevronRight aria-hidden size={22} />
         </button>
       </div>
     </section>
@@ -1430,6 +2044,7 @@ function SignatureStoryTimelineSection({
   mode,
   packageCode,
   premium,
+  sectionNumber,
   showOverlay = false,
   timeline,
 }: {
@@ -1441,6 +2056,7 @@ function SignatureStoryTimelineSection({
   mode: "opening" | "middle" | "final";
   packageCode: "signature" | "couture";
   premium: PremiumVisualConfig;
+  sectionNumber?: number;
   showOverlay?: boolean;
   timeline?: TimelineEntries;
 }) {
@@ -1468,7 +2084,10 @@ function SignatureStoryTimelineSection({
         : story.body);
 
   return (
-    <section className="relative overflow-hidden px-6 py-24 md:px-12 md:py-36">
+    <section
+      className="relative overflow-hidden px-6 py-24 md:px-12 md:py-36"
+      data-signature-section={sectionNumber}
+    >
       <ThemeSectionDecoration config={premium} showOverlay={showOverlay} />
       <div
         className={`relative z-30 mx-auto grid max-w-6xl gap-14 ${
@@ -1542,6 +2161,7 @@ function SignatureRsvpPreviewSection({
   packageCode,
   premium,
   rsvpSlot,
+  sectionNumber,
   showOverlay = false,
 }: {
   design: ThemeVisual;
@@ -1549,6 +2169,7 @@ function SignatureRsvpPreviewSection({
   packageCode: "signature" | "couture";
   premium: PremiumVisualConfig;
   rsvpSlot?: React.ReactNode;
+  sectionNumber?: number;
   showOverlay?: boolean;
 }) {
   const id = invitation.locale === "id";
@@ -1557,6 +2178,7 @@ function SignatureRsvpPreviewSection({
     return (
       <section
         className={`${design.surface} relative overflow-hidden px-5 py-20 md:px-12 md:py-32`}
+        data-signature-section={sectionNumber}
       >
         <ThemeSectionDecoration config={premium} showOverlay={showOverlay} />
         <div className="relative z-30 mx-auto max-w-4xl">
@@ -1575,6 +2197,7 @@ function SignatureRsvpPreviewSection({
   return (
     <section
       className={`${design.surface} relative overflow-hidden px-6 py-24 md:px-12 md:py-36`}
+      data-signature-section={sectionNumber}
     >
       <ThemeSectionDecoration config={premium} showOverlay={showOverlay} />
       <InvitationCard
@@ -1633,6 +2256,7 @@ function SignatureGiftSection({
   return (
     <section
       className={`${design.surface} relative grid min-h-[78svh] place-items-center overflow-hidden px-6 py-24 text-center md:px-12`}
+      data-signature-section="12"
     >
       <ThemeSectionDecoration config={premium} showOverlay={false} />
       <FadeText className="relative z-30 mx-auto max-w-3xl">
@@ -1881,6 +2505,7 @@ function EventStory({
       <>
         <motion.section
           className={`${design.surface} relative overflow-hidden px-6 py-24 md:px-12 md:py-36`}
+          data-signature-section="1"
           initial={{ opacity: 0, y: revealDistance }}
           transition={{ duration: 0.85 }}
           viewport={{ once: true, amount: 0.18 }}
@@ -1905,10 +2530,9 @@ function EventStory({
           </div>
         </motion.section>
 
-        <SignatureGallerySection
+        <SignatureCoupleRevealSection
           design={design}
-          gallery={gallery}
-          packageCode="signature"
+          invitation={invitation}
           premium={premium}
         />
         <SignatureStoryTimelineSection
@@ -1919,18 +2543,12 @@ function EventStory({
           mode="opening"
           packageCode="signature"
           premium={premium}
+          sectionNumber={3}
         />
-        <SignaturePhotoSection
+        <SignatureThreePhotoSection
           design={design}
-          packageCode="signature"
-          photos={sectionPhotosFromGallery(
-            gallery,
-            3,
-            3,
-            signatureSectionPhotos[4],
-          )}
+          gallery={gallery}
           premium={premium}
-          variant="three"
         />
         <SignatureStoryTimelineSection
           design={design}
@@ -1940,18 +2558,12 @@ function EventStory({
           mode="middle"
           packageCode="signature"
           premium={premium}
+          sectionNumber={5}
         />
-        <SignaturePhotoSection
+        <SignatureQuadrantRevealSection
           design={design}
-          packageCode="signature"
-          photos={sectionPhotosFromGallery(
-            gallery,
-            6,
-            3,
-            signatureSectionPhotos[6],
-          )}
+          invitation={invitation}
           premium={premium}
-          variant="three"
         />
         <SignatureStoryTimelineSection
           design={design}
@@ -1961,18 +2573,12 @@ function EventStory({
           mode="final"
           packageCode="signature"
           premium={premium}
+          sectionNumber={7}
         />
-        <SignaturePhotoSection
+        <SignatureNinePhotoGallery
           design={design}
-          packageCode="signature"
-          photos={sectionPhotosFromGallery(
-            gallery,
-            9,
-            3,
-            signatureSectionPhotos[8],
-          )}
+          gallery={gallery}
           premium={premium}
-          variant="three"
         />
         <SignatureRsvpPreviewSection
           design={design}
@@ -1980,18 +2586,13 @@ function EventStory({
           packageCode="signature"
           premium={premium}
           rsvpSlot={rsvpSlot}
+          sectionNumber={9}
         />
-        <SignaturePhotoSection
+        <SignatureCarouselSection
           design={design}
-          packageCode="signature"
-          photos={sectionPhotosFromGallery(
-            gallery,
-            12,
-            2,
-            signatureSectionPhotos[10],
-          )}
+          gallery={gallery}
+          id={id}
           premium={premium}
-          variant="two"
         />
       </>
     );
@@ -2565,7 +3166,10 @@ export function RendererV2({
               rsvpSlot={rsvpSlot}
             />
             {!essential ? (
-              <div className="relative overflow-hidden">
+              <div
+                className="relative overflow-hidden"
+                data-signature-section={signature ? "11" : undefined}
+              >
                 <ThemeSectionDecoration
                   config={premium}
                   showOverlay={packageCode === "couture"}
@@ -2610,6 +3214,7 @@ export function RendererV2({
             <motion.section
               className={`${design.surface} relative grid min-h-[78svh] place-items-center overflow-hidden px-6 py-24 text-center`}
               data-essential-section={essential ? "7" : undefined}
+              data-signature-section={signature ? "13" : undefined}
               initial={reducedMotion ? false : { opacity: 0 }}
               viewport={{ once: true, amount: 0.25 }}
               whileInView={{ opacity: 1 }}

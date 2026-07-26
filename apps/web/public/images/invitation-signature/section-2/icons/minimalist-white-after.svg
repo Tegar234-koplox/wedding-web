@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" fill="none">
+  <title>Lily mekar — Minimalist White</title>
+  <g stroke="#4F5963" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M32 54V33"/>
+    <path d="M32 33C20 31 12 24 11 14c9-1 16 4 21 19Z" fill="#FFFFFF"/>
+    <path d="M32 33C44 31 52 24 53 14c-9-1-16 4-21 19Z" fill="#F7F7F5"/>
+    <path d="M32 33C24 25 25 15 32 8c7 7 8 17 0 25Z" fill="#FFFFFF"/>
+    <path d="M32 33c-8 1-13 7-14 13 7 0 11-3 14-9M32 46c7-5 12-3 16 1-5 5-10 6-16 2"/>
+    <circle cx="32" cy="33" r="2.2" fill="#D9C89E"/>
+  </g>
+</svg>

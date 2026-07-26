@@ -203,6 +203,45 @@ const essentialGallery: InvitationContent["gallery"] = [
   })),
 ];
 
+const signatureGallery: InvitationContent["gallery"] = [
+  {
+    src: "/images/invitation-signature/section-2/groom.webp",
+    alt: "Signature portrait of the groom",
+  },
+  {
+    src: "/images/invitation-signature/section-2/bride.webp",
+    alt: "Signature portrait of the bride",
+  },
+  ...Array.from({ length: 3 }, (_, index) => ({
+    src: `/images/invitation-signature/section-4/photo-${String(
+      index + 1,
+    ).padStart(2, "0")}.webp`,
+    alt: `Signature story portrait ${index + 1}`,
+  })),
+  {
+    src: "/images/invitation-signature/section-6/cover.webp",
+    alt: "Signature full gallery portrait",
+  },
+  ...Array.from({ length: 4 }, (_, index) => ({
+    src: `/images/invitation-signature/section-6/quadrant-${String(
+      index + 1,
+    ).padStart(2, "0")}.webp`,
+    alt: `Signature quadrant portrait ${index + 1}`,
+  })),
+  ...Array.from({ length: 9 }, (_, index) => ({
+    src: `/images/invitation-signature/section-8/photo-${String(
+      index + 1,
+    ).padStart(2, "0")}.webp`,
+    alt: `Signature gallery portrait ${index + 1}`,
+  })),
+  ...Array.from({ length: 9 }, (_, index) => ({
+    src: `/images/invitation-signature/section-10/photo-${String(
+      index + 1,
+    ).padStart(2, "0")}.webp`,
+    alt: `Signature carousel portrait ${index + 1}`,
+  })),
+];
+
 function createContent(
   key: RendererKey,
   locale: InvitationLocale,
@@ -256,7 +295,11 @@ function createContent(
       attribution: "Ar-Rum · 21",
     },
     gallery:
-      packageCode === "essential" ? essentialGallery : galleryByTheme[key],
+      packageCode === "essential"
+        ? essentialGallery
+        : packageCode === "signature"
+          ? signatureGallery
+          : galleryByTheme[key],
     closing: {
       heading: id ? "Sampai bertemu" : "We hope to see you",
       message: id

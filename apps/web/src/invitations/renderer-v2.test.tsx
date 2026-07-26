@@ -35,6 +35,10 @@ beforeAll(() => {
     configurable: true,
     value: vi.fn(),
   });
+  Object.defineProperty(HTMLElement.prototype, "scrollTo", {
+    configurable: true,
+    value: vi.fn(),
+  });
 });
 
 afterEach(() => cleanup());
@@ -521,8 +525,140 @@ describe("renderer v2 invitation experience", () => {
     expect(toggle.getAttribute("data-heart-state")).toBe("broken");
   });
 
+  it("renders the thirteen Signature sections and both toggle interactions", () => {
+    const invitation = getSampleInvitation(
+      "elegant-classic",
+      "id",
+      "signature",
+    );
+    const { container } = render(
+      <RendererV2 invitation={invitation} packageCode="signature" />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Buka Undangan" }));
+
+    const signatureSections = Array.from(
+      container.querySelectorAll<HTMLElement>("[data-signature-section]"),
+    );
+    expect(
+      signatureSections.map((section) => section.dataset.signatureSection),
+    ).toEqual([
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "9",
+      "10",
+      "11",
+      "12",
+      "13",
+    ]);
+    expect(
+      signatureSections
+        .filter((section) =>
+          Boolean(section.querySelector('[data-decoration-front="true"]')),
+        )
+        .map((section) => section.dataset.signatureSection),
+    ).toEqual(["2", "4", "6", "8", "10"]);
+    const sectionFourPhotos = Array.from(
+      container.querySelectorAll<HTMLElement>(
+        "[data-signature-section-four-photo]",
+      ),
+    );
+    expect(sectionFourPhotos).toHaveLength(3);
+    expect(
+      sectionFourPhotos[0]?.querySelector("img")?.classList.contains(
+        "object-cover",
+      ),
+    ).toBe(true);
+    expect(
+      sectionFourPhotos[1]?.querySelector("[class*='md:min-h-[70svh]']"),
+    ).not.toBeNull();
+    expect(
+      container.querySelectorAll("[data-signature-gallery-item]"),
+    ).toHaveLength(9);
+    expect(
+      container.querySelectorAll("[data-signature-carousel-slide]"),
+    ).toHaveLength(9);
+    expect(
+      container.querySelectorAll("[data-signature-quadrant]"),
+    ).toHaveLength(4);
+
+    const coupleToggle = screen.getByRole("button", {
+      name: "Buka foto Signature kedua mempelai",
+    });
+    expect(coupleToggle.getAttribute("aria-expanded")).toBe("false");
+    expect(
+      container.querySelectorAll("[data-signature-couple-photo] img"),
+    ).toHaveLength(2);
+    fireEvent.click(coupleToggle);
+    expect(coupleToggle.getAttribute("aria-expanded")).toBe("true");
+    expect(
+      container
+        .querySelector('[data-signature-couple-panel="groom"] h2')
+        ?.textContent?.trim(),
+    ).toBe(invitation.content.couple.partnerTwo);
+    fireEvent.click(coupleToggle);
+    expect(coupleToggle.getAttribute("aria-expanded")).toBe("false");
+
+    const quadrantToggle = screen.getByRole("button", {
+      name: "Buka galeri empat foto",
+    });
+    expect(quadrantToggle.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(quadrantToggle);
+    expect(quadrantToggle.getAttribute("aria-expanded")).toBe("true");
+    expect(
+      container.querySelector("[data-signature-section-six-cover]"),
+    ).not.toBeNull();
+    expect(
+      container
+        .querySelector("[data-signature-section-six-overlay]")
+        ?.classList.contains("opacity-50"),
+    ).toBe(true);
+    fireEvent.click(quadrantToggle);
+    expect(quadrantToggle.getAttribute("aria-expanded")).toBe("false");
+
+    const next = screen.getByRole("button", { name: "Foto berikutnya" });
+    const previous = screen.getByRole("button", { name: "Foto sebelumnya" });
+    expect(previous.hasAttribute("disabled")).toBe(true);
+    fireEvent.click(next);
+    expect(previous.hasAttribute("disabled")).toBe(false);
+  });
+
   it.each(rendererKeys)(
-    "uses the %s heart assets for Essential without adding the interaction to premium packages",
+    "uses the %s Signature toggle icon pair",
+    (rendererKey) => {
+      const view = render(
+        <RendererV2
+          invitation={getSampleInvitation(rendererKey, "en", "signature")}
+          packageCode="signature"
+        />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Open Invitation" }));
+      const toggle = screen.getByRole("button", {
+        name: "Reveal Signature couple photos",
+      });
+      const sources = Array.from(toggle.querySelectorAll("img")).map((image) =>
+        image.getAttribute("src"),
+      );
+      expect(
+        sources.some((source) =>
+          source?.includes(`${rendererKey}-before.svg`),
+        ),
+      ).toBe(true);
+      expect(
+        sources.some((source) => source?.includes(`${rendererKey}-after.svg`)),
+      ).toBe(true);
+      view.unmount();
+    },
+  );
+
+  it.each(rendererKeys)(
+    "uses the %s heart assets for Essential without adding them to premium packages",
     (rendererKey) => {
       const invitation = getSampleInvitation(rendererKey, "en", "essential");
       const essential = render(

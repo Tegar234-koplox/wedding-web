@@ -302,33 +302,43 @@ const mediaSectionPlans: Record<string, MediaSectionPlan[]> = {
   ],
   signature: [
     {
-      count: 3,
-      description: "Foto pembuka setelah waktu dan tempat.",
-      label: "3 foto",
+      count: 2,
+      description: "Foto interaktif kedua mempelai setelah waktu dan tempat.",
+      label: "2 foto",
+      photoLabels: ["Mempelai pria", "Mempelai wanita"],
       section: 2,
     },
     {
       count: 3,
       description: "Foto setelah love story bagian 01-03.",
       label: "3 foto",
+      photoLabels: ["Foto atas", "Foto tengah", "Foto bawah"],
       section: 4,
     },
     {
-      count: 3,
-      description: "Foto setelah love story bagian 04-06.",
-      label: "3 foto",
+      count: 5,
+      description:
+        "Satu foto penuh saat tertutup dan empat foto kuadran interaktif.",
+      label: "5 foto",
+      photoLabels: [
+        "Foto penuh",
+        "Pojok kiri atas",
+        "Pojok kanan atas",
+        "Pojok kiri bawah",
+        "Pojok kanan bawah",
+      ],
       section: 6,
     },
     {
-      count: 3,
-      description: "Foto sebelum RSVP dan ucapan.",
-      label: "3 foto",
+      count: 9,
+      description: "Galeri kilauan dengan penataan 3 x 3.",
+      label: "9 foto",
       section: 8,
     },
     {
-      count: 2,
-      description: "Foto setelah RSVP sebelum prakiraan cuaca.",
-      label: "2 foto",
+      count: 9,
+      description: "Galeri carousel dengan navigasi kanan dan kiri.",
+      label: "9 foto",
       section: 10,
     },
   ],
@@ -876,7 +886,7 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
             client_email: form.client_email.trim(),
             client_name: form.client_name.trim(),
             client_phone: form.client_phone.trim(),
-            ...(form.package_code === "essential"
+            ...(["essential", "signature"].includes(form.package_code)
               ? {
                   couple: {
                     partnerOneDescription: form.bride_description.trim(),
@@ -1607,7 +1617,7 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
                 />
               </Field>
             </div>
-            {form.package_code === "essential" ? (
+            {["essential", "signature"].includes(form.package_code) ? (
               <div className="mt-5 grid gap-4 md:grid-cols-2">
                 <Field label="Keterangan mempelai pria">
                   <textarea

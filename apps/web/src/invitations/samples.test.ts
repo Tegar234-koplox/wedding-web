@@ -25,4 +25,17 @@ describe("sample invitation catalog", () => {
       expect(sample.content.couple.partnerTwoDescription).toBeTruthy();
     },
   );
+
+  it.each(rendererKeys)(
+    "creates a twenty-eight-photo Signature live preview for %s",
+    (key) => {
+      const sample = getSampleInvitation(key, "id", "signature");
+
+      expect(sample.content.gallery).toHaveLength(28);
+      expect(sample.content.gallery[0]?.src).toContain("section-2/groom.webp");
+      expect(sample.content.gallery[27]?.src).toContain(
+        "section-10/photo-09.webp",
+      );
+    },
+  );
 });

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" fill="none">
+  <title>Lampu bercahaya — Elegant Classic</title>
+  <g stroke="#B38A58" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M22 29c0-6.1 4.5-11 10-11s10 4.9 10 11c0 4.1-1.8 6.6-4.6 9.2-1.6 1.5-2.4 3.1-2.4 5.3h-6c0-2.2-.8-3.8-2.4-5.3C23.8 35.6 22 33.1 22 29Z" fill="#FFF4D6"/>
+    <path d="M28.5 48h7M29.5 52h5M30.5 43.5h3"/>
+    <path d="M32 5v7M14.8 12.8l5 5M49.2 12.8l-5 5M8 29h7M49 29h7"/>
+  </g>
+</svg>

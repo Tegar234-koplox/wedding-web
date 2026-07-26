@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" fill="none">
+  <title>Lily kuncup — Minimalist White</title>
+  <g stroke="#4F5963" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M32 49V29"/>
+    <path d="M32 30c-8-4-10-12-7-20 7 2 11 8 7 20Z" fill="#F8F8F6"/>
+    <path d="M32 30c8-4 10-12 7-20-7 2-11 8-7 20Z" fill="#FFFFFF"/>
+    <path d="M32 43c-7-5-12-3-16 1 5 5 10 6 16 2M32 49c7-5 12-3 16 1-5 5-10 6-16 2"/>
+  </g>
+</svg>

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" fill="none">
+  <title>Wajah ceria — Floral Romantic</title>
+  <g stroke="#B56C83" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="32" cy="32" r="23" fill="#FADCE6"/>
+    <path d="M21 26c1.5-2 4.5-2 6 0M37 26c1.5-2 4.5-2 6 0"/>
+    <path d="M21 38c5 9 17 9 22 0Z" fill="#FFFFFF"/>
+    <path d="M13 33h4M47 33h4" stroke="#E3A4B7"/>
+  </g>
+</svg>
