@@ -10,8 +10,8 @@ export function SiteFooter({ locale }: { locale: Locale }) {
           <p className="font-serif text-4xl">Niskala.</p>
           <p className="mt-3 max-w-sm text-sm leading-6 text-[var(--color-muted)]">
             {locale === "id"
-              ? "Undangan digital yang dirancang seperti sebuah cerita—personal, intim, dan tak lekang."
-              : "Digital invitations designed like a story—personal, intimate, and enduring."}
+              ? "Undangan digital yang dirancang seperti sebuah cerita personal, intim, dan tak lekang."
+              : "Digital invitations designed like a story personal, intimate, and enduring."}
           </p>
         </div>
         <div className="flex flex-wrap gap-6 text-xs uppercase tracking-[0.18em]">
@@ -25,7 +25,7 @@ export function SiteFooter({ locale }: { locale: Locale }) {
         </div>
       </div>
       <div className="mt-14 flex flex-wrap justify-between gap-3 border-t border-white/10 pt-5 text-[0.65rem] uppercase tracking-[0.16em] text-[var(--color-muted)]">
-        <span>© 2026 Niskala Wedding Studio</span>
+        <span>© 2026 Niskala Digital Invitation</span>
         <span>Crafted in Indonesia</span>
       </div>
     </footer>

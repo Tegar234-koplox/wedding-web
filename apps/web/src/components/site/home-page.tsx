@@ -102,8 +102,8 @@ export function EditorialHome({ locale }: { locale: Locale }) {
                 data-hero-detail
               >
                 {id
-                  ? "Kami merancang ruang digital yang terasa seperti Anda—dengan ritme, detail, dan atmosfer yang pantas dikenang."
-                  : "We create digital spaces that feel unmistakably yours—with rhythm, detail, and atmosphere worth remembering."}
+                  ? "Kami merancang ruang digital yang terasa seperti, ritme, detail, dan atmosfer yang pantas dikenang."
+                  : "We create digital spaces that feel unmistakably, rhythm, detail, and atmosphere worth remembering."}
               </p>
             </div>
           </div>
@@ -132,7 +132,7 @@ export function EditorialHome({ locale }: { locale: Locale }) {
               className="text-[0.65rem] uppercase tracking-[0.24em] text-[var(--color-gold)]"
               data-reveal
             >
-              01 — {id ? "Koleksi Tema" : "Theme Collection"}
+              {id ? "Koleksi Tema" : "Theme Collection"}
             </p>
             <div data-reveal>
               <h2 className="max-w-4xl font-serif text-[var(--text-heading)] leading-[0.92] tracking-[-0.045em]">
@@ -178,7 +178,7 @@ export function EditorialHome({ locale }: { locale: Locale }) {
           <div className="grid gap-14 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
             <div data-reveal>
               <p className="text-[0.65rem] uppercase tracking-[0.24em]">
-                02 — {id ? "Lebih dari undangan" : "More than an invitation"}
+                {id ? "Lebih dari undangan" : "More than an invitation"}
               </p>
               <h2 className="mt-8 max-w-xl font-serif text-[var(--text-heading)] leading-[0.92] tracking-[-0.045em]">
                 {id ? "Hari Anda," : "Your day,"}
@@ -189,17 +189,17 @@ export function EditorialHome({ locale }: { locale: Locale }) {
               </h2>
               <p className="mt-8 max-w-lg text-base leading-7 text-black/65">
                 {id
-                  ? "Tamu menemukan jadwal, lokasi, cerita, galeri, RSVP, hingga cuaca hari pernikahan—tanpa kehilangan keindahan dari pengalaman itu sendiri."
-                  : "Guests discover your schedule, location, story, gallery, RSVP, and wedding-day weather—without sacrificing the beauty of the experience."}
+                  ? "Tamu menemukan jadwal, lokasi, cerita, galeri, RSVP, hingga cuaca hari pernikahan, tanpa kehilangan keindahan dari pengalaman itu sendiri."
+                  : "Guests discover your schedule, location, story, gallery, RSVP, and wedding-day weather, without sacrificing the beauty of the experience."}
               </p>
             </div>
 
             <div className="grid gap-px bg-black/15 sm:grid-cols-2" data-reveal>
               {[
-                ["01", id ? "Cerita personal" : "A personal story"],
-                ["02", id ? "Informasi yang jelas" : "Clear information"],
-                ["03", id ? "Cuaca" : "Weather"],
-                ["04", id ? "Siap dibagikan" : "Ready to share"],
+                [id ? "Cerita personal" : "A personal story"],
+                [id ? "Informasi yang jelas" : "Clear information"],
+                [id ? "Cuaca" : "Weather"],
+                [id ? "Siap dibagikan" : "Ready to share"],
               ].map(([number, label]) => (
                 <div className="min-h-44 bg-[#d7cbb6] p-6" key={number}>
                   <span className="text-xs text-[#6b191e]">{number}</span>
@@ -217,7 +217,7 @@ export function EditorialHome({ locale }: { locale: Locale }) {
           <div className="grid gap-12 lg:grid-cols-[0.8fr_1.2fr]">
             <div data-reveal>
               <p className="text-[0.65rem] uppercase tracking-[0.24em] text-[var(--color-gold)]">
-                03 — {id ? "Cara kami bekerja" : "How we work"}
+                {id ? "Cara kami bekerja" : "How we work"}
               </p>
               <h2 className="mt-8 font-serif text-[var(--text-heading)] leading-[0.92] tracking-[-0.045em]">
                 {id ? "Sederhana." : "Simple."}
@@ -317,7 +317,7 @@ export function EditorialHome({ locale }: { locale: Locale }) {
           <div className="mb-14 flex flex-wrap items-end justify-between gap-8">
             <div data-reveal>
               <p className="text-[0.65rem] uppercase tracking-[0.24em] text-[var(--color-gold)]">
-                04 — {id ? "Paket layanan" : "Service packages"}
+                {id ? "Paket layanan" : "Service packages"}
               </p>
               <h2 className="mt-7 font-serif text-[var(--text-heading)] leading-none">
                 {id ? "Mulai dari sini." : "Begin here."}
@@ -365,7 +365,7 @@ export function EditorialHome({ locale }: { locale: Locale }) {
                   ))}
                 </ul>
               </article>
-              ))}
+            ))}
           </div>
         </section>
 
