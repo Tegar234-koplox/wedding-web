@@ -36,7 +36,12 @@ export default async function ThemesPage({ params }: ThemesPageProps) {
           <div className="grid gap-10 md:grid-cols-[0.7fr_1.3fr] md:items-end">
             <div>
               <p className="text-[0.65rem] uppercase tracking-[0.24em] text-[var(--color-gold)]">
-                {id ? "Koleksi 01—07" : "Collection 01—07"}
+                <span className="md:hidden">
+                  {id ? "Koleksi tema" : "Theme collection"}
+                </span>
+                <span className="hidden md:inline">
+                  {id ? "Koleksi 01—07" : "Collection 01—07"}
+                </span>
               </p>
               <p className="mt-8 max-w-xs text-sm leading-6 text-[var(--color-muted)]">
                 {id
@@ -73,12 +78,7 @@ export default async function ThemesPage({ params }: ThemesPageProps) {
                 }
                 key={theme.slug}
               >
-                <ThemeCard
-                  index={index}
-                  locale={locale}
-                  priority={index < 3}
-                  theme={theme}
-                />
+                <ThemeCard locale={locale} priority={index < 3} theme={theme} />
               </div>
             ))}
           </div>

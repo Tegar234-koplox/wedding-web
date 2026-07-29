@@ -109,8 +109,8 @@ export function EditorialHome({ locale }: { locale: Locale }) {
           </div>
         </section>
 
-        <section className="border-y border-white/10 bg-[var(--color-gold)] px-[var(--space-gutter)] py-5 text-[#17140d]">
-          <div className="flex flex-wrap items-center justify-between gap-4 text-[0.65rem] font-semibold uppercase tracking-[0.2em]">
+        <section className="h-px bg-white/15 md:h-auto md:border-y md:border-white/10 md:bg-[var(--color-gold)] md:px-[var(--space-gutter)] md:py-5 md:text-[#17140d]">
+          <div className="hidden flex-wrap items-center justify-between gap-4 text-[0.65rem] font-semibold uppercase tracking-[0.2em] md:flex">
             <span>{id ? "Desain Personal" : "Personal Design"}</span>
             <span>·</span>
             <span>{id ? "Prakiraan Cuaca" : "Weather Forecast"}</span>
@@ -153,12 +153,7 @@ export function EditorialHome({ locale }: { locale: Locale }) {
                 }
                 key={theme.slug}
               >
-                <ThemeCard
-                  index={index}
-                  locale={locale}
-                  priority={index < 3}
-                  theme={theme}
-                />
+                <ThemeCard locale={locale} priority={index < 3} theme={theme} />
               </div>
             ))}
           </div>

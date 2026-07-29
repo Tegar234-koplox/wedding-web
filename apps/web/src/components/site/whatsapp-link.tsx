@@ -1,4 +1,4 @@
-import type { AnchorHTMLAttributes, ReactNode } from "react";
+import React, { type AnchorHTMLAttributes, type ReactNode } from "react";
 
 import type { Locale } from "@/lib/locales";
 import { cn } from "@/lib/utils";

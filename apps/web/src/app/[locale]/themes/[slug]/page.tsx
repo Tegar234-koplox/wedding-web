@@ -71,7 +71,7 @@ export default async function ThemePage({ params }: ThemePageProps) {
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent" />
             <span className="absolute bottom-6 right-6 text-[0.6rem] uppercase tracking-[0.2em] text-white/65">
-              Editorial direction · 01
+              Editorial direction
             </span>
           </div>
 
@@ -144,10 +144,10 @@ export default async function ThemePage({ params }: ThemePageProps) {
                 className="border-l border-[var(--color-gold)] pl-4"
                 key={feature}
               >
-                <span className="text-[0.6rem] text-white/40">
+                <span className="hidden text-[0.6rem] text-white/40 md:inline">
                   0{index + 1}
                 </span>
-                <p className="mt-3">{feature}</p>
+                <p className="md:mt-3">{feature}</p>
               </div>
             ))}
           </div>

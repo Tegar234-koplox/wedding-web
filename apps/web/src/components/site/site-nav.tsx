@@ -3,7 +3,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Menu, X } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 import type { Locale } from "@/lib/locales";
 import { cn } from "@/lib/utils";
@@ -147,9 +147,6 @@ export function SiteNav({ locale, inverted = false }: SiteNavProps) {
                   key={link.href}
                   ref={index === 0 ? firstMobileLink : undefined}
                 >
-                  <span className="mr-4 align-middle font-sans text-[0.65rem] text-[var(--color-gold)]">
-                    0{index + 1}
-                  </span>
                   {link.label}
                 </Link>
               ))}

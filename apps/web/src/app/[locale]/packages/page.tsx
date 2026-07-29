@@ -89,15 +89,30 @@ export default async function PackagesPage({ params }: PackagesPageProps) {
                 <WhatsAppLink
                   className={
                     item.featured
-                      ? "border border-black/35 bg-transparent hover:border-black hover:bg-black hover:text-white"
-                      : ""
+                      ? "group border border-black/35 bg-transparent hover:border-black hover:bg-black hover:!text-[var(--color-gold)]"
+                      : "hover:text-[var(--color-gold)]"
                   }
                   locale={locale}
                   packageCode={item.name}
                   variant={item.featured ? "gold" : "outline"}
                 >
-                  {id ? "Pilih paket" : "Choose package"}
-                  <MoveUpRight size={15} />
+                  <span
+                    className={
+                      item.featured
+                        ? "group-hover:!text-[var(--color-gold)]"
+                        : undefined
+                    }
+                  >
+                    {id ? "Pilih paket" : "Choose package"}
+                  </span>
+                  <MoveUpRight
+                    className={
+                      item.featured
+                        ? "group-hover:!text-[var(--color-gold)]"
+                        : undefined
+                    }
+                    size={15}
+                  />
                 </WhatsAppLink>
               </article>
             ))}

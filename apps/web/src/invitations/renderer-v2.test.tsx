@@ -879,6 +879,11 @@ describe("renderer v2 invitation experience", () => {
       container.querySelectorAll("[data-signature-quadrant]"),
     ).toHaveLength(4);
 
+    const firstTimelineCard = screen
+      .getByRole("heading", { name: "Bertemu" })
+      .closest("[data-invitation-card]");
+    expect(firstTimelineCard?.textContent).not.toContain("01");
+
     const coupleToggle = screen.getByRole("button", {
       name: "Buka foto Signature kedua mempelai",
     });

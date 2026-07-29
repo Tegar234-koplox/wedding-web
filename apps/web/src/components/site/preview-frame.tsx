@@ -4,7 +4,7 @@ import { packageCodes, type PackageCode } from "@wedding/invitation-themes";
 import { ExternalLink, Monitor, Smartphone } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
-import { useState } from "react";
+import React, { useState } from "react";
 
 import type { Locale } from "@/lib/locales";
 import { cn } from "@/lib/utils";
@@ -23,7 +23,7 @@ export function PreviewFrame({ locale, slug, title }: PreviewFrameProps) {
     `/${locale}/preview/${slug}?package=${packageCode}` as Route;
 
   return (
-    <section className="bg-[#0d0d0c] px-[var(--space-gutter)] py-[var(--space-section)] text-[var(--color-ink)]">
+    <section className="hidden bg-[#0d0d0c] px-[var(--space-gutter)] py-[var(--space-section)] text-[var(--color-ink)] md:block">
       <div className="mx-auto max-w-7xl">
         <div className="mb-8 flex flex-wrap items-end justify-between gap-6">
           <div>

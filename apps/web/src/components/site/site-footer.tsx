@@ -21,7 +21,6 @@ export function SiteFooter({ locale }: { locale: Locale }) {
           <Link href={`/${locale}/packages` as const}>
             {locale === "id" ? "Paket" : "Packages"}
           </Link>
-          <Link href={`/${locale}#contact` as const}>WhatsApp</Link>
         </div>
       </div>
       <div className="mt-14 flex flex-wrap justify-between gap-3 border-t border-white/10 pt-5 text-[0.65rem] uppercase tracking-[0.16em] text-[var(--color-muted)]">

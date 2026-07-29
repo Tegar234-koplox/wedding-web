@@ -2926,12 +2926,7 @@ function SignatureStoryTimelineSection({
                 key={number}
                 packageCode={packageCode}
               >
-                <p
-                  className={`text-[0.58rem] uppercase tracking-[0.2em] ${design.accent}`}
-                >
-                  {number}
-                </p>
-                <h3 className="mt-5 font-serif text-2xl">{title}</h3>
+                <h3 className="font-serif text-2xl">{title}</h3>
                 <p className={`mt-4 text-sm leading-7 ${design.muted}`}>
                   {description}
                 </p>

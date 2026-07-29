@@ -1,23 +1,17 @@
-import { ArrowUpRight } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import React from "react";
 
 import type { Theme } from "@/content/site";
 import type { Locale } from "@/lib/locales";
 
 type ThemeCardProps = {
-  index: number;
   locale: Locale;
   theme: Theme;
   priority?: boolean;
 };
 
-export function ThemeCard({
-  index,
-  locale,
-  theme,
-  priority = false,
-}: ThemeCardProps) {
+export function ThemeCard({ locale, theme, priority = false }: ThemeCardProps) {
   return (
     <article className="group" data-reveal>
       <Link
@@ -35,14 +29,9 @@ export function ThemeCard({
             src={theme.image}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/5" />
-          <span className="absolute left-5 top-5 border border-white/35 px-3 py-2 text-[0.6rem] uppercase tracking-[0.2em] text-white">
-            0{index + 1}
+          <span className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 border border-white/70 bg-black/20 px-5 py-3 text-[0.62rem] font-semibold uppercase tracking-[0.22em] text-white backdrop-blur-[2px] transition duration-300 group-hover:border-white group-hover:bg-white group-hover:text-[#17140d]">
+            {locale === "id" ? "Lihat" : "View"}
           </span>
-          <ArrowUpRight
-            aria-hidden
-            className="absolute right-5 top-5 text-white transition duration-300 group-hover:-translate-y-1 group-hover:translate-x-1"
-            size={22}
-          />
           <div className="absolute inset-x-5 bottom-5 text-white">
             <p className="text-[0.6rem] uppercase tracking-[0.2em] text-white/70">
               {theme.category[locale]}
