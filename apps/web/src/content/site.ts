@@ -161,7 +161,7 @@ export const packages: ServicePackage[] = [
   {
     code: "couture",
     name: "Couture",
-    price: "Rp 549K",
+    price: "Rp 399K",
     description: {
       id: "Desain lebih kompleks untuk perayaan yang ingin tampil benar-benar berbeda.",
       en: "More complex designs for celebrations that want to be truly different.",

@@ -58,6 +58,7 @@ def test_couture_package_uses_latest_catalog_copy(client):
 
     assert response.status_code == 200
     couture = next(item for item in response.json() if item["code"] == "couture")
+    assert couture["price"] == "399000.00"
     assert couture["summary"] == (
         "Desain lebih kompleks untuk perayaan yang ingin tampil benar-benar berbeda."
     )

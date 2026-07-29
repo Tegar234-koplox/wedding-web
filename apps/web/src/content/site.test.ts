@@ -16,7 +16,9 @@ describe("service package benefits", () => {
   });
 
   it("shows weather as the fourth Signature benefit on the homepage", () => {
-    const signature = packages.find((servicePackage) => servicePackage.code === "signature");
+    const signature = packages.find(
+      (servicePackage) => servicePackage.code === "signature",
+    );
 
     expect(signature?.features.id.slice(0, 4)).toEqual([
       "Semua fitur Essential",
@@ -30,5 +32,13 @@ describe("service package benefits", () => {
       "RSVP and wishes",
       "Weather forecast at event location",
     ]);
+  });
+
+  it("shows the current Couture price", () => {
+    const couture = packages.find(
+      (servicePackage) => servicePackage.code === "couture",
+    );
+
+    expect(couture?.price).toBe("Rp 399K");
   });
 });

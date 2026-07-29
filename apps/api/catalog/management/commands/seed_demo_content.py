@@ -29,7 +29,7 @@ THEMES = [
 PACKAGES = [
     ("essential", 99000, False),
     ("signature", 249000, True),
-    ("couture", 549000, False),
+    ("couture", 399000, False),
 ]
 
 PACKAGE_FEATURES = {
