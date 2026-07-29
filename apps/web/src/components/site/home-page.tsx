@@ -200,9 +200,8 @@ export function EditorialHome({ locale }: { locale: Locale }) {
                 [id ? "Informasi yang jelas" : "Clear information"],
                 [id ? "Cuaca" : "Weather"],
                 [id ? "Siap dibagikan" : "Ready to share"],
-              ].map(([number, label]) => (
-                <div className="min-h-44 bg-[#d7cbb6] p-6" key={number}>
-                  <span className="text-xs text-[#6b191e]">{number}</span>
+              ].map(([label]) => (
+                <div className="min-h-44 bg-[#d7cbb6] p-6" key={label}>
                   <p className="mt-16 font-serif text-2xl">{label}</p>
                 </div>
               ))}
