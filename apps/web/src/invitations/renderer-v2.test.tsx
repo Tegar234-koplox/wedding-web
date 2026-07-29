@@ -1,4 +1,5 @@
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -18,7 +19,19 @@ beforeAll(() => {
   vi.stubGlobal(
     "IntersectionObserver",
     class {
-      observe() {}
+      private readonly callback: IntersectionObserverCallback;
+
+      constructor(callback: IntersectionObserverCallback) {
+        this.callback = callback;
+      }
+
+      observe(target: Element) {
+        this.callback(
+          [{ isIntersecting: true, target } as IntersectionObserverEntry],
+          this as unknown as IntersectionObserver,
+        );
+      }
+
       unobserve() {}
       disconnect() {}
     },
@@ -41,9 +54,48 @@ beforeAll(() => {
   });
 });
 
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  Object.defineProperty(document, "visibilityState", {
+    configurable: true,
+    value: "visible",
+  });
+});
 
 describe("renderer v2 invitation experience", () => {
+  it.each([
+    ["elegant-classic", "Cormorant Garamond", "Montserrat"],
+    ["islamic-soft", "Marcellus", "Lora"],
+    ["luxury-gold", "Bodoni Moda", "Manrope"],
+    ["minimalist-white", "Italiana", "Inter"],
+    ["dark-cinematic", "Cormorant SC", "DM Sans"],
+    ["floral-romantic", "Great Vibes", "Nunito Sans"],
+    ["javanese-traditional", "Noto Serif", "Noto Sans"],
+  ] as const)(
+    "applies the %s heading and body font pair across package renderers",
+    (rendererKey, headingFont, bodyFont) => {
+      const view = render(
+        <RendererV2
+          invitation={getSampleInvitation(rendererKey, "id", "essential")}
+          packageCode="essential"
+        />,
+      );
+      const invitation = view.container.querySelector(
+        `[data-theme="${rendererKey}"]`,
+      ) as HTMLElement;
+
+      expect(invitation.dataset.headingFont).toBe(headingFont);
+      expect(invitation.dataset.bodyFont).toBe(bodyFont);
+      expect(invitation.style.getPropertyValue("--font-serif")).toContain(
+        "heading",
+      );
+      expect(invitation.style.getPropertyValue("--font-sans")).toContain(
+        "body",
+      );
+      view.unmount();
+    },
+  );
+
   it("uses the saved cover URL and focal point, with a theme fallback", () => {
     const custom = render(
       <RendererV2
@@ -159,22 +211,25 @@ describe("renderer v2 invitation experience", () => {
     ).toBe("static");
     premium.unmount();
 
-    const minimalist = render(
-      <RendererV2
-        invitation={getSampleInvitation("minimalist-white", "id")}
-        packageCode="signature"
-      />,
-    );
-    const minimalistCover = minimalist.container.querySelector(
-      '[data-cover-frame="signature"]',
-    ) as HTMLElement;
-    expect(minimalistCover.style.getPropertyValue("--card-border")).toBe(
-      "#3F7D5A",
-    );
-    expect(minimalistCover.style.getPropertyValue("--card-shine")).toBe(
-      "#3F7D5A",
-    );
-    minimalist.unmount();
+    for (const theme of Object.keys(themeFrameColors)) {
+      const bright = render(
+        <RendererV2
+          invitation={getSampleInvitation(
+            theme as keyof typeof themeFrameColors,
+            "id",
+          )}
+          packageCode="signature"
+        />,
+      );
+      const cover = bright.container.querySelector(
+        '[data-cover-frame="signature"]',
+      ) as HTMLElement;
+      expect(cover.style.getPropertyValue("--card-border")).toBe(
+        themeFrameColors[theme as keyof typeof themeFrameColors],
+      );
+      expect(cover.style.getPropertyValue("--card-shine")).toBe("#FFFFFF");
+      bright.unmount();
+    }
 
     const unchanged = render(
       <RendererV2
@@ -335,6 +390,242 @@ describe("renderer v2 invitation experience", () => {
       container.querySelectorAll('[data-decoration-layer="section-corners"]')
         .length,
     ).toBe(16);
+  });
+
+  it("renders the exact sixteen-section Couture contract and 36-slot media layout", () => {
+    const { container } = render(
+      <RendererV2
+        invitation={getSampleInvitation("luxury-gold", "id", "couture")}
+        packageCode="couture"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Buka Undangan" }));
+
+    const sections = Array.from(
+      container.querySelectorAll<HTMLElement>("[data-couture-section]"),
+    );
+    expect(sections.map((section) => section.dataset.coutureSection)).toEqual(
+      Array.from({ length: 16 }, (_, index) => String(index + 1)),
+    );
+    expect(container.querySelectorAll("[data-couture-quadrant]")).toHaveLength(
+      4,
+    );
+    expect(
+      container.querySelectorAll("[data-couture-gallery-item]"),
+    ).toHaveLength(9);
+    expect(
+      container.querySelectorAll("[data-couture-carousel-slide]"),
+    ).toHaveLength(9);
+    expect(
+      container.querySelectorAll("[data-couture-slideshow-slide]"),
+    ).toHaveLength(3);
+    expect(
+      container.querySelectorAll('[data-couture-background-overlay="50"]'),
+    ).toHaveLength(4);
+
+    const frontSections = sections
+      .filter((section) =>
+        section.querySelector('[data-decoration-front="true"]'),
+      )
+      .map((section) => section.dataset.coutureSection);
+    expect(frontSections).toEqual(["2", "4", "5", "6", "8", "9", "10", "12"]);
+
+    const overlayFrontSections = sections
+      .filter((section) =>
+        section.querySelector('[data-decoration-overlay-front="true"]'),
+      )
+      .map((section) => section.dataset.coutureSection);
+    expect(overlayFrontSections).toEqual(["2", "4", "6", "8", "10", "12"]);
+    expect(
+      container.querySelectorAll("[data-couture-background-canvas]"),
+    ).toHaveLength(3);
+    expect(
+      container
+        .querySelector('[data-couture-section="9"]')
+        ?.getAttribute("data-couture-background-depth"),
+    ).toBe("deep");
+    expect(
+      container
+        .querySelector('[data-couture-section="10"]')
+        ?.getAttribute("data-couture-depth-entry"),
+    ).toBe("section-10-over-section-9");
+  });
+
+  it("runs the three-second Couture open sequence and the quick close sequence", () => {
+    vi.useFakeTimers();
+    const play = vi.mocked(HTMLMediaElement.prototype.play);
+    play.mockClear();
+    const view = render(
+      <RendererV2
+        invitation={getSampleInvitation("dark-cinematic", "id", "couture")}
+        packageCode="couture"
+      />,
+    );
+
+    try {
+      fireEvent.click(screen.getByRole("button", { name: "Buka Undangan" }));
+      const toggle = screen.getByRole("button", {
+        name: "Buka atau tutup foto kedua mempelai",
+      });
+      expect(toggle.getAttribute("data-motion")).toBe("shake");
+
+      fireEvent.click(toggle);
+      expect(toggle.getAttribute("aria-busy")).toBe("true");
+      expect(toggle.getAttribute("aria-expanded")).toBe("false");
+      expect(toggle.getAttribute("data-couture-toggle-phase")).toBe(
+        "opening-glow",
+      );
+      expect(play).not.toHaveBeenCalled();
+
+      fireEvent.click(toggle);
+      expect(toggle.getAttribute("data-couture-toggle-phase")).toBe(
+        "opening-glow",
+      );
+
+      act(() => vi.advanceTimersByTime(1000));
+      expect(toggle.getAttribute("data-couture-toggle-phase")).toBe(
+        "opening-crossfade",
+      );
+      expect(play).toHaveBeenCalledTimes(1);
+
+      act(() => vi.advanceTimersByTime(1000));
+      expect(toggle.getAttribute("aria-expanded")).toBe("true");
+      expect(toggle.getAttribute("data-couture-toggle-phase")).toBe(
+        "opening-burst",
+      );
+      expect(
+        toggle.querySelector('[data-couture-light-burst="outside"]'),
+      ).not.toBeNull();
+
+      act(() => vi.advanceTimersByTime(1000));
+      expect(toggle.getAttribute("aria-busy")).toBe("false");
+      expect(toggle.getAttribute("data-couture-toggle-phase")).toBe("open");
+
+      fireEvent.click(toggle);
+      expect(toggle.getAttribute("aria-expanded")).toBe("false");
+      expect(toggle.getAttribute("data-couture-toggle-phase")).toBe("closing");
+      expect(play).toHaveBeenCalledTimes(2);
+      act(() => vi.advanceTimersByTime(750));
+      expect(toggle.getAttribute("data-couture-toggle-phase")).toBe("closed");
+    } finally {
+      view.unmount();
+      vi.useRealTimers();
+    }
+  });
+
+  it.each(rendererKeys)(
+    "uses the %s Couture toggle assets and motion family",
+    (rendererKey) => {
+      const view = render(
+        <RendererV2
+          invitation={getSampleInvitation(rendererKey, "en", "couture")}
+          packageCode="couture"
+        />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Open Invitation" }));
+      const toggle = screen.getByRole("button", {
+        name: "Reveal or hide the couple photos",
+      });
+      const sources = Array.from(toggle.querySelectorAll("img")).map((image) =>
+        image.getAttribute("src"),
+      );
+      const rotating = [
+        "floral-romantic",
+        "islamic-soft",
+        "javanese-traditional",
+        "minimalist-white",
+      ].includes(rendererKey);
+
+      expect(toggle.getAttribute("data-motion")).toBe(
+        rotating ? "rotate" : "shake",
+      );
+      expect(toggle.getAttribute("data-couture-toggle-surface")).toBe("solid");
+      expect(toggle.getAttribute("data-couture-toggle-border")).toBe("glitter");
+      expect(toggle.getAttribute("style")).toContain("--couture-toggle-glow");
+      expect(
+        sources.some((source) =>
+          source?.includes(`/toggles/${rendererKey}/before.webp`),
+        ),
+      ).toBe(true);
+      expect(
+        sources.some((source) =>
+          source?.includes(`/toggles/${rendererKey}/after.webp`),
+        ),
+      ).toBe(true);
+      view.unmount();
+    },
+  );
+
+  it.each([
+    "elegant-classic",
+    "islamic-soft",
+    "minimalist-white",
+    "floral-romantic",
+  ] as const)(
+    "uses high-contrast photo copy for the %s Couture story backgrounds",
+    (rendererKey) => {
+      const view = render(
+        <RendererV2
+          invitation={getSampleInvitation(rendererKey, "id", "couture")}
+          packageCode="couture"
+        />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Buka Undangan" }));
+
+      for (const section of ["5", "9"]) {
+        expect(
+          view.container.querySelector(
+            `[data-couture-section="${section}"] [data-couture-text-contrast="bright-photo"]`,
+          ),
+        ).not.toBeNull();
+      }
+
+      for (const toggleId of ["section-2", "section-6"]) {
+        const toggle = view.container.querySelector(
+          `[data-couture-toggle="${toggleId}"]`,
+        ) as HTMLElement;
+        expect(toggle.dataset.coutureTogglePalette).toBe(
+          "theme-border-white-shine",
+        );
+        expect(toggle.style.getPropertyValue("--couture-toggle-border")).toBe(
+          themeFrameColors[rendererKey],
+        );
+        expect(toggle.style.getPropertyValue("--couture-toggle-shine")).toBe(
+          "#FFFFFF",
+        );
+      }
+
+      view.unmount();
+    },
+  );
+
+  it("advances the Couture section 12 slideshow every four seconds while visible", () => {
+    vi.useFakeTimers();
+    const view = render(
+      <RendererV2
+        invitation={getSampleInvitation("floral-romantic", "id", "couture")}
+        packageCode="couture"
+      />,
+    );
+
+    try {
+      fireEvent.click(screen.getByRole("button", { name: "Buka Undangan" }));
+      const slides = view.container.querySelectorAll(
+        "[data-couture-slideshow-slide]",
+      );
+      expect(slides[0]?.getAttribute("data-couture-slideshow-state")).toBe(
+        "active",
+      );
+
+      act(() => vi.advanceTimersByTime(4000));
+      expect(slides[1]?.getAttribute("data-couture-slideshow-state")).toBe(
+        "active",
+      );
+    } finally {
+      view.unmount();
+      vi.useRealTimers();
+    }
   });
 
   it("does not add premium decoration to Essential", () => {
@@ -571,9 +862,9 @@ describe("renderer v2 invitation experience", () => {
     );
     expect(sectionFourPhotos).toHaveLength(3);
     expect(
-      sectionFourPhotos[0]?.querySelector("img")?.classList.contains(
-        "object-cover",
-      ),
+      sectionFourPhotos[0]
+        ?.querySelector("img")
+        ?.classList.contains("object-cover"),
     ).toBe(true);
     expect(
       sectionFourPhotos[1]?.querySelector("[class*='md:min-h-[70svh]']"),
@@ -646,9 +937,7 @@ describe("renderer v2 invitation experience", () => {
         image.getAttribute("src"),
       );
       expect(
-        sources.some((source) =>
-          source?.includes(`${rendererKey}-before.svg`),
-        ),
+        sources.some((source) => source?.includes(`${rendererKey}-before.svg`)),
       ).toBe(true);
       expect(
         sources.some((source) => source?.includes(`${rendererKey}-after.svg`)),

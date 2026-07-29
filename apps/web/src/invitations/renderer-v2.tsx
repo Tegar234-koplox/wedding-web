@@ -10,7 +10,10 @@ import {
   AnimatePresence,
   MotionConfig,
   motion,
+  useInView,
   useReducedMotion,
+  useScroll,
+  useTransform,
 } from "framer-motion";
 import {
   CalendarDays,
@@ -46,6 +49,7 @@ import type {
 } from "@/lib/api/contracts";
 
 import ambientStyles from "./invitation-ambient.module.css";
+import coutureStyles from "./couture-motion.module.css";
 
 export type RendererV2Props = {
   invitation: InvitationEnvelope;
@@ -77,6 +81,13 @@ const textFadeTransition = {
   duration: 0.85,
   ease: [0.22, 1, 0.36, 1],
 } as const;
+
+const brightPhotoBackgroundThemes = new Set<RendererKey>([
+  "elegant-classic",
+  "islamic-soft",
+  "minimalist-white",
+  "floral-romantic",
+]);
 
 function timelineOverride(
   invitation: InvitationEnvelope,
@@ -199,78 +210,93 @@ const signatureToggleIcons: Record<
   ]),
 ) as Record<RendererKey, { after: string; before: string }>;
 
-const coutureSectionPhotos = {
-  4: [
+const coutureAssetRoot = "/images/invitation-couture/v2";
+
+const coutureCouplePhotos = [
+  {
+    alt: "Couture groom portrait",
+    src: `${coutureAssetRoot}/section-2/groom.webp`,
+  },
+  {
+    alt: "Couture bride portrait",
+    src: `${coutureAssetRoot}/section-2/bride.webp`,
+  },
+] as const;
+
+const coutureSectionFourPhotos = Array.from({ length: 3 }, (_, index) => ({
+  alt: `Couture story portrait ${index + 1}`,
+  src: `${coutureAssetRoot}/section-4/photo-${String(index + 1).padStart(2, "0")}.webp`,
+}));
+
+const coutureSectionFiveBackground = [
+  {
+    alt: "Couture story background",
+    src: `${coutureAssetRoot}/section-5/background.webp`,
+  },
+] as const;
+
+const coutureSectionSixPhotos = [
+  {
+    alt: "Couture full gallery portrait",
+    src: `${coutureAssetRoot}/section-6/cover.webp`,
+  },
+  ...Array.from({ length: 4 }, (_, index) => ({
+    alt: `Couture quadrant portrait ${index + 1}`,
+    src: `${coutureAssetRoot}/section-6/quadrant-${String(index + 1).padStart(2, "0")}.webp`,
+  })),
+];
+
+const coutureSectionEightPhotos = Array.from({ length: 9 }, (_, index) => ({
+  alt: `Couture gallery portrait ${index + 1}`,
+  src: `${coutureAssetRoot}/section-8/photo-${String(index + 1).padStart(2, "0")}.webp`,
+}));
+
+const coutureSectionNineBackgrounds = Array.from({ length: 3 }, (_, index) => ({
+  alt: `Couture story background ${index + 1}`,
+  src: `${coutureAssetRoot}/section-9/background-${String(index + 1).padStart(2, "0")}.webp`,
+}));
+
+const coutureSectionTenPhotos = [
+  {
+    alt: "Couture carousel background",
+    src: `${coutureAssetRoot}/section-10/background.webp`,
+  },
+  ...Array.from({ length: 9 }, (_, index) => ({
+    alt: `Couture carousel portrait ${index + 1}`,
+    src: `${coutureAssetRoot}/section-10/photo-${String(index + 1).padStart(2, "0")}.webp`,
+  })),
+];
+
+const coutureSectionTwelvePhotos = Array.from({ length: 3 }, (_, index) => ({
+  alt: `Couture closing portrait ${index + 1}`,
+  src: `${coutureAssetRoot}/section-12/photo-${String(index + 1).padStart(2, "0")}.webp`,
+}));
+
+const coutureToggleAssets: Record<
+  RendererKey,
+  { after: string; before: string; closeSound: string; openSound: string }
+> = Object.fromEntries(
+  [
+    "dark-cinematic",
+    "elegant-classic",
+    "floral-romantic",
+    "islamic-soft",
+    "javanese-traditional",
+    "luxury-gold",
+    "minimalist-white",
+  ].map((key) => [
+    key,
     {
-      alt: "Couture wedding story photo top",
-      src: "/images/invitation-couture/photos/section-4/top.jpg",
+      after: `${coutureAssetRoot}/toggles/${key}/after.webp`,
+      before: `${coutureAssetRoot}/toggles/${key}/before.webp`,
+      closeSound: `/audio/invitation-couture/toggles/${key}/close.mp3`,
+      openSound: `/audio/invitation-couture/toggles/${key}/open.mp3`,
     },
-    {
-      alt: "Couture wedding story photo middle",
-      src: "/images/invitation-couture/photos/section-4/middle.jpg",
-    },
-    {
-      alt: "Couture wedding story photo bottom",
-      src: "/images/invitation-couture/photos/section-4/bottom.jpg",
-    },
-  ],
-  6: [
-    {
-      alt: "Couture timeline photo top",
-      src: "/images/invitation-couture/photos/section-6/top.jpg",
-    },
-    {
-      alt: "Couture timeline photo middle",
-      src: "/images/invitation-couture/photos/section-6/middle.jpg",
-    },
-    {
-      alt: "Couture timeline photo bottom",
-      src: "/images/invitation-couture/photos/section-6/bottom.jpg",
-    },
-  ],
-  8: [
-    {
-      alt: "Couture intimacy photo top",
-      src: "/images/invitation-couture/photos/section-8/top.webp",
-    },
-    {
-      alt: "Couture intimacy photo middle",
-      src: "/images/invitation-couture/photos/section-8/middle.webp",
-    },
-    {
-      alt: "Couture intimacy photo bottom",
-      src: "/images/invitation-couture/photos/section-8/bottom.webp",
-    },
-  ],
-  10: [
-    {
-      alt: "Couture trust photo top",
-      src: "/images/invitation-couture/photos/section-10/top.webp",
-    },
-    {
-      alt: "Couture trust photo middle",
-      src: "/images/invitation-couture/photos/section-10/middle.webp",
-    },
-    {
-      alt: "Couture trust photo bottom",
-      src: "/images/invitation-couture/photos/section-10/bottom.webp",
-    },
-  ],
-  12: [
-    {
-      alt: "Couture final story photo top",
-      src: "/images/invitation-couture/photos/section-12/top.webp",
-    },
-    {
-      alt: "Couture final story photo middle",
-      src: "/images/invitation-couture/photos/section-12/middle.webp",
-    },
-    {
-      alt: "Couture final story photo bottom",
-      src: "/images/invitation-couture/photos/section-12/bottom.webp",
-    },
-  ],
-} as const;
+  ]),
+) as Record<
+  RendererKey,
+  { after: string; before: string; closeSound: string; openSound: string }
+>;
 
 type GalleryPhoto = InvitationEnvelope["content"]["gallery"][number];
 
@@ -798,7 +824,7 @@ function EssentialCoupleRevealSection({
                     <h2 className="font-serif text-2xl italic leading-tight tracking-[0.03em] md:text-3xl">
                       {person.name}
                     </h2>
-                    <p className="mt-2 font-serif text-sm font-medium leading-relaxed tracking-[0.02em]">
+                    <p className="mt-2 font-sans text-sm font-medium leading-relaxed tracking-[0.02em]">
                       {person.description}
                     </p>
                   </div>
@@ -1048,7 +1074,7 @@ function SignatureCoupleRevealSection({
                     <h2 className="font-serif text-2xl italic leading-tight tracking-[0.03em] md:text-3xl">
                       {person.name}
                     </h2>
-                    <p className="mt-2 font-serif text-sm font-medium leading-relaxed tracking-[0.02em]">
+                    <p className="mt-2 font-sans text-sm font-medium leading-relaxed tracking-[0.02em]">
                       {person.description}
                     </p>
                   </div>
@@ -1063,7 +1089,7 @@ function SignatureCoupleRevealSection({
           className="pointer-events-none absolute inset-x-0 top-1/2 z-30 h-px lg:inset-y-0 lg:bottom-0 lg:left-1/2 lg:right-auto lg:top-0 lg:h-auto lg:w-px"
           data-signature-divider
           style={{
-            backgroundColor: design.cardShineColor,
+            backgroundColor: design.cardBorderColor,
             boxShadow: `0 0 18px ${design.cardGlowColor}, 0 0 5px ${design.cardShineColor}`,
           }}
         />
@@ -1463,6 +1489,839 @@ function SignatureCarouselSection({
   );
 }
 
+type CoutureTogglePhase =
+  | "closed"
+  | "opening-glow"
+  | "opening-crossfade"
+  | "opening-burst"
+  | "open"
+  | "closing";
+
+const coutureRotatingThemes = new Set<RendererKey>([
+  "floral-romantic",
+  "islamic-soft",
+  "javanese-traditional",
+  "minimalist-white",
+]);
+
+function useCoutureToggle({
+  assets,
+  onEffect,
+}: {
+  assets: { closeSound: string; openSound: string };
+  onEffect: (effectUrl: string) => void;
+}) {
+  const reducedMotion = useReducedMotion();
+  const [opened, setOpened] = useState(false);
+  const [phase, setPhase] = useState<CoutureTogglePhase>("closed");
+  const timersRef = useRef<number[]>([]);
+  const busy = phase.startsWith("opening") || phase === "closing";
+
+  useEffect(
+    () => () => {
+      timersRef.current.forEach((timer) => window.clearTimeout(timer));
+      timersRef.current = [];
+    },
+    [],
+  );
+
+  function later(callback: () => void, delay: number) {
+    const timer = window.setTimeout(callback, delay);
+    timersRef.current.push(timer);
+  }
+
+  function toggle() {
+    if (busy) {
+      return;
+    }
+
+    timersRef.current.forEach((timer) => window.clearTimeout(timer));
+    timersRef.current = [];
+
+    if (opened) {
+      setPhase("closing");
+      setOpened(false);
+      onEffect(assets.closeSound);
+      later(() => setPhase("closed"), reducedMotion ? 0 : 750);
+      return;
+    }
+
+    if (reducedMotion) {
+      setOpened(true);
+      setPhase("open");
+      onEffect(assets.openSound);
+      return;
+    }
+
+    setPhase("opening-glow");
+    later(() => {
+      setPhase("opening-crossfade");
+      onEffect(assets.openSound);
+    }, 1000);
+    later(() => {
+      setOpened(true);
+      setPhase("opening-burst");
+    }, 2000);
+    later(() => setPhase("open"), 3000);
+  }
+
+  return { busy, opened, phase, toggle };
+}
+
+function useCoutureToggleButton({
+  design,
+  invitation,
+  label,
+  onEffect,
+  toggleId,
+}: {
+  design: ThemeVisual;
+  invitation: InvitationEnvelope;
+  label: string;
+  onEffect: (effectUrl: string) => void;
+  toggleId: string;
+}) {
+  const rendererKey = invitation.rendererKey as RendererKey;
+  const brightPalette = brightPhotoBackgroundThemes.has(rendererKey);
+  const assets =
+    coutureToggleAssets[rendererKey] ?? coutureToggleAssets["elegant-classic"];
+  const { busy, opened, phase, toggle } = useCoutureToggle({
+    assets,
+    onEffect,
+  });
+  const rotating = coutureRotatingThemes.has(rendererKey);
+  const ritualMotionActive =
+    phase === "opening-glow" || (!rotating && phase === "opening-crossfade");
+  const afterActive =
+    phase === "opening-crossfade" ||
+    phase === "opening-burst" ||
+    phase === "open";
+  const burst = phase === "opening-burst";
+  const glowStrength =
+    phase === "closed" || phase === "closing"
+      ? 0.28
+      : phase === "opening-glow"
+        ? 0.72
+        : 1;
+
+  return {
+    busy,
+    button: (
+      <button
+        aria-busy={busy}
+        aria-expanded={opened}
+        aria-label={label}
+        className={`${coutureStyles.toggleButton} ${design.surface} ${design.glow} group relative grid size-20 place-items-center rounded-full border transition hover:scale-105 focus:outline-none focus:ring-2 focus:ring-current/45`}
+        data-couture-toggle-border="glitter"
+        data-couture-toggle-palette={
+          brightPalette ? "theme-border-white-shine" : "theme"
+        }
+        data-couture-toggle={toggleId}
+        data-couture-toggle-phase={phase}
+        data-couture-toggle-surface="solid"
+        data-motion={rotating ? "rotate" : "shake"}
+        data-opening={ritualMotionActive || undefined}
+        disabled={busy}
+        onClick={toggle}
+        style={
+          {
+            "--couture-toggle-border": design.cardBorderColor,
+            "--couture-toggle-glow": design.cardGlowColor,
+            "--couture-toggle-shine": design.cardShineColor,
+            borderColor: design.cardBorderColor,
+            boxShadow: `0 0 0 1px ${design.cardBorderColor}, 0 0 ${18 + glowStrength * 24}px color-mix(in srgb, ${design.cardGlowColor} ${Math.round(45 + glowStrength * 35)}%, transparent)`,
+          } as React.CSSProperties
+        }
+        type="button"
+      >
+        <AnimatePresence>
+          {burst ? (
+            <motion.span
+              animate={{ opacity: 0, scale: 2.45 }}
+              aria-hidden
+              className={`${coutureStyles.toggleBurst} pointer-events-none absolute inset-0 rounded-full border`}
+              data-couture-light-burst="outside"
+              exit={{ opacity: 0 }}
+              initial={{ opacity: 0.9, scale: 0.7 }}
+              key={`${toggleId}-burst`}
+              transition={{ duration: 0.85, ease: [0.22, 1, 0.36, 1] }}
+            />
+          ) : null}
+        </AnimatePresence>
+        <span className={`${coutureStyles.toggleArtwork} absolute inset-3`}>
+          {[
+            { active: !afterActive, key: "before", src: assets.before },
+            { active: afterActive, key: "after", src: assets.after },
+          ].map((icon) => (
+            <motion.span
+              animate={{
+                filter: icon.active ? "blur(0px)" : "blur(7px)",
+                opacity: icon.active ? 1 : 0,
+                scale: icon.active ? 1 : 0.88,
+              }}
+              aria-hidden
+              className="absolute inset-0"
+              initial={false}
+              key={icon.key}
+              transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <Image
+                alt=""
+                className="object-contain"
+                fill
+                sizes="3.5rem"
+                src={icon.src}
+                unoptimized
+              />
+            </motion.span>
+          ))}
+        </span>
+      </button>
+    ),
+    opened,
+    phase,
+  };
+}
+
+function CoutureBackgroundLayer({
+  design,
+  photos,
+  sectionRef,
+}: {
+  design: ThemeVisual;
+  photos: readonly GalleryPhoto[];
+  sectionRef: React.RefObject<HTMLElement | null>;
+}) {
+  const reducedMotion = useReducedMotion();
+  const { scrollYProgress } = useScroll({
+    offset: ["start end", "end start"],
+    target: sectionRef,
+  });
+  const parallaxY = useTransform(scrollYProgress, [0, 1], ["-4%", "4%"]);
+  const firstOpacity = useTransform(
+    scrollYProgress,
+    [0, 0.36, 0.46],
+    [1, 1, photos.length > 1 ? 0 : 1],
+  );
+  const secondOpacity = useTransform(
+    scrollYProgress,
+    [0.28, 0.42, 0.64, 0.76],
+    [0, 1, 1, photos.length > 2 ? 0 : 1],
+  );
+  const thirdOpacity = useTransform(
+    scrollYProgress,
+    [0.62, 0.78, 1],
+    [0, 1, 1],
+  );
+  const opacityValues = [firstOpacity, secondOpacity, thirdOpacity] as const;
+
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-0 z-0 overflow-hidden"
+      data-couture-background-layer
+    >
+      <motion.div
+        className="absolute -inset-y-[8%] inset-x-0 overflow-hidden"
+        data-couture-background-canvas
+        style={{ y: reducedMotion ? "0%" : parallaxY }}
+      >
+        {photos.map((photo, index) => (
+          <motion.div
+            className="absolute inset-0 overflow-hidden"
+            data-couture-background={index + 1}
+            key={`${photo.src}-${index}`}
+            style={{
+              opacity: photos.length === 1 ? 1 : opacityValues[index],
+            }}
+          >
+            <Image
+              alt=""
+              className={`${coutureStyles.backgroundOrbit} object-cover object-center`}
+              fill
+              sizes="100vw"
+              src={photo.src}
+            />
+          </motion.div>
+        ))}
+      </motion.div>
+      <div
+        className={`${design.surface} absolute inset-0 opacity-50`}
+        data-couture-background-overlay="50"
+      />
+    </div>
+  );
+}
+
+function CoutureCoupleRevealSection({
+  design,
+  invitation,
+  onEffect,
+  premium,
+}: {
+  design: ThemeVisual;
+  invitation: InvitationEnvelope;
+  onEffect: (effectUrl: string) => void;
+  premium: PremiumVisualConfig;
+}) {
+  const desktop = useDesktopCoupleLayout();
+  const reducedMotion = useReducedMotion();
+  const id = invitation.locale === "id";
+  const { couple, gallery } = invitation.content;
+  const photos = sectionPhotosFromGallery(gallery, 0, 2, coutureCouplePhotos);
+  const people = [
+    {
+      description:
+        couple.partnerTwoDescription ?? (id ? "Mempelai pria" : "Groom"),
+      name: couple.partnerTwo,
+      photo: photos[0] ?? coutureCouplePhotos[0],
+      role: "groom",
+    },
+    {
+      description:
+        couple.partnerOneDescription ?? (id ? "Mempelai wanita" : "Bride"),
+      name: couple.partnerOne,
+      photo: photos[1] ?? coutureCouplePhotos[1],
+      role: "bride",
+    },
+  ] as const;
+  const hiddenPositions = desktop
+    ? [
+        { x: "100%", y: "0%" },
+        { x: "-100%", y: "0%" },
+      ]
+    : [
+        { x: "0%", y: "100%" },
+        { x: "0%", y: "-100%" },
+      ];
+  const label = id
+    ? "Buka atau tutup foto kedua mempelai"
+    : "Reveal or hide the couple photos";
+  const toggle = useCoutureToggleButton({
+    design,
+    invitation,
+    label,
+    onEffect,
+    toggleId: "section-2",
+  });
+
+  return (
+    <section
+      className={`${design.page} relative overflow-hidden`}
+      data-couture-section="2"
+    >
+      <ThemeSectionDecoration front config={premium} overlayFront showOverlay />
+      <div className="relative grid min-h-[100svh] grid-rows-2 lg:grid-cols-2 lg:grid-rows-1">
+        {people.map((person, index) => (
+          <div
+            className="relative min-h-[50svh] overflow-hidden lg:min-h-[100svh]"
+            data-couture-couple-panel={person.role}
+            key={person.role}
+          >
+            <motion.div
+              animate={{
+                x: toggle.opened ? "0%" : hiddenPositions[index]?.x,
+                y: toggle.opened ? "0%" : hiddenPositions[index]?.y,
+              }}
+              aria-hidden={!toggle.opened}
+              className="absolute inset-0 will-change-transform"
+              initial={false}
+              transition={{
+                duration: reducedMotion ? 0 : 0.75,
+                ease: [0.22, 1, 0.36, 1],
+              }}
+            >
+              <InvitationCard
+                className="!absolute inset-0 h-full"
+                contentClassName="relative h-full"
+                design={design}
+                packageCode="couture"
+                photo
+                surfaceClassName="bg-transparent"
+              >
+                <Image
+                  alt={person.photo.alt}
+                  className="object-cover object-[center_28%]"
+                  fill
+                  sizes="(max-width: 1023px) 100vw, 50vw"
+                  src={person.photo.src}
+                />
+              </InvitationCard>
+            </motion.div>
+            <AnimatePresence>
+              {toggle.opened ? (
+                <motion.div
+                  animate={{ opacity: 1, y: 0 }}
+                  className="absolute inset-x-10 bottom-14 z-30 px-4 pb-2 pt-4 text-center shadow-lg sm:inset-x-16 md:inset-x-20 md:bottom-16 lg:inset-x-12 lg:bottom-8"
+                  data-couture-couple-caption={person.role}
+                  exit={{ opacity: 0, y: reducedMotion ? 0 : 8 }}
+                  initial={reducedMotion ? false : { opacity: 0, y: 14 }}
+                  transition={{
+                    delay: reducedMotion ? 0 : 0.76,
+                    duration: reducedMotion ? 0 : 0.45,
+                  }}
+                >
+                  <div
+                    className={`${design.surface} absolute inset-0 opacity-40`}
+                  />
+                  <div
+                    className={`relative ${design.ink} [text-shadow:0_1px_2px_rgba(255,255,255,0.55),0_2px_7px_rgba(0,0,0,0.8)]`}
+                  >
+                    <h2 className="font-serif text-2xl italic leading-tight tracking-[0.03em] md:text-3xl">
+                      {person.name}
+                    </h2>
+                    <p className="mt-2 font-sans text-sm font-medium leading-relaxed tracking-[0.02em]">
+                      {person.description}
+                    </p>
+                  </div>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
+          </div>
+        ))}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-1/2 z-30 h-px lg:inset-y-0 lg:bottom-0 lg:left-1/2 lg:right-auto lg:top-0 lg:h-auto lg:w-px"
+          style={{
+            backgroundColor: design.cardBorderColor,
+            boxShadow: `0 0 18px ${design.cardGlowColor}, 0 0 5px ${design.cardShineColor}`,
+          }}
+        />
+        <div className="absolute left-1/2 top-1/2 z-[70] -translate-x-1/2 -translate-y-1/2">
+          {toggle.button}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CoutureThreePhotoSection({
+  design,
+  gallery,
+  premium,
+}: {
+  design: ThemeVisual;
+  gallery: InvitationEnvelope["content"]["gallery"];
+  premium: PremiumVisualConfig;
+}) {
+  const photos = sectionPhotosFromGallery(
+    gallery,
+    2,
+    3,
+    coutureSectionFourPhotos,
+  );
+  return (
+    <section
+      className={`${design.page} relative overflow-hidden px-2 py-2`}
+      data-couture-section="4"
+    >
+      <ThemeSectionDecoration front config={premium} overlayFront showOverlay />
+      <div className="relative z-30 grid gap-2 md:grid-cols-3">
+        {photos.map((image, index) => (
+          <motion.div
+            initial={{ opacity: 0, scale: 1.015 }}
+            key={`${image.src}-${index}`}
+            viewport={{ once: true, amount: 0.18 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+          >
+            <InvitationCard
+              className="h-full"
+              contentClassName={`relative min-h-[58svh] ${index === 1 ? "md:min-h-[70svh]" : ""}`}
+              design={design}
+              packageCode="couture"
+              photo
+            >
+              <Image
+                alt={image.alt}
+                className="object-cover object-[center_28%]"
+                fill
+                sizes="(max-width: 767px) 100vw, 33vw"
+                src={image.src}
+              />
+            </InvitationCard>
+          </motion.div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function CoutureQuadrantRevealSection({
+  design,
+  invitation,
+  onEffect,
+  premium,
+}: {
+  design: ThemeVisual;
+  invitation: InvitationEnvelope;
+  onEffect: (effectUrl: string) => void;
+  premium: PremiumVisualConfig;
+}) {
+  const reducedMotion = useReducedMotion();
+  const id = invitation.locale === "id";
+  const photos = sectionPhotosFromGallery(
+    invitation.content.gallery,
+    6,
+    5,
+    coutureSectionSixPhotos,
+  );
+  const cover = photos[0] ?? coutureSectionSixPhotos[0]!;
+  const quadrants = photos.slice(1, 5);
+  const hiddenPositions = [
+    { x: "100%", y: "100%" },
+    { x: "-100%", y: "100%" },
+    { x: "100%", y: "-100%" },
+    { x: "-100%", y: "-100%" },
+  ] as const;
+  const label = id
+    ? "Buka atau tutup galeri empat foto"
+    : "Reveal or hide the four-photo gallery";
+  const toggle = useCoutureToggleButton({
+    design,
+    invitation,
+    label,
+    onEffect,
+    toggleId: "section-6",
+  });
+
+  return (
+    <section
+      className={`${design.page} relative min-h-[100svh] overflow-hidden p-2`}
+      data-ambient-over-background="true"
+      data-couture-section="6"
+    >
+      <ThemeSectionDecoration front config={premium} overlayFront showOverlay />
+      <div className="relative z-30 min-h-[calc(100svh-1rem)] overflow-hidden">
+        <div
+          className="absolute inset-0 overflow-hidden"
+          data-couture-section-six-cover
+        >
+          <Image
+            alt={cover.alt}
+            className={`${coutureStyles.backgroundOrbit} object-cover object-[center_28%]`}
+            fill
+            sizes="100vw"
+            src={cover.src}
+          />
+          <div
+            className={`${design.surface} absolute inset-0 opacity-50`}
+            data-couture-background-overlay="50"
+          />
+        </div>
+        <div className="absolute inset-0 grid grid-cols-2 grid-rows-2">
+          {quadrants.map((image, index) => (
+            <motion.div
+              animate={{
+                opacity: toggle.opened ? 1 : 0,
+                x: toggle.opened ? "0%" : hiddenPositions[index]?.x,
+                y: toggle.opened ? "0%" : hiddenPositions[index]?.y,
+              }}
+              aria-hidden={!toggle.opened}
+              className="relative min-h-0 min-w-0 will-change-transform"
+              data-couture-quadrant={index + 1}
+              initial={false}
+              key={`${image.src}-${index}`}
+              transition={{
+                delay: reducedMotion
+                  ? 0
+                  : toggle.opened
+                    ? index * 0.16
+                    : (3 - index) * 0.16,
+                duration: reducedMotion ? 0 : 0.62,
+                ease: [0.22, 1, 0.36, 1],
+              }}
+            >
+              <InvitationCard
+                className="!absolute inset-0 h-full"
+                contentClassName="relative h-full"
+                design={design}
+                packageCode="couture"
+                photo
+                surfaceClassName="bg-transparent"
+              >
+                <Image
+                  alt={image.alt}
+                  className="object-cover object-[center_28%]"
+                  fill
+                  sizes="50vw"
+                  src={image.src}
+                />
+              </InvitationCard>
+            </motion.div>
+          ))}
+        </div>
+        <div className="absolute left-1/2 top-1/2 z-[70] -translate-x-1/2 -translate-y-1/2">
+          {toggle.button}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CoutureNinePhotoGallery({
+  design,
+  gallery,
+  premium,
+}: {
+  design: ThemeVisual;
+  gallery: InvitationEnvelope["content"]["gallery"];
+  premium: PremiumVisualConfig;
+}) {
+  const reducedMotion = useReducedMotion();
+  const photos = sectionPhotosFromGallery(
+    gallery,
+    11,
+    9,
+    coutureSectionEightPhotos,
+  );
+  return (
+    <section
+      className={`${design.page} relative overflow-hidden px-2 py-16 md:px-4 md:py-24`}
+      data-couture-section="8"
+    >
+      <ThemeSectionDecoration front config={premium} overlayFront showOverlay />
+      <motion.div
+        className="relative z-30 grid grid-cols-3 gap-2 md:gap-3"
+        initial={reducedMotion ? false : "hidden"}
+        variants={{
+          hidden: {},
+          visible: {
+            transition: { staggerChildren: reducedMotion ? 0 : 0.07 },
+          },
+        }}
+        viewport={{ once: true, amount: 0.2 }}
+        whileInView="visible"
+      >
+        {photos.map((image, index) => (
+          <motion.div
+            data-couture-gallery-item
+            key={`${image.src}-${index}`}
+            variants={{
+              hidden: { opacity: 0, scale: 0.98, y: 22 },
+              visible: {
+                opacity: 1,
+                scale: 1,
+                transition: { duration: reducedMotion ? 0 : 0.55 },
+                y: 0,
+              },
+            }}
+          >
+            <InvitationCard
+              className="h-full"
+              contentClassName="relative aspect-[4/5]"
+              design={design}
+              packageCode="couture"
+              photo
+            >
+              <Image
+                alt={image.alt}
+                className="object-contain"
+                fill
+                sizes="33vw"
+                src={image.src}
+              />
+            </InvitationCard>
+          </motion.div>
+        ))}
+      </motion.div>
+    </section>
+  );
+}
+
+function CoutureCarouselSection({
+  design,
+  gallery,
+  id,
+  premium,
+}: {
+  design: ThemeVisual;
+  gallery: InvitationEnvelope["content"]["gallery"];
+  id: boolean;
+  premium: PremiumVisualConfig;
+}) {
+  const sectionRef = useRef<HTMLElement>(null);
+  const reducedMotion = useReducedMotion();
+  const columns = useSignatureCarouselColumns();
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const media = sectionPhotosFromGallery(
+    gallery,
+    23,
+    10,
+    coutureSectionTenPhotos,
+  );
+  const background = [media[0] ?? coutureSectionTenPhotos[0]!];
+  const photos = media.slice(1, 10);
+  const maxIndex = Math.max(photos.length - columns, 0);
+  const boundedActiveIndex = Math.min(activeIndex, maxIndex);
+
+  function moveTo(nextIndex: number) {
+    const next = Math.min(Math.max(nextIndex, 0), maxIndex);
+    setActiveIndex(next);
+    window.requestAnimationFrame(() => {
+      const viewport = viewportRef.current;
+      const slide = viewport?.children[next] as HTMLElement | undefined;
+      if (!viewport || !slide) {
+        return;
+      }
+      viewport.scrollTo({
+        behavior: reducedMotion ? "auto" : "smooth",
+        left: slide.offsetLeft,
+      });
+    });
+  }
+
+  return (
+    <section
+      className={`${design.page} relative z-10 -mt-[18svh] min-h-[128svh] overflow-hidden px-5 pb-24 pt-[calc(6rem+18svh)] md:px-12 md:pb-32 md:pt-[calc(8rem+18svh)]`}
+      data-ambient-over-background="true"
+      data-couture-depth-entry="section-10-over-section-9"
+      data-couture-section="10"
+      ref={sectionRef}
+    >
+      <CoutureBackgroundLayer
+        design={design}
+        photos={background}
+        sectionRef={sectionRef}
+      />
+      <ThemeSectionDecoration front config={premium} overlayFront showOverlay />
+      <div className="relative z-30 mx-auto flex min-h-[80svh] max-w-7xl items-center">
+        <div className="relative w-full">
+          <div
+            className="grid snap-x snap-mandatory grid-flow-col auto-cols-[100%] gap-3 overflow-x-auto scroll-smooth [scrollbar-width:none] md:auto-cols-[calc((100%-1.5rem)/3)] [&::-webkit-scrollbar]:hidden"
+            data-couture-carousel
+            ref={viewportRef}
+          >
+            {photos.map((image, index) => (
+              <div
+                className="snap-start"
+                data-couture-carousel-slide={index + 1}
+                key={`${image.src}-${index}`}
+              >
+                <InvitationCard
+                  contentClassName="relative aspect-[4/5]"
+                  design={design}
+                  packageCode="couture"
+                  photo
+                >
+                  <Image
+                    alt={image.alt}
+                    className="object-contain"
+                    fill
+                    sizes="(max-width: 767px) 100vw, 33vw"
+                    src={image.src}
+                  />
+                </InvitationCard>
+              </div>
+            ))}
+          </div>
+          <button
+            aria-label={id ? "Foto sebelumnya" : "Previous photo"}
+            className={`${design.surface} ${design.glow} absolute left-3 top-1/2 z-40 grid size-12 -translate-y-1/2 place-items-center rounded-full border transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-35`}
+            disabled={boundedActiveIndex === 0}
+            onClick={() => moveTo(boundedActiveIndex - 1)}
+            style={{ borderColor: design.cardBorderColor }}
+            type="button"
+          >
+            <ChevronLeft aria-hidden size={22} />
+          </button>
+          <button
+            aria-label={id ? "Foto berikutnya" : "Next photo"}
+            className={`${design.surface} ${design.glow} absolute right-3 top-1/2 z-40 grid size-12 -translate-y-1/2 place-items-center rounded-full border transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-35`}
+            disabled={boundedActiveIndex === maxIndex}
+            onClick={() => moveTo(boundedActiveIndex + 1)}
+            style={{ borderColor: design.cardBorderColor }}
+            type="button"
+          >
+            <ChevronRight aria-hidden size={22} />
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CoutureSlideshowSection({
+  design,
+  gallery,
+  premium,
+}: {
+  design: ThemeVisual;
+  gallery: InvitationEnvelope["content"]["gallery"];
+  premium: PremiumVisualConfig;
+}) {
+  const sectionRef = useRef<HTMLElement>(null);
+  const inView = useInView(sectionRef, { amount: 0.2, margin: "120px 0px" });
+  const reducedMotion = useReducedMotion();
+  const [activeIndex, setActiveIndex] = useState(0);
+  const photos = sectionPhotosFromGallery(
+    gallery,
+    33,
+    3,
+    coutureSectionTwelvePhotos,
+  );
+
+  useEffect(() => {
+    if (reducedMotion || !inView || photos.length < 2) {
+      return;
+    }
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        setActiveIndex((current) => (current + 1) % photos.length);
+      }
+    }, 4000);
+    return () => window.clearInterval(timer);
+  }, [inView, photos.length, reducedMotion]);
+
+  return (
+    <section
+      className={`${design.page} relative grid min-h-[100svh] place-items-center overflow-hidden px-4 py-20 md:px-12`}
+      data-couture-section="12"
+      ref={sectionRef}
+    >
+      <ThemeSectionDecoration front config={premium} overlayFront showOverlay />
+      <div className="relative z-30 mx-auto w-full max-w-3xl">
+        <InvitationCard
+          contentClassName="relative aspect-[4/5] md:aspect-[5/4]"
+          design={design}
+          packageCode="couture"
+          photo
+        >
+          {photos.map((image, index) => {
+            const active = index === activeIndex;
+            return (
+              <motion.div
+                animate={{
+                  opacity: active ? 1 : 0,
+                  scale: active && !reducedMotion ? 1.055 : 1,
+                }}
+                aria-hidden={!active}
+                className="absolute inset-0"
+                data-couture-slideshow-slide={index + 1}
+                data-couture-slideshow-state={active ? "active" : "inactive"}
+                initial={false}
+                key={`${image.src}-${index}`}
+                transition={{
+                  opacity: { duration: reducedMotion ? 0 : 0.8 },
+                  scale: { duration: reducedMotion ? 0 : 4, ease: "linear" },
+                }}
+              >
+                <Image
+                  alt={image.alt}
+                  className="object-cover object-[center_28%]"
+                  fill
+                  sizes="(max-width: 767px) 100vw, 60vw"
+                  src={image.src}
+                />
+              </motion.div>
+            );
+          })}
+        </InvitationCard>
+      </div>
+    </section>
+  );
+}
+
 function EssentialNinePhotoGallery({
   design,
   gallery,
@@ -1607,112 +2466,6 @@ function EssentialGiftSection({
             </motion.div>
           ) : null}
         </AnimatePresence>
-      </div>
-    </section>
-  );
-}
-
-function SignaturePhotoSection({
-  design,
-  packageCode,
-  photos,
-  premium,
-  showOverlay = false,
-  variant,
-}: {
-  design: ThemeVisual;
-  packageCode: "signature" | "couture";
-  photos: readonly { alt: string; src: string }[];
-  premium: PremiumVisualConfig;
-  showOverlay?: boolean;
-  variant: "three" | "two";
-}) {
-  return (
-    <section className={`${design.page} relative overflow-hidden px-2 py-2`}>
-      <ThemeSectionDecoration config={premium} showOverlay={showOverlay} />
-      <div
-        className={`relative z-10 grid gap-2 ${
-          variant === "three" ? "md:grid-cols-3" : "md:grid-cols-2"
-        }`}
-      >
-        {photos.map((image, index) => (
-          <motion.div
-            initial={{ opacity: 0, scale: 1.015 }}
-            key={image.src}
-            viewport={{ once: true, amount: 0.18 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-          >
-            <InvitationCard
-              className="h-full"
-              contentClassName={`relative min-h-[58svh] ${
-                variant === "three" && index === 1 ? "md:min-h-[70svh]" : ""
-              }`}
-              design={design}
-              packageCode={packageCode}
-              photo
-            >
-              <Image
-                alt={image.alt}
-                className="object-cover"
-                fill
-                sizes={
-                  variant === "three"
-                    ? "(max-width: 767px) 100vw, 33vw"
-                    : "(max-width: 767px) 100vw, 50vw"
-                }
-                src={image.src}
-              />
-            </InvitationCard>
-          </motion.div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function SignatureGallerySection({
-  design,
-  gallery,
-  packageCode,
-  premium,
-  showOverlay = false,
-}: {
-  design: ThemeVisual;
-  gallery: InvitationEnvelope["content"]["gallery"];
-  packageCode: "signature" | "couture";
-  premium: PremiumVisualConfig;
-  showOverlay?: boolean;
-}) {
-  return (
-    <section className={`${design.page} relative overflow-hidden px-2 py-2`}>
-      <ThemeSectionDecoration config={premium} showOverlay={showOverlay} />
-      <div className="relative z-10 grid gap-2 md:grid-cols-3">
-        {gallery.slice(0, 3).map((image, index) => (
-          <motion.div
-            initial={{ opacity: 0, scale: 1.015 }}
-            key={`${image.src}-${index}`}
-            viewport={{ once: true, amount: 0.18 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-          >
-            <InvitationCard
-              className="h-full"
-              contentClassName={`relative min-h-[58svh] ${
-                index === 1 ? "md:min-h-[70svh]" : ""
-              }`}
-              design={design}
-              packageCode={packageCode}
-              photo
-            >
-              <Image
-                alt={image.alt}
-                className="object-cover"
-                fill
-                sizes="(max-width: 767px) 100vw, 33vw"
-                src={image.src}
-              />
-            </InvitationCard>
-          </motion.div>
-        ))}
       </div>
     </section>
   );
@@ -2036,6 +2789,7 @@ function getCoutureTimelineEntries(
 }
 
 function SignatureStoryTimelineSection({
+  backgrounds,
   copyMode,
   design,
   includeIntro,
@@ -2048,6 +2802,7 @@ function SignatureStoryTimelineSection({
   showOverlay = false,
   timeline,
 }: {
+  backgrounds?: readonly GalleryPhoto[];
   copyMode?: "opening" | "middle" | "final" | "conflict" | "intimacy" | "trust";
   design: ThemeVisual;
   includeIntro: boolean;
@@ -2060,6 +2815,7 @@ function SignatureStoryTimelineSection({
   showOverlay?: boolean;
   timeline?: TimelineEntries;
 }) {
+  const sectionRef = useRef<HTMLElement>(null);
   const { couple, quote, story } = invitation.content;
   const id = invitation.locale === "id";
   const timelineEntries = timeline ?? getTimelineEntries(invitation, mode);
@@ -2082,13 +2838,45 @@ function SignatureStoryTimelineSection({
           ? "Kami membawa cerita ini ke hadapan keluarga dan sahabat, dengan rasa syukur atas perjalanan yang membentuk kami."
           : "We bring this story before family and friends, grateful for every step that shaped us."
         : story.body);
+  const coutureTextClass =
+    packageCode === "couture" ? coutureStyles.readableText : "";
+  const brightPhotoCopy =
+    packageCode === "couture" &&
+    Boolean(backgrounds?.length) &&
+    brightPhotoBackgroundThemes.has(invitation.rendererKey as RendererKey);
+  const deepBackground =
+    packageCode === "couture" &&
+    sectionNumber === 9 &&
+    Boolean(backgrounds?.length);
+  const sectionSpacing = deepBackground
+    ? "px-6 pb-[calc(6rem+18svh)] pt-24 md:px-12 md:pb-[calc(9rem+18svh)] md:pt-36"
+    : "px-6 py-24 md:px-12 md:py-36";
 
   return (
     <section
-      className="relative overflow-hidden px-6 py-24 md:px-12 md:py-36"
-      data-signature-section={sectionNumber}
+      className={`relative overflow-hidden ${sectionSpacing} ${backgrounds?.length ? "min-h-[130svh]" : ""} ${deepBackground ? "z-0" : ""}`}
+      data-ambient-over-background={backgrounds?.length ? "true" : undefined}
+      data-couture-background-depth={deepBackground ? "deep" : undefined}
+      data-couture-section={
+        packageCode === "couture" ? sectionNumber : undefined
+      }
+      data-signature-section={
+        packageCode === "signature" ? sectionNumber : undefined
+      }
+      ref={sectionRef}
     >
-      <ThemeSectionDecoration config={premium} showOverlay={showOverlay} />
+      {backgrounds?.length ? (
+        <CoutureBackgroundLayer
+          design={design}
+          photos={backgrounds}
+          sectionRef={sectionRef}
+        />
+      ) : null}
+      <ThemeSectionDecoration
+        front={Boolean(backgrounds?.length)}
+        config={premium}
+        showOverlay={showOverlay}
+      />
       <div
         className={`relative z-30 mx-auto grid max-w-6xl gap-14 ${
           includeIntro ? "lg:grid-cols-[0.85fr_1.15fr]" : ""
@@ -2096,6 +2884,7 @@ function SignatureStoryTimelineSection({
       >
         {includeIntro ? (
           <motion.div
+            className={coutureTextClass}
             initial={{ opacity: 0, x: -34 }}
             transition={textFadeTransition}
             viewport={{ once: true, amount: 0.3 }}
@@ -2117,7 +2906,18 @@ function SignatureStoryTimelineSection({
           viewport={{ once: true, amount: 0.3 }}
           whileInView={{ opacity: 1, y: 0 }}
         >
-          <p className={`text-lg leading-9 ${design.muted}`}>{copy}</p>
+          <p
+            className={`text-lg leading-9 ${design.muted} ${coutureTextClass} ${brightPhotoCopy ? coutureStyles.brightPhotoCopy : ""}`}
+            data-couture-text-contrast={
+              packageCode === "couture"
+                ? brightPhotoCopy
+                  ? "bright-photo"
+                  : "enhanced"
+                : undefined
+            }
+          >
+            {copy}
+          </p>
           <div className="mt-12 grid gap-3 md:grid-cols-3">
             {timelineEntries.map(([number, title, description]) => (
               <InvitationCard
@@ -2140,8 +2940,10 @@ function SignatureStoryTimelineSection({
           </div>
 
           {includeQuote ? (
-            <blockquote className={`mt-14 border-l pl-7 ${design.border}`}>
-              <p className="font-serif text-2xl italic leading-9">
+            <blockquote
+              className={`mt-14 border-l pl-7 ${design.border} ${coutureTextClass}`}
+            >
+              <p className="font-sans text-2xl italic leading-9">
                 &quot;{quote.text}&quot;
               </p>
               <footer className="mt-5 text-[0.6rem] uppercase tracking-[0.2em] opacity-55">
@@ -2178,7 +2980,12 @@ function SignatureRsvpPreviewSection({
     return (
       <section
         className={`${design.surface} relative overflow-hidden px-5 py-20 md:px-12 md:py-32`}
-        data-signature-section={sectionNumber}
+        data-couture-section={
+          packageCode === "couture" ? sectionNumber : undefined
+        }
+        data-signature-section={
+          packageCode === "signature" ? sectionNumber : undefined
+        }
       >
         <ThemeSectionDecoration config={premium} showOverlay={showOverlay} />
         <div className="relative z-30 mx-auto max-w-4xl">
@@ -2197,7 +3004,12 @@ function SignatureRsvpPreviewSection({
   return (
     <section
       className={`${design.surface} relative overflow-hidden px-6 py-24 md:px-12 md:py-36`}
-      data-signature-section={sectionNumber}
+      data-couture-section={
+        packageCode === "couture" ? sectionNumber : undefined
+      }
+      data-signature-section={
+        packageCode === "signature" ? sectionNumber : undefined
+      }
     >
       <ThemeSectionDecoration config={premium} showOverlay={showOverlay} />
       <InvitationCard
@@ -2346,9 +3158,12 @@ function CoutureGiftSection({
   return (
     <section
       className={`${design.surface} relative grid min-h-[78svh] place-items-center overflow-hidden px-6 py-24 text-center md:px-12`}
+      data-couture-section="15"
     >
       <ThemeSectionDecoration config={premium} showOverlay />
-      <FadeText className="relative z-30 mx-auto max-w-3xl">
+      <FadeText
+        className={`relative z-30 mx-auto max-w-3xl ${coutureStyles.readableText}`}
+      >
         <p
           className={`text-[0.6rem] uppercase tracking-[0.25em] ${design.accent}`}
         >
@@ -2486,12 +3301,14 @@ function EventStory({
   invitation,
   packageCode,
   design,
+  onCoutureEffect,
   premium,
   rsvpSlot,
 }: {
   invitation: InvitationEnvelope;
   packageCode: PackageCode;
   design: ThemeVisual;
+  onCoutureEffect: (effectUrl: string) => void;
   premium: PremiumVisualConfig;
   rsvpSlot?: React.ReactNode;
 }) {
@@ -2603,6 +3420,7 @@ function EventStory({
       <>
         <motion.section
           className={`${design.surface} relative overflow-hidden px-6 py-24 md:px-12 md:py-36`}
+          data-couture-section="1"
           initial={{ opacity: 0, y: revealDistance }}
           transition={{ duration: 0.85 }}
           viewport={{ once: true, amount: 0.18 }}
@@ -2610,7 +3428,7 @@ function EventStory({
         >
           <ThemeSectionDecoration config={premium} showOverlay />
           <div className="relative z-30 mx-auto max-w-6xl">
-            <FadeText className="text-center">
+            <FadeText className={`text-center ${coutureStyles.readableText}`}>
               <p className="text-[0.6rem] uppercase tracking-[0.25em] opacity-55">
                 {id ? "Waktu & Tempat" : "Time & Place"}
               </p>
@@ -2627,12 +3445,11 @@ function EventStory({
           </div>
         </motion.section>
 
-        <SignatureGallerySection
+        <CoutureCoupleRevealSection
           design={design}
-          gallery={gallery}
-          packageCode="couture"
+          invitation={invitation}
+          onEffect={onCoutureEffect}
           premium={premium}
-          showOverlay
         />
         <SignatureStoryTimelineSection
           design={design}
@@ -2642,23 +3459,22 @@ function EventStory({
           mode="opening"
           packageCode="couture"
           premium={premium}
+          sectionNumber={3}
           showOverlay
           timeline={getCoutureTimelineEntries(invitation, "opening")}
         />
-        <SignaturePhotoSection
+        <CoutureThreePhotoSection
           design={design}
-          packageCode="couture"
-          photos={sectionPhotosFromGallery(
-            gallery,
-            3,
-            3,
-            coutureSectionPhotos[4],
-          )}
+          gallery={gallery}
           premium={premium}
-          showOverlay
-          variant="three"
         />
         <SignatureStoryTimelineSection
+          backgrounds={sectionPhotosFromGallery(
+            gallery,
+            5,
+            1,
+            coutureSectionFiveBackground,
+          )}
           copyMode="conflict"
           design={design}
           includeIntro={false}
@@ -2667,21 +3483,15 @@ function EventStory({
           mode="middle"
           packageCode="couture"
           premium={premium}
+          sectionNumber={5}
           showOverlay
           timeline={getCoutureTimelineEntries(invitation, "conflict")}
         />
-        <SignaturePhotoSection
+        <CoutureQuadrantRevealSection
           design={design}
-          packageCode="couture"
-          photos={sectionPhotosFromGallery(
-            gallery,
-            6,
-            3,
-            coutureSectionPhotos[6],
-          )}
+          invitation={invitation}
+          onEffect={onCoutureEffect}
           premium={premium}
-          showOverlay
-          variant="three"
         />
         <SignatureStoryTimelineSection
           copyMode="intimacy"
@@ -2692,23 +3502,22 @@ function EventStory({
           mode="middle"
           packageCode="couture"
           premium={premium}
+          sectionNumber={7}
           showOverlay
           timeline={getCoutureTimelineEntries(invitation, "intimacy")}
         />
-        <SignaturePhotoSection
+        <CoutureNinePhotoGallery
           design={design}
-          packageCode="couture"
-          photos={sectionPhotosFromGallery(
-            gallery,
-            9,
-            3,
-            coutureSectionPhotos[8],
-          )}
+          gallery={gallery}
           premium={premium}
-          showOverlay
-          variant="three"
         />
         <SignatureStoryTimelineSection
+          backgrounds={sectionPhotosFromGallery(
+            gallery,
+            20,
+            3,
+            coutureSectionNineBackgrounds,
+          )}
           copyMode="trust"
           design={design}
           includeIntro={false}
@@ -2717,21 +3526,15 @@ function EventStory({
           mode="middle"
           packageCode="couture"
           premium={premium}
+          sectionNumber={9}
           showOverlay
           timeline={getCoutureTimelineEntries(invitation, "trust")}
         />
-        <SignaturePhotoSection
+        <CoutureCarouselSection
           design={design}
-          packageCode="couture"
-          photos={sectionPhotosFromGallery(
-            gallery,
-            12,
-            3,
-            coutureSectionPhotos[10],
-          )}
+          gallery={gallery}
+          id={id}
           premium={premium}
-          showOverlay
-          variant="three"
         />
         <SignatureStoryTimelineSection
           design={design}
@@ -2741,21 +3544,14 @@ function EventStory({
           mode="final"
           packageCode="couture"
           premium={premium}
+          sectionNumber={11}
           showOverlay
           timeline={getCoutureTimelineEntries(invitation, "final")}
         />
-        <SignaturePhotoSection
+        <CoutureSlideshowSection
           design={design}
-          packageCode="couture"
-          photos={sectionPhotosFromGallery(
-            gallery,
-            15,
-            3,
-            coutureSectionPhotos[12],
-          )}
+          gallery={gallery}
           premium={premium}
-          showOverlay
-          variant="three"
         />
       </>
     );
@@ -2826,7 +3622,7 @@ function EventStory({
                 {story.body}
               </p>
               <blockquote className={`mt-14 border-l pl-7 ${design.border}`}>
-                <p className="font-serif text-2xl italic leading-9">
+                <p className="font-sans text-2xl italic leading-9">
                   &quot;{quote.text}&quot;
                 </p>
                 <footer className="mt-5 text-[0.6rem] uppercase tracking-[0.2em] opacity-55">
@@ -2913,7 +3709,7 @@ function EventStory({
           >
             <p className={`text-lg leading-9 ${design.muted}`}>{story.body}</p>
             <blockquote className={`mt-14 border-l pl-7 ${design.border}`}>
-              <p className="font-serif text-2xl italic leading-9">
+              <p className="font-sans text-2xl italic leading-9">
                 &quot;{quote.text}&quot;
               </p>
               <footer className="mt-5 text-[0.6rem] uppercase tracking-[0.2em] opacity-55">
@@ -2974,6 +3770,9 @@ export function RendererV2({
   const [opened, setOpened] = useState(false);
   const [playing, setPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const effectAudioRef = useRef<HTMLAudioElement | null>(null);
+  const effectRestoreRef = useRef<(() => void) | null>(null);
+  const backgroundVolumeRef = useRef<number | null>(null);
   const ambientRef = useRef<HTMLDivElement>(null);
   const { closing, couple } = invitation.content;
   const essential = packageCode === "essential";
@@ -3006,6 +3805,8 @@ export function RendererV2({
         return;
       }
       element.pause();
+      effectAudioRef.current?.pause();
+      effectRestoreRef.current?.();
       setPlaying(false);
     };
     const pauseWhenHidden = () => {
@@ -3091,10 +3892,16 @@ export function RendererV2({
     }
   }
 
-  async function playGiftEffect(effectUrl: string) {
+  async function playEffect(effectUrl: string) {
     const backgroundAudio = audioRef.current;
+    effectAudioRef.current?.pause();
+    effectRestoreRef.current?.();
     const previousVolume =
-      backgroundAudio?.volume ?? audio?.default_volume ?? 0.55;
+      backgroundVolumeRef.current ??
+      backgroundAudio?.volume ??
+      audio?.default_volume ??
+      0.55;
+    backgroundVolumeRef.current = previousVolume;
 
     if (backgroundAudio) {
       backgroundAudio.volume = Math.max(0.08, previousVolume * 0.28);
@@ -3102,17 +3909,25 @@ export function RendererV2({
 
     const effect = new Audio(effectUrl);
     effect.volume = 0.9;
+    effectAudioRef.current = effect;
 
     const restoreVolume = () => {
+      if (effectAudioRef.current !== effect) {
+        return;
+      }
       if (backgroundAudio) {
         backgroundAudio.volume = previousVolume;
       }
+      backgroundVolumeRef.current = null;
+      effectAudioRef.current = null;
+      effectRestoreRef.current = null;
       effect.removeEventListener("ended", restoreVolume);
       effect.removeEventListener("error", restoreVolume);
     };
 
     effect.addEventListener("ended", restoreVolume);
     effect.addEventListener("error", restoreVolume);
+    effectRestoreRef.current = restoreVolume;
 
     try {
       await effect.play();
@@ -3125,9 +3940,18 @@ export function RendererV2({
     <MotionConfig reducedMotion="user">
       <article
         className={`${design.page} min-h-screen`}
+        data-body-font={design.bodyFontName}
+        data-heading-font={design.headingFontName}
         data-invitation-motion
         data-package={packageCode}
         data-theme={invitation.rendererKey}
+        style={
+          {
+            "--font-sans": design.bodyFontFamily,
+            "--font-serif": design.headingFontFamily,
+            fontFamily: design.bodyFontFamily,
+          } as React.CSSProperties
+        }
       >
         <AnimatePresence>
           {!opened ? (
@@ -3161,6 +3985,9 @@ export function RendererV2({
             <EventStory
               design={design}
               invitation={invitation}
+              onCoutureEffect={(effectUrl) => {
+                void playEffect(effectUrl);
+              }}
               packageCode={packageCode}
               premium={premium}
               rsvpSlot={rsvpSlot}
@@ -3168,6 +3995,7 @@ export function RendererV2({
             {!essential ? (
               <div
                 className="relative overflow-hidden"
+                data-couture-section={couture ? "13" : undefined}
                 data-signature-section={signature ? "11" : undefined}
               >
                 <ThemeSectionDecoration
@@ -3199,13 +4027,14 @@ export function RendererV2({
                   packageCode="couture"
                   premium={premium}
                   rsvpSlot={rsvpSlot}
+                  sectionNumber={14}
                   showOverlay
                 />
                 <CoutureGiftSection
                   design={design}
                   invitation={invitation}
                   onGiftEffect={(effectUrl) => {
-                    void playGiftEffect(effectUrl);
+                    void playEffect(effectUrl);
                   }}
                   premium={premium}
                 />
@@ -3214,6 +4043,7 @@ export function RendererV2({
             <motion.section
               className={`${design.surface} relative grid min-h-[78svh] place-items-center overflow-hidden px-6 py-24 text-center`}
               data-essential-section={essential ? "7" : undefined}
+              data-couture-section={couture ? "16" : undefined}
               data-signature-section={signature ? "13" : undefined}
               initial={reducedMotion ? false : { opacity: 0 }}
               viewport={{ once: true, amount: 0.25 }}
@@ -3223,7 +4053,10 @@ export function RendererV2({
                 config={premium}
                 showOverlay={packageCode === "couture"}
               />
-              <FadeText className="relative z-30 max-w-4xl" distance={24}>
+              <FadeText
+                className={`relative z-30 max-w-4xl ${couture ? coutureStyles.readableText : ""}`}
+                distance={24}
+              >
                 <Volume2 className={`mx-auto ${design.accent}`} size={26} />
                 <h2 className="mt-10 font-serif text-[clamp(4rem,10vw,9rem)] leading-[0.82] tracking-[-0.055em]">
                   {closing.heading}

@@ -68,6 +68,14 @@ export default defineConfig({
       testMatch: /matrix\.spec\.ts/,
       use: { ...devices["Pixel 7"] },
     },
+    {
+      name: "matrix-tablet",
+      testMatch: /matrix\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 768, height: 1024 },
+      },
+    },
   ],
   webServer: process.env.PLAYWRIGHT_BASE_URL
     ? undefined

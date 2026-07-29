@@ -1,7 +1,4 @@
-import {
-  packageCodes,
-  rendererKeys,
-} from "@wedding/invitation-themes";
+import { packageCodes, rendererKeys } from "@wedding/invitation-themes";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -15,6 +12,44 @@ import {
 } from "./presentation";
 
 describe("premium presentation configuration", () => {
+  it("maps the requested heading and body fonts to every invitation theme", () => {
+    const expected = {
+      "dark-cinematic": ["Cormorant SC", "DM Sans"],
+      "elegant-classic": ["Cormorant Garamond", "Montserrat"],
+      "floral-romantic": ["Great Vibes", "Nunito Sans"],
+      "islamic-soft": ["Marcellus", "Lora"],
+      "javanese-traditional": ["Noto Serif", "Noto Sans"],
+      "luxury-gold": ["Bodoni Moda", "Manrope"],
+      "minimalist-white": ["Italiana", "Inter"],
+    } as const;
+
+    for (const theme of rendererKeys) {
+      expect([
+        themeVisualConfig[theme].headingFontName,
+        themeVisualConfig[theme].bodyFontName,
+      ]).toEqual(expected[theme]);
+    }
+  });
+
+  it("maps the requested heading and body fonts to every invitation theme", () => {
+    const expected = {
+      "dark-cinematic": ["Cormorant SC", "DM Sans"],
+      "elegant-classic": ["Cormorant Garamond", "Montserrat"],
+      "floral-romantic": ["Great Vibes", "Nunito Sans"],
+      "islamic-soft": ["Marcellus", "Lora"],
+      "javanese-traditional": ["Noto Serif", "Noto Sans"],
+      "luxury-gold": ["Bodoni Moda", "Manrope"],
+      "minimalist-white": ["Italiana", "Inter"],
+    } as const;
+
+    for (const theme of rendererKeys) {
+      expect([
+        themeVisualConfig[theme].headingFontName,
+        themeVisualConfig[theme].bodyFontName,
+      ]).toEqual(expected[theme]);
+    }
+  });
+
   it("defines a distinct visual system for every renderer", () => {
     expect(Object.keys(themeVisualConfig)).toEqual([...rendererKeys]);
     expect(

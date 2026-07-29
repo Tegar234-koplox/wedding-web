@@ -491,6 +491,17 @@ def _replace_media(invitation: Invitation, role: str, urls: list[str]) -> None:
         )
 
 
+def _validated_gallery_urls(value: object) -> list[str]:
+    if not isinstance(value, list):
+        raise ValidationError({"media_urls.gallery": "Gallery must be a list of URLs."})
+    urls = [str(item).strip() for item in value if str(item).strip()]
+    if len(urls) > 36:
+        raise ValidationError({"media_urls.gallery": "Gallery must contain no more than 36 items."})
+    if len(set(urls)) != len(urls):
+        raise ValidationError({"media_urls.gallery": "Gallery URLs must be unique."})
+    return urls
+
+
 def _update_photo_focal_point(invitation: Invitation, data: object) -> None:
     if not isinstance(data, dict):
         raise ValidationError({"photo_focal": "Photo focal point must be an object."})
@@ -723,6 +734,10 @@ class StaffOrderDetailView(RetrieveUpdateAPIView):
             and order.invitation.status == Invitation.Status.PUBLISHED
         ):
             raise ValidationError({"invitation": "Published invitations are immutable."})
+        media_urls_payload = request.data.get("media_urls") or {}
+        gallery_urls: list[str] | None = None
+        if isinstance(media_urls_payload, dict) and "gallery" in media_urls_payload:
+            gallery_urls = _validated_gallery_urls(media_urls_payload.get("gallery"))
         serializer = self.get_serializer(
             order,
             data=_manual_order_payload(request.data),
@@ -749,7 +764,7 @@ class StaffOrderDetailView(RetrieveUpdateAPIView):
                     request.data.get("reception", {}),
                 )
                 _update_invitation_content(invitation, request.data)
-                media_urls = request.data.get("media_urls") or {}
+                media_urls = media_urls_payload
                 if isinstance(media_urls, dict):
                     if "photo" in media_urls:
                         _replace_media(
@@ -758,7 +773,7 @@ class StaffOrderDetailView(RetrieveUpdateAPIView):
                             [str(media_urls.get("photo") or "")],
                         )
                     if "gallery" in media_urls:
-                        gallery_urls = [str(item) for item in media_urls.get("gallery") or []]
+                        assert gallery_urls is not None
                         _replace_media(
                             invitation,
                             InvitationMedia.Role.GALLERY,

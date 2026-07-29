@@ -242,6 +242,53 @@ const signatureGallery: InvitationContent["gallery"] = [
   })),
 ];
 
+const coutureGallery: InvitationContent["gallery"] = [
+  {
+    src: "/images/invitation-couture/v2/section-2/groom.webp",
+    alt: "Couture portrait of the groom",
+  },
+  {
+    src: "/images/invitation-couture/v2/section-2/bride.webp",
+    alt: "Couture portrait of the bride",
+  },
+  ...Array.from({ length: 3 }, (_, index) => ({
+    src: `/images/invitation-couture/v2/section-4/photo-${String(index + 1).padStart(2, "0")}.webp`,
+    alt: `Couture story portrait ${index + 1}`,
+  })),
+  {
+    src: "/images/invitation-couture/v2/section-5/background.webp",
+    alt: "Couture story background",
+  },
+  {
+    src: "/images/invitation-couture/v2/section-6/cover.webp",
+    alt: "Couture full gallery portrait",
+  },
+  ...Array.from({ length: 4 }, (_, index) => ({
+    src: `/images/invitation-couture/v2/section-6/quadrant-${String(index + 1).padStart(2, "0")}.webp`,
+    alt: `Couture quadrant portrait ${index + 1}`,
+  })),
+  ...Array.from({ length: 9 }, (_, index) => ({
+    src: `/images/invitation-couture/v2/section-8/photo-${String(index + 1).padStart(2, "0")}.webp`,
+    alt: `Couture gallery portrait ${index + 1}`,
+  })),
+  ...Array.from({ length: 3 }, (_, index) => ({
+    src: `/images/invitation-couture/v2/section-9/background-${String(index + 1).padStart(2, "0")}.webp`,
+    alt: `Couture story background ${index + 1}`,
+  })),
+  {
+    src: "/images/invitation-couture/v2/section-10/background.webp",
+    alt: "Couture carousel background",
+  },
+  ...Array.from({ length: 9 }, (_, index) => ({
+    src: `/images/invitation-couture/v2/section-10/photo-${String(index + 1).padStart(2, "0")}.webp`,
+    alt: `Couture carousel portrait ${index + 1}`,
+  })),
+  ...Array.from({ length: 3 }, (_, index) => ({
+    src: `/images/invitation-couture/v2/section-12/photo-${String(index + 1).padStart(2, "0")}.webp`,
+    alt: `Couture slideshow portrait ${index + 1}`,
+  })),
+];
+
 function createContent(
   key: RendererKey,
   locale: InvitationLocale,
@@ -299,7 +346,9 @@ function createContent(
         ? essentialGallery
         : packageCode === "signature"
           ? signatureGallery
-          : galleryByTheme[key],
+          : packageCode === "couture"
+            ? coutureGallery
+            : galleryByTheme[key],
     closing: {
       heading: id ? "Sampai bertemu" : "We hope to see you",
       message: id

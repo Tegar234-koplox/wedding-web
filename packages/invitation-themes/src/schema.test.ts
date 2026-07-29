@@ -110,6 +110,21 @@ describe("renderer manifest", () => {
 });
 
 describe("invitation envelope", () => {
+  it("accepts 36 gallery items and rejects a 37th item", () => {
+    const makeGallery = (length: number) =>
+      Array.from({ length }, (_, index) => ({
+        alt: `Gallery ${index + 1}`,
+        src: `https://res.cloudinary.com/demo/image/upload/gallery-${index + 1}.jpg`,
+      }));
+
+    expect(
+      invitationContentSchema.shape.gallery.safeParse(makeGallery(36)).success,
+    ).toBe(true);
+    expect(
+      invitationContentSchema.shape.gallery.safeParse(makeGallery(37)).success,
+    ).toBe(false);
+  });
+
   it("rejects unsafe map protocols", () => {
     const result = invitationEnvelopeSchema.safeParse({
       rendererKey: "elegant-classic",

@@ -242,24 +242,84 @@ def test_staff_rejects_invalid_editable_copy_and_focal_point(client, payload, er
     assert error_field in response.json()["error"]["details"]
 
 
-def test_invitation_content_validator_accepts_twenty_eight_http_gallery_items():
+def test_invitation_content_validator_accepts_thirty_six_http_gallery_items():
     content = invitation_content()
     content["gallery"] = [
         {
             "src": f"https://res.cloudinary.com/demo/image/upload/gallery-{index}.jpg",
             "alt": f"Gallery {index}",
         }
-        for index in range(1, 29)
+        for index in range(1, 37)
     ]
 
     validate_invitation_content(content)
 
     content["gallery"] = [
-        {"src": f"/images/gallery-{index}.jpg", "alt": f"Gallery {index}"}
-        for index in range(1, 34)
+        {"src": f"/images/gallery-{index}.jpg", "alt": f"Gallery {index}"} for index in range(1, 38)
     ]
-    with pytest.raises(ValidationError, match="between 3 and 32"):
+    with pytest.raises(ValidationError, match="between 3 and 36"):
         validate_invitation_content(content)
+
+
+@pytest.mark.django_db
+def test_staff_round_trips_thirty_six_couture_gallery_items_and_rejects_thirty_seven(client):
+    staff, order, invitation, _media = _staff_order_with_photo("couture-gallery-036")
+    couture = create_package(code="couture")
+    client.force_login(staff)
+    gallery_urls = [
+        f"https://res.cloudinary.com/demo/image/upload/couture-{index}.jpg"
+        for index in range(1, 37)
+    ]
+
+    response = client.patch(
+        reverse("admin-order-detail", kwargs={"reference": order.reference}),
+        {
+            "package_code": couture.code,
+            "couple": {
+                "partnerOneDescription": "Keterangan mempelai wanita Couture.",
+                "partnerTwoDescription": "Keterangan mempelai pria Couture.",
+            },
+            "media_urls": {"gallery": gallery_urls},
+        },
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200
+    invitation.refresh_from_db()
+    assert len(invitation.content["gallery"]) == 36
+    assert invitation.content["couple"]["partnerOneDescription"] == (
+        "Keterangan mempelai wanita Couture."
+    )
+    assert invitation.content["couple"]["partnerTwoDescription"] == (
+        "Keterangan mempelai pria Couture."
+    )
+
+    rejected = client.patch(
+        reverse("admin-order-detail", kwargs={"reference": order.reference}),
+        {"media_urls": {"gallery": [*gallery_urls, gallery_urls[0]]}},
+        content_type="application/json",
+    )
+
+    assert rejected.status_code == 400
+    invitation.refresh_from_db()
+    assert len(invitation.content["gallery"]) == 36
+
+    invitation.status = Invitation.Status.PUBLISHED
+    invitation.approval_status = Invitation.ApprovalStatus.PUBLISHED
+    invitation.published_at = timezone.now()
+    invitation.save(update_fields=["status", "approval_status", "published_at", "updated_at"])
+
+    public_response = client.get(
+        reverse("invitation-detail", kwargs={"public_slug": invitation.public_slug})
+    )
+    preview_response = client.get(
+        reverse("invitation-preview-detail", kwargs={"public_slug": invitation.public_slug}),
+        {"token": preview_token_for(invitation)},
+    )
+    assert public_response.status_code == 200
+    assert preview_response.status_code == 200
+    assert len(public_response.json()["content"]["gallery"]) == 36
+    assert len(preview_response.json()["content"]["gallery"]) == 36
 
 
 @pytest.mark.django_db

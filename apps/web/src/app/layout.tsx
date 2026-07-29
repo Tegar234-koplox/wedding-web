@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 import { NiskalaAppStatus } from "@/components/site/niskala-app-status";
+import { invitationFontVariables } from "@/invitations/theme-fonts";
 
 import "./globals.css";
 
@@ -29,7 +30,7 @@ export default function RootLayout({
 }: Readonly<{ children: ReactNode }>) {
   return (
     <html data-scroll-behavior="smooth" lang="id">
-      <body>
+      <body className={invitationFontVariables}>
         <NiskalaAppStatus />
         {children}
       </body>

@@ -148,6 +148,95 @@ Public invitation memakai renderer v2 dan mendukung:
 - backsound
 - overlay/corner asset sesuai tema dan aturan paket
 
+Live preview di website utama, preview client, URL published milik client, dan
+link personal tamu memakai jalur renderer v2 yang sama. Perbedaan data masuk
+tidak boleh menghasilkan struktur paket yang berbeda.
+
+### Kontrak Renderer v2 per Paket
+
+Semua paket memakai `rendererVersion: 2` dan `contentSchemaVersion: 1`. Urutan
+galeri bersifat kontrak karena dashboard staff, API, fallback sample, preview,
+dan published renderer membaca slot yang sama.
+
+#### Essential — 7 section / 14 foto
+
+1. Waktu dan tempat.
+2. Toggle dua foto mempelai.
+3. Short story.
+4. Tiga foto.
+5. Gift.
+6. Galeri 9 foto dengan grid 3 x 3.
+7. Penutup.
+
+Essential tidak menampilkan RSVP, ucapan tamu, atau prakiraan cuaca. Pemetaan
+medianya adalah `2 + 3 + 9` foto.
+
+#### Signature — 13 section / 28 foto
+
+1. Waktu dan tempat.
+2. Toggle dua foto mempelai.
+3. Love story dan timeline.
+4. Tiga foto.
+5. Love story dan timeline.
+6. Satu foto penuh dan empat foto kuadran interaktif.
+7. Love story dan timeline.
+8. Galeri 9 foto dengan grid 3 x 3.
+9. RSVP dan ucapan.
+10. Carousel 9 foto.
+11. Prakiraan cuaca.
+12. Gift.
+13. Penutup.
+
+Pemetaan media Signature adalah `2 + 3 + 5 + 9 + 9` foto.
+
+#### Couture — 16 section / 36 foto
+
+1. Waktu dan tempat.
+2. Toggle dua foto mempelai dengan rangkaian glow, pergantian ikon, light burst,
+   dan sound effect tema.
+3. Love story dan timeline.
+4. Tiga foto.
+5. Love story dengan satu background parallax.
+6. Satu foto penuh dan empat foto kuadran interaktif dengan toggle Couture.
+7. Love story dan timeline.
+8. Galeri 9 foto dengan grid 3 x 3.
+9. Love story dengan tiga background crossfade berbasis scroll.
+10. Background penuh dan carousel 9 foto.
+11. Love story dan timeline.
+12. Slideshow tiga foto dalam satu frame.
+13. Prakiraan cuaca.
+14. RSVP dan ucapan.
+15. Gift.
+16. Penutup.
+
+Pemetaan media Couture adalah `2 + 3 + 1 + 5 + 9 + 3 + 10 + 3` foto. Schema
+dan API menerima 3–36 item galeri; item ke-37 ditolak. Foto/background yang
+tidak diisi memakai fallback WebP lokal agar undangan lama tetap dapat dibuka.
+
+Aturan visual Couture:
+
+- Border kilauan dan gerak rotation/zoom berlaku pada kartu foto.
+- Icon toggle section 2 dan 6 memakai permukaan solid sesuai tema, border
+  kilauan berputar, serta drop-shadow yang mengikuti siluet icon ketika icon
+  bergetar atau berputar.
+- Corner asset berada paling depan pada section foto/background. Overlay berada
+  di depan foto tetapi tetap di belakang corner asset pada section 2, 4, 6, 8,
+  10, dan 12; pada section non-foto overlay tetap di belakang card dan teks.
+- Background section 5, 6, 9, dan 10 mendapat layer warna tema dengan opasitas
+  50% dan efek dot yang diperkuat tetap berada di depan background. Background
+  section 5 dan 9 menutup seluruh tinggi section tanpa sela.
+- Akhir section 9 ditimpa oleh awal section 10 sehingga background section 9
+  bergerak sebagai lapisan terdalam saat transisi scroll menuju section 10.
+- Toggle tema Elegant Classic, Luxury Gold, dan Dark Cinematic memakai getaran;
+  Islamic Soft, Minimalist White, Floral Romantic, dan Javanese Traditional
+  memakai dua putaran 360 derajat.
+- `prefers-reduced-motion` menonaktifkan animasi dekoratif dan menampilkan state
+  akhir tanpa gerak panjang.
+
+Undangan yang sudah published tetap immutable melalui API. Perubahan renderer
+dapat memperbarui presentasi undangan published tanpa mengubah JSON konten,
+route publik, atau token preview/tamu.
+
 ### Staff Dashboard
 
 Dashboard staff berada di:
@@ -172,6 +261,12 @@ Fungsi utama staff:
 - catatan revisi
 - custom request workflow
 - audit dan workflow operasional
+
+Editor media staff mengikuti kontrak slot per paket di atas. Untuk Couture,
+dashboard menampilkan 36 slot berlabel per fungsi: mempelai, tiga foto story,
+background section 5, cover/kuadran section 6, grid section 8, tiga background
+section 9, background/carousel section 10, dan slideshow section 12. Keterangan
+kedua mempelai tersedia untuk Essential, Signature, dan Couture.
 
 ### Guest Delivery Workspace
 
@@ -327,6 +422,16 @@ Aturan import:
   - Import CSV
   - Daftar Tamu
   - Ucapan Tamu
+
+### Phase 13 - Package Renderer Contracts
+
+- Essential distabilkan menjadi 7 section dan 14 foto.
+- Signature distabilkan menjadi 13 section dan 28 foto.
+- Couture diperluas menjadi 16 section dan 36 foto.
+- Fallback WebP deterministik untuk live preview dan data undangan lama.
+- Toggle gambar/audio per tema, background scroll/fade, carousel, dan slideshow.
+- Dashboard staff, shared schema, validator API, preview, dan published renderer
+  memakai pemetaan media yang sama.
 
 ## Testing
 

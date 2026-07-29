@@ -7,7 +7,7 @@
 }
 
 .scope[data-dot-tier="couture"] {
-  --ambient-dot-opacity: 0.58;
+  --ambient-dot-opacity: 0.8;
 }
 
 .scope section {
@@ -52,6 +52,21 @@
 
 .scope section[data-ambient-active="true"]::before {
   animation-play-state: running;
+}
+
+.scope section[data-ambient-over-background="true"]::before {
+  z-index: 20;
+}
+
+.scope[data-dot-tier="couture"] section::before {
+  filter: drop-shadow(
+    0 0 2px color-mix(in srgb, var(--ambient-dot-highlight) 82%, transparent)
+  );
+}
+
+.scope[data-dot-tier="couture"]
+  section[data-ambient-over-background="true"]::before {
+  opacity: 0.92;
 }
 
 @keyframes invitation-dot-drift {

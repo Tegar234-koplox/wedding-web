@@ -171,7 +171,7 @@ export const invitationContentSchema = z.object({
       }),
     )
     .min(3)
-    .max(32),
+    .max(36),
   closing: z.object({
     heading: safeText.max(120),
     message: safeText.max(600),

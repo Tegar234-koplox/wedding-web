@@ -504,8 +504,13 @@ export function ThemeCoverDecoration({ config }: DecorationProps) {
 export function ThemeSectionDecoration({
   config,
   front = false,
+  overlayFront = false,
   showOverlay,
-}: DecorationProps & { front?: boolean; showOverlay: boolean }) {
+}: DecorationProps & {
+  front?: boolean;
+  overlayFront?: boolean;
+  showOverlay: boolean;
+}) {
   const layerRef = useRef<HTMLDivElement>(null);
   const reducedMotion = useReducedMotion();
   const isNearViewport = useInView(layerRef, {
@@ -522,17 +527,20 @@ export function ThemeSectionDecoration({
   return (
     <div
       aria-hidden="true"
-      className={`pointer-events-none absolute inset-0 overflow-hidden ${
-        front ? "z-[60]" : "z-20"
-      }`}
+      className="pointer-events-none absolute inset-0 overflow-hidden"
       data-decoration-front={front || undefined}
       data-decoration-layer="section"
+      data-decoration-overlay-front={overlayFront || undefined}
       ref={layerRef}
     >
       {showOverlay ? (
-        <OverlayLayer animated={animated} config={config} scope="section" />
+        <div className={`absolute inset-0 ${overlayFront ? "z-50" : "z-20"}`}>
+          <OverlayLayer animated={animated} config={config} scope="section" />
+        </div>
       ) : null}
-      <CornerLayer config={config} scope="section" />
+      <div className={`absolute inset-0 ${front ? "z-[60]" : "z-20"}`}>
+        <CornerLayer config={config} scope="section" />
+      </div>
     </div>
   );
 }

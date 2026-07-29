@@ -26,6 +26,10 @@ for (const theme of themes) {
       });
 
       await page.goto(`/id/preview/${theme}?package=${packageCode}`);
+      const appStatus = page.getByRole("status");
+      if ((await appStatus.count()) === 1) {
+        await expect(appStatus).toBeHidden({ timeout: 20_000 });
+      }
       await page.getByRole("button", { name: /buka undangan/i }).click();
       await expect(page.getByText("Akad dan Resepsi").first()).toBeVisible();
       await page.addStyleTag({
@@ -108,6 +112,51 @@ for (const theme of themes) {
             await page.setViewportSize(originalViewport);
           }
         }
+      }
+
+      if (packageCode === "couture") {
+        const toggle = page.locator('[data-couture-toggle="section-2"]');
+        await expect(toggle).toHaveAttribute(
+          "data-couture-toggle-surface",
+          "solid",
+        );
+        await expect(toggle).toHaveAttribute(
+          "data-couture-toggle-border",
+          "glitter",
+        );
+        expect(
+          await toggle.evaluate(
+            (element) => getComputedStyle(element).backgroundColor,
+          ),
+        ).not.toBe("rgba(0, 0, 0, 0)");
+
+        for (const sectionNumber of ["5", "9"]) {
+          const section = page.locator(
+            `[data-couture-section="${sectionNumber}"]`,
+          );
+          const background = section.locator("[data-couture-background-layer]");
+          const sectionBounds = await section.boundingBox();
+          const backgroundBounds = await background.boundingBox();
+          expect(sectionBounds).not.toBeNull();
+          expect(backgroundBounds).not.toBeNull();
+          expect(
+            Math.abs(
+              (sectionBounds?.height ?? 0) - (backgroundBounds?.height ?? 0),
+            ),
+          ).toBeLessThanOrEqual(1);
+        }
+
+        const sectionNineBounds = await page
+          .locator('[data-couture-section="9"]')
+          .boundingBox();
+        const sectionTenBounds = await page
+          .locator('[data-couture-section="10"]')
+          .boundingBox();
+        expect(sectionNineBounds).not.toBeNull();
+        expect(sectionTenBounds).not.toBeNull();
+        expect(sectionTenBounds?.y ?? 0).toBeLessThan(
+          (sectionNineBounds?.y ?? 0) + (sectionNineBounds?.height ?? 0),
+        );
       }
 
       await page.screenshot({

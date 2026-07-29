@@ -243,39 +243,76 @@ const outlineButtonClassName =
 const mediaSectionPlans: Record<string, MediaSectionPlan[]> = {
   couture: [
     {
-      count: 3,
-      description: "Foto pembuka setelah waktu dan tempat.",
-      label: "3 foto",
+      count: 2,
+      description: "Foto interaktif kedua mempelai setelah waktu dan tempat.",
+      label: "2 foto",
+      photoLabels: ["Mempelai pria", "Mempelai wanita"],
       section: 2,
     },
     {
       count: 3,
       description: "Foto setelah love story bagian 01-03.",
       label: "3 foto",
+      photoLabels: ["Foto atas", "Foto tengah", "Foto bawah"],
       section: 4,
     },
     {
-      count: 3,
-      description: "Foto setelah love story bagian 04-06.",
-      label: "3 foto",
+      count: 1,
+      description: "Foto latar penuh untuk love story bagian 04-06.",
+      label: "1 background",
+      photoLabels: ["Background story"],
+      section: 5,
+    },
+    {
+      count: 5,
+      description:
+        "Satu foto penuh dan empat foto kuadran interaktif dengan toggle Couture.",
+      label: "5 foto",
+      photoLabels: [
+        "Foto penuh",
+        "Pojok kiri atas",
+        "Pojok kanan atas",
+        "Pojok kiri bawah",
+        "Pojok kanan bawah",
+      ],
       section: 6,
     },
     {
-      count: 3,
-      description: "Foto setelah love story bagian 07-09.",
-      label: "3 foto",
+      count: 9,
+      description: "Galeri kilauan dengan penataan 3 x 3.",
+      label: "9 foto",
       section: 8,
     },
     {
       count: 3,
-      description: "Foto setelah love story bagian 10-12.",
-      label: "3 foto",
+      description: "Tiga background fade untuk love story bagian 07-09.",
+      label: "3 background",
+      photoLabels: ["Background 1", "Background 2", "Background 3"],
+      section: 9,
+    },
+    {
+      count: 10,
+      description: "Satu background penuh dan sembilan foto carousel.",
+      label: "1 background + 9 foto",
+      photoLabels: [
+        "Background penuh",
+        "Carousel 1",
+        "Carousel 2",
+        "Carousel 3",
+        "Carousel 4",
+        "Carousel 5",
+        "Carousel 6",
+        "Carousel 7",
+        "Carousel 8",
+        "Carousel 9",
+      ],
       section: 10,
     },
     {
       count: 3,
-      description: "Foto sebelum prakiraan cuaca dan RSVP.",
-      label: "3 foto",
+      description: "Tiga foto slideshow looping sebelum prakiraan cuaca.",
+      label: "3 foto slideshow",
+      photoLabels: ["Slideshow 1", "Slideshow 2", "Slideshow 3"],
       section: 12,
     },
   ],
@@ -344,7 +381,7 @@ const mediaSectionPlans: Record<string, MediaSectionPlan[]> = {
   ],
 };
 
-function mediaPlanFor(packageCode: string): MediaSectionPlan[] {
+export function mediaPlanFor(packageCode: string): MediaSectionPlan[] {
   return mediaSectionPlans[packageCode] ?? mediaSectionPlans.essential!;
 }
 
@@ -886,7 +923,9 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
             client_email: form.client_email.trim(),
             client_name: form.client_name.trim(),
             client_phone: form.client_phone.trim(),
-            ...(["essential", "signature"].includes(form.package_code)
+            ...(["essential", "signature", "couture"].includes(
+              form.package_code,
+            )
               ? {
                   couple: {
                     partnerOneDescription: form.bride_description.trim(),
@@ -1617,7 +1656,9 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
                 />
               </Field>
             </div>
-            {["essential", "signature"].includes(form.package_code) ? (
+            {["essential", "signature", "couture"].includes(
+              form.package_code,
+            ) ? (
               <div className="mt-5 grid gap-4 md:grid-cols-2">
                 <Field label="Keterangan mempelai pria">
                   <textarea

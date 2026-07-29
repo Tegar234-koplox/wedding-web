@@ -38,4 +38,23 @@ describe("sample invitation catalog", () => {
       );
     },
   );
+
+  it.each(rendererKeys)(
+    "creates a thirty-six-photo Couture live preview for %s",
+    (key) => {
+      const sample = getSampleInvitation(key, "id", "couture");
+
+      expect(sample.content.gallery).toHaveLength(36);
+      expect(sample.content.gallery[0]?.src).toContain("section-2/groom.webp");
+      expect(sample.content.gallery[5]?.src).toContain(
+        "section-5/background.webp",
+      );
+      expect(sample.content.gallery[23]?.src).toContain(
+        "section-10/background.webp",
+      );
+      expect(sample.content.gallery[35]?.src).toContain(
+        "section-12/photo-03.webp",
+      );
+    },
+  );
 });
