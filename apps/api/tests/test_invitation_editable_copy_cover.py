@@ -328,6 +328,40 @@ def test_staff_round_trips_thirty_six_couture_gallery_items_and_rejects_thirty_s
 
 
 @pytest.mark.django_db
+def test_staff_can_reuse_one_cloudinary_url_in_every_gallery_slot(client):
+    staff, order, invitation, _media = _staff_order_with_photo("repeated-gallery-url")
+    couture = create_package(code="couture")
+    client.force_login(staff)
+    repeated_url = "https://res.cloudinary.com/demo/image/upload/repeated-photo.jpg"
+
+    response = client.patch(
+        reverse("admin-order-detail", kwargs={"reference": order.reference}),
+        {
+            "package_code": couture.code,
+            "media_urls": {"gallery": [repeated_url] * 36},
+        },
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200
+    invitation.refresh_from_db()
+    gallery_media = invitation.media.filter(role=InvitationMedia.Role.GALLERY)
+    assert gallery_media.count() == 36
+    assert gallery_media.values("asset_id").distinct().count() == 1
+    assert list(gallery_media.values_list("sort_order", flat=True)) == list(range(36))
+    assert [item["src"] for item in invitation.content["gallery"]] == [repeated_url] * 36
+
+    preview_response = client.get(
+        reverse("invitation-preview-detail", kwargs={"public_slug": invitation.public_slug}),
+        {"token": preview_token_for(invitation)},
+    )
+    assert preview_response.status_code == 200
+    assert [item["src"] for item in preview_response.json()["content"]["gallery"]] == [
+        repeated_url
+    ] * 36
+
+
+@pytest.mark.django_db
 def test_sparse_gallery_slots_keep_every_couture_section_position(client):
     staff, order, invitation, _media = _staff_order_with_photo("sparse-gallery-slots")
     couture = create_package(code="couture")

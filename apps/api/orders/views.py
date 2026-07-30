@@ -496,11 +496,7 @@ def _validated_gallery_urls(value: object) -> list[str]:
         raise ValidationError({"media_urls.gallery": "Gallery must be a list of URLs."})
     if len(value) > 36:
         raise ValidationError({"media_urls.gallery": "Gallery must contain no more than 36 slots."})
-    urls = [str(item or "").strip() for item in value]
-    populated_urls = [url for url in urls if url]
-    if len(set(populated_urls)) != len(populated_urls):
-        raise ValidationError({"media_urls.gallery": "Gallery URLs must be unique."})
-    return urls
+    return [str(item or "").strip() for item in value]
 
 
 def _update_photo_focal_point(invitation: Invitation, data: object) -> None:

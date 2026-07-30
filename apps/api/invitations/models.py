@@ -155,12 +155,6 @@ class InvitationMedia(UUIDTimeStampedModel):
 
     class Meta:
         ordering = ["sort_order", "created_at"]
-        constraints = [
-            models.UniqueConstraint(
-                fields=["invitation", "asset", "role"],
-                name="unique_invitation_asset_role",
-            )
-        ]
 
 
 class Guest(UUIDTimeStampedModel, ArchivableModel):
