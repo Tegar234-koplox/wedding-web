@@ -50,6 +50,7 @@ import type {
 } from "@/lib/api/contracts";
 
 import ambientStyles from "./invitation-ambient.module.css";
+import couplePortraitStyles from "./couple-portrait.module.css";
 import coutureStyles from "./couture-motion.module.css";
 
 export type RendererV2Props = {
@@ -693,21 +694,183 @@ function EssentialPhotoSection({
   );
 }
 
-function useDesktopCoupleLayout() {
-  const [desktop, setDesktop] = useState(false);
+type CouplePortraitPerson = {
+  description: string;
+  name: string;
+  photo: GalleryPhoto;
+  role: "bride" | "groom";
+};
 
-  useEffect(() => {
-    if (typeof window.matchMedia !== "function") {
-      return;
-    }
-    const query = window.matchMedia("(min-width: 1024px)");
-    const sync = () => setDesktop(query.matches);
-    sync();
-    query.addEventListener("change", sync);
-    return () => query.removeEventListener("change", sync);
-  }, []);
+function CouplePortraitPanels({
+  design,
+  opened,
+  packageCode,
+  panelId,
+  people,
+  toggle,
+}: {
+  design: ThemeVisual;
+  opened: boolean;
+  packageCode: PackageCode;
+  panelId: string;
+  people: readonly CouplePortraitPerson[];
+  toggle: React.ReactNode;
+}) {
+  const reducedMotion = useReducedMotion();
+  const premiumPhoto = packageCode !== "essential";
 
-  return desktop;
+  return (
+    <div
+      className="relative grid min-h-[max(100svh,54rem)] grid-rows-2 lg:min-h-[100svh] lg:grid-cols-2 lg:grid-rows-1"
+      data-section-two-desktop-layout="split"
+      data-section-two-layout="portrait-stack"
+      id={panelId}
+    >
+      {people.map((person, index) => {
+        const panelAttributes =
+          packageCode === "essential"
+            ? { "data-couple-panel": person.role }
+            : packageCode === "signature"
+              ? { "data-signature-couple-panel": person.role }
+              : { "data-couture-couple-panel": person.role };
+        const photoAttributes =
+          packageCode === "essential"
+            ? { "data-couple-photo": person.role }
+            : packageCode === "signature"
+              ? { "data-signature-couple-photo": person.role }
+              : { "data-couture-couple-photo": person.role };
+        const captionAttributes =
+          packageCode === "essential"
+            ? { "data-couple-caption": person.role }
+            : packageCode === "signature"
+              ? { "data-signature-couple-caption": person.role }
+              : { "data-couture-couple-caption": person.role };
+
+        const portrait = (
+          <Image
+            alt={person.photo.alt}
+            className="object-cover object-[center_28%]"
+            fill
+            loading="eager"
+            sizes="(max-width: 1023px) 28vw, 27vw"
+            src={person.photo.src}
+          />
+        );
+
+        return (
+          <div
+            className={`relative flex min-h-[27rem] items-center justify-center overflow-hidden px-6 sm:px-10 lg:min-h-[100svh] lg:px-12 lg:py-10 ${
+              index === 0 ? "pb-16 pt-8" : "pb-24 pt-16"
+            }`}
+            key={person.role}
+            {...panelAttributes}
+          >
+            <motion.div
+              animate={{
+                opacity: opened ? 1 : 0,
+                scale: opened ? 1 : 0.96,
+                y: opened ? 0 : index === 0 ? 72 : -72,
+              }}
+              aria-hidden={!opened}
+              className="relative z-30 flex w-full flex-col items-center"
+              initial={false}
+              transition={{
+                duration: reducedMotion ? 0 : 0.72,
+                ease: [0.22, 1, 0.36, 1],
+              }}
+            >
+              <div
+                className={`${couplePortraitStyles.portraitFrame} relative`}
+                data-section-two-photo-frame={
+                  premiumPhoto ? packageCode : "none"
+                }
+                {...photoAttributes}
+              >
+                {premiumPhoto ? (
+                  <InvitationCard
+                    className="w-full"
+                    contentClassName="relative aspect-[4/5]"
+                    context={`section-2-${person.role}`}
+                    design={design}
+                    packageCode={packageCode}
+                    photo
+                    surfaceClassName="bg-transparent"
+                  >
+                    {portrait}
+                  </InvitationCard>
+                ) : (
+                  <div className="relative aspect-[4/5] overflow-hidden">
+                    {portrait}
+                  </div>
+                )}
+              </div>
+
+              <AnimatePresence>
+                {opened ? (
+                  <motion.div
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-4 max-w-xl text-center md:mt-5 lg:mt-7 lg:max-w-lg"
+                    exit={{
+                      opacity: 0,
+                      transition: { duration: reducedMotion ? 0 : 0.16 },
+                      y: reducedMotion ? 0 : 8,
+                    }}
+                    initial={reducedMotion ? false : { opacity: 0, y: 12 }}
+                    transition={{
+                      delay: reducedMotion ? 0 : 0.36,
+                      duration: reducedMotion ? 0 : 0.38,
+                    }}
+                    {...captionAttributes}
+                  >
+                    <div
+                      className={coupleCaptionTextClass(design)}
+                      data-couple-caption-text={design.key}
+                    >
+                      <h2
+                        className={`${couplePortraitStyles.nameFrame} ${couplePortraitStyles[packageCode]} font-serif text-2xl italic leading-tight tracking-[0.03em] md:text-3xl lg:text-4xl`}
+                        data-section-two-name-frame={packageCode}
+                        style={
+                          {
+                            "--name-border": design.cardBorderColor,
+                            "--name-glow": design.cardGlowColor,
+                            "--name-shine": design.cardShineColor,
+                          } as React.CSSProperties
+                        }
+                      >
+                        {person.name}
+                      </h2>
+                      <p className="mt-1.5 font-sans text-sm font-medium leading-relaxed tracking-[0.02em] lg:mt-3 lg:text-base">
+                        {person.description}
+                      </p>
+                    </div>
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
+            </motion.div>
+          </div>
+        );
+      })}
+
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-1/2 z-40 h-px lg:inset-y-0 lg:bottom-0 lg:left-1/2 lg:right-auto lg:top-0 lg:h-auto lg:w-px"
+        data-section-two-divider
+        {...(packageCode === "signature"
+          ? { "data-signature-divider": "" }
+          : {})}
+        style={{
+          backgroundColor: design.cardBorderColor,
+          boxShadow: premiumPhoto
+            ? `0 0 18px ${design.cardGlowColor}, 0 0 5px ${design.cardShineColor}`
+            : "none",
+        }}
+      />
+
+      <div className="absolute left-1/2 top-1/2 z-[70] -translate-x-1/2 -translate-y-1/2">
+        {toggle}
+      </div>
+    </div>
+  );
 }
 
 function EssentialCoupleRevealSection({
@@ -718,7 +881,6 @@ function EssentialCoupleRevealSection({
   invitation: InvitationEnvelope;
 }) {
   const [opened, setOpened] = useState(false);
-  const desktop = useDesktopCoupleLayout();
   const reducedMotion = useReducedMotion();
   const id = invitation.locale === "id";
   const { couple, gallery } = invitation.content;
@@ -744,18 +906,6 @@ function EssentialCoupleRevealSection({
       role: "bride",
     },
   ] as const;
-  const hiddenPhotoPositions: readonly [
-    { x: string; y: string },
-    { x: string; y: string },
-  ] = desktop
-    ? [
-        { x: "100%", y: "0%" },
-        { x: "-100%", y: "0%" },
-      ]
-    : [
-        { x: "0%", y: "100%" },
-        { x: "0%", y: "-100%" },
-      ];
   const buttonLabel = opened
     ? id
       ? "Tutup foto kedua mempelai"
@@ -771,128 +921,58 @@ function EssentialCoupleRevealSection({
       className={`${design.page} relative overflow-hidden`}
       data-essential-section="2"
     >
-      <div
-        className="relative grid min-h-[100svh] grid-rows-2 lg:grid-cols-2 lg:grid-rows-1"
-        id="essential-couple-reveal-panels"
-      >
-        {people.map((person, index) => (
-          <div
-            className={`relative min-h-[50svh] overflow-hidden lg:min-h-[100svh] ${
-              index === 0 ? "border-b lg:border-b-0 lg:border-r" : ""
-            } ${design.border}`}
-            data-couple-panel={person.role}
-            key={person.role}
+      <CouplePortraitPanels
+        design={design}
+        opened={opened}
+        packageCode="essential"
+        panelId="essential-couple-reveal-panels"
+        people={people}
+        toggle={
+          <button
+            aria-controls="essential-couple-reveal-panels"
+            aria-expanded={opened}
+            aria-label={buttonLabel}
+            className={`${design.surface} ${design.border} ${design.glow} relative grid size-20 place-items-center rounded-full border transition hover:scale-105 focus:outline-none focus:ring-2 focus:ring-current/40`}
+            data-heart-state={opened ? "whole" : "broken"}
+            onClick={() => setOpened((current) => !current)}
+            type="button"
           >
-            <motion.div
-              animate={{
-                opacity: 1,
-                x: opened ? "0%" : hiddenPhotoPositions[index === 0 ? 0 : 1].x,
-                y: opened ? "0%" : hiddenPhotoPositions[index === 0 ? 0 : 1].y,
-              }}
-              aria-hidden={!opened}
-              className="absolute inset-0 will-change-transform"
-              data-couple-photo={person.role}
-              initial={false}
-              transition={{
-                duration: reducedMotion ? 0 : 0.75,
-                ease: [0.22, 1, 0.36, 1],
-              }}
-            >
-              <Image
-                alt={person.photo.alt}
-                className="object-cover"
-                fill
-                loading="eager"
-                sizes="(max-width: 1023px) 100vw, 50vw"
-                src={person.photo.src}
-              />
-            </motion.div>
-
-            <AnimatePresence>
-              {opened ? (
-                <motion.div
-                  animate={{ opacity: 1, y: 0 }}
-                  className="absolute inset-x-10 bottom-14 z-20 px-4 pb-2 pt-4 text-center shadow-lg sm:inset-x-16 md:inset-x-20 md:bottom-16 lg:inset-x-12 lg:bottom-8"
-                  data-couple-caption={person.role}
-                  exit={{
-                    opacity: 0,
-                    transition: { duration: reducedMotion ? 0 : 0.18 },
-                    y: reducedMotion ? 0 : 8,
-                  }}
-                  initial={reducedMotion ? false : { opacity: 0, y: 14 }}
-                  key={`${person.role}-caption`}
-                  transition={{
-                    delay: reducedMotion ? 0 : 0.76,
-                    duration: reducedMotion ? 0 : 0.45,
-                    ease: [0.22, 1, 0.36, 1],
-                  }}
-                >
-                  <div
-                    aria-hidden="true"
-                    className={`${design.surface} absolute inset-0 opacity-40`}
-                    data-couple-caption-surface
-                  />
-                  <div
-                    className={coupleCaptionTextClass(design)}
-                    data-couple-caption-text={design.key}
-                  >
-                    <h2 className="font-serif text-2xl italic leading-tight tracking-[0.03em] md:text-3xl">
-                      {person.name}
-                    </h2>
-                    <p className="mt-2 font-sans text-sm font-medium leading-relaxed tracking-[0.02em]">
-                      {person.description}
-                    </p>
-                  </div>
-                </motion.div>
-              ) : null}
-            </AnimatePresence>
-          </div>
-        ))}
-
-        <button
-          aria-controls="essential-couple-reveal-panels"
-          aria-expanded={opened}
-          aria-label={buttonLabel}
-          className={`${design.surface} ${design.border} ${design.glow} absolute left-1/2 top-1/2 z-40 grid size-20 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border transition hover:scale-105 focus:outline-none focus:ring-2 focus:ring-current/40`}
-          data-heart-state={opened ? "whole" : "broken"}
-          onClick={() => setOpened((current) => !current)}
-          type="button"
-        >
-          {[
-            {
-              active: !opened,
-              key: "broken",
-              src: `${heartBase}-broken.svg`,
-            },
-            {
-              active: opened,
-              key: "whole",
-              src: `${heartBase}-whole.svg`,
-            },
-          ].map((icon) => (
-            <motion.span
-              animate={{
-                opacity: icon.active ? 1 : 0,
-                scale: icon.active ? 1 : 0.92,
-              }}
-              aria-hidden
-              className="absolute inset-4"
-              initial={false}
-              key={icon.key}
-              transition={{ duration: reducedMotion ? 0 : 0.3 }}
-            >
-              <Image
-                alt=""
-                className="object-contain"
-                fill
-                sizes="3rem"
-                src={icon.src}
-                unoptimized
-              />
-            </motion.span>
-          ))}
-        </button>
-      </div>
+            {[
+              {
+                active: !opened,
+                key: "broken",
+                src: `${heartBase}-broken.svg`,
+              },
+              {
+                active: opened,
+                key: "whole",
+                src: `${heartBase}-whole.svg`,
+              },
+            ].map((icon) => (
+              <motion.span
+                animate={{
+                  opacity: icon.active ? 1 : 0,
+                  scale: icon.active ? 1 : 0.92,
+                }}
+                aria-hidden
+                className="absolute inset-4"
+                initial={false}
+                key={icon.key}
+                transition={{ duration: reducedMotion ? 0 : 0.3 }}
+              >
+                <Image
+                  alt=""
+                  className="object-contain"
+                  fill
+                  sizes="3rem"
+                  src={icon.src}
+                  unoptimized
+                />
+              </motion.span>
+            ))}
+          </button>
+        }
+      />
     </section>
   );
 }
@@ -971,8 +1051,6 @@ function SignatureCoupleRevealSection({
   premium: PremiumVisualConfig;
 }) {
   const [opened, setOpened] = useState(false);
-  const desktop = useDesktopCoupleLayout();
-  const reducedMotion = useReducedMotion();
   const id = invitation.locale === "id";
   const { couple, gallery } = invitation.content;
   const photos = sectionPhotosFromGallery(
@@ -997,18 +1075,6 @@ function SignatureCoupleRevealSection({
       role: "bride",
     },
   ] as const;
-  const hiddenPhotoPositions: readonly [
-    { x: string; y: string },
-    { x: string; y: string },
-  ] = desktop
-    ? [
-        { x: "100%", y: "0%" },
-        { x: "-100%", y: "0%" },
-      ]
-    : [
-        { x: "0%", y: "100%" },
-        { x: "0%", y: "-100%" },
-      ];
   const buttonLabel = opened
     ? id
       ? "Tutup foto Signature kedua mempelai"
@@ -1023,99 +1089,13 @@ function SignatureCoupleRevealSection({
       data-signature-section="2"
     >
       <ThemeSectionDecoration front config={premium} showOverlay={false} />
-      <div
-        className="relative grid min-h-[100svh] grid-rows-2 lg:grid-cols-2 lg:grid-rows-1"
-        id="signature-couple-reveal-panels"
-      >
-        {people.map((person, index) => (
-          <div
-            className="relative min-h-[50svh] overflow-hidden lg:min-h-[100svh]"
-            data-signature-couple-panel={person.role}
-            key={person.role}
-          >
-            <motion.div
-              animate={{
-                x: opened ? "0%" : hiddenPhotoPositions[index === 0 ? 0 : 1].x,
-                y: opened ? "0%" : hiddenPhotoPositions[index === 0 ? 0 : 1].y,
-              }}
-              aria-hidden={!opened}
-              className="absolute inset-0 will-change-transform"
-              data-signature-couple-photo={person.role}
-              initial={false}
-              transition={{
-                duration: reducedMotion ? 0 : 0.75,
-                ease: [0.22, 1, 0.36, 1],
-              }}
-            >
-              <InvitationCard
-                className="!absolute inset-0 h-full"
-                contentClassName="relative h-full"
-                design={design}
-                packageCode="signature"
-                photo
-                surfaceClassName="bg-transparent"
-              >
-                <Image
-                  alt={person.photo.alt}
-                  className="object-cover object-[center_28%]"
-                  fill
-                  loading="eager"
-                  sizes="(max-width: 1023px) 100vw, 50vw"
-                  src={person.photo.src}
-                />
-              </InvitationCard>
-            </motion.div>
-
-            <AnimatePresence>
-              {opened ? (
-                <motion.div
-                  animate={{ opacity: 1, y: 0 }}
-                  className="absolute inset-x-10 bottom-14 z-30 px-4 pb-2 pt-4 text-center shadow-lg sm:inset-x-16 md:inset-x-20 md:bottom-16 lg:inset-x-12 lg:bottom-8"
-                  data-signature-couple-caption={person.role}
-                  exit={{
-                    opacity: 0,
-                    transition: { duration: reducedMotion ? 0 : 0.18 },
-                    y: reducedMotion ? 0 : 8,
-                  }}
-                  initial={reducedMotion ? false : { opacity: 0, y: 14 }}
-                  transition={{
-                    delay: reducedMotion ? 0 : 0.76,
-                    duration: reducedMotion ? 0 : 0.45,
-                    ease: [0.22, 1, 0.36, 1],
-                  }}
-                >
-                  <div
-                    aria-hidden="true"
-                    className={`${design.surface} absolute inset-0 opacity-40`}
-                  />
-                  <div
-                    className={coupleCaptionTextClass(design)}
-                    data-couple-caption-text={design.key}
-                  >
-                    <h2 className="font-serif text-2xl italic leading-tight tracking-[0.03em] md:text-3xl">
-                      {person.name}
-                    </h2>
-                    <p className="mt-2 font-sans text-sm font-medium leading-relaxed tracking-[0.02em]">
-                      {person.description}
-                    </p>
-                  </div>
-                </motion.div>
-              ) : null}
-            </AnimatePresence>
-          </div>
-        ))}
-
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-1/2 z-30 h-px lg:inset-y-0 lg:bottom-0 lg:left-1/2 lg:right-auto lg:top-0 lg:h-auto lg:w-px"
-          data-signature-divider
-          style={{
-            backgroundColor: design.cardBorderColor,
-            boxShadow: `0 0 18px ${design.cardGlowColor}, 0 0 5px ${design.cardShineColor}`,
-          }}
-        />
-
-        <div className="absolute left-1/2 top-1/2 z-40 -translate-x-1/2 -translate-y-1/2">
+      <CouplePortraitPanels
+        design={design}
+        opened={opened}
+        packageCode="signature"
+        panelId="signature-couple-reveal-panels"
+        people={people}
+        toggle={
           <SignatureToggleButton
             design={design}
             invitation={invitation}
@@ -1123,8 +1103,8 @@ function SignatureCoupleRevealSection({
             onToggle={() => setOpened((current) => !current)}
             opened={opened}
           />
-        </div>
-      </div>
+        }
+      />
     </section>
   );
 }
@@ -1785,8 +1765,6 @@ function CoutureCoupleRevealSection({
   onEffect: (effectUrl: string) => void;
   premium: PremiumVisualConfig;
 }) {
-  const desktop = useDesktopCoupleLayout();
-  const reducedMotion = useReducedMotion();
   const id = invitation.locale === "id";
   const { couple, gallery } = invitation.content;
   const photos = sectionPhotosFromGallery(
@@ -1811,15 +1789,6 @@ function CoutureCoupleRevealSection({
       role: "bride",
     },
   ] as const;
-  const hiddenPositions = desktop
-    ? [
-        { x: "100%", y: "0%" },
-        { x: "-100%", y: "0%" },
-      ]
-    : [
-        { x: "0%", y: "100%" },
-        { x: "0%", y: "-100%" },
-      ];
   const label = id
     ? "Buka atau tutup foto kedua mempelai"
     : "Reveal or hide the couple photos";
@@ -1837,87 +1806,14 @@ function CoutureCoupleRevealSection({
       data-couture-section="2"
     >
       <ThemeSectionDecoration front config={premium} overlayFront showOverlay />
-      <div className="relative grid min-h-[100svh] grid-rows-2 lg:grid-cols-2 lg:grid-rows-1">
-        {people.map((person, index) => (
-          <div
-            className="relative min-h-[50svh] overflow-hidden lg:min-h-[100svh]"
-            data-couture-couple-panel={person.role}
-            key={person.role}
-          >
-            <motion.div
-              animate={{
-                x: toggle.opened ? "0%" : hiddenPositions[index]?.x,
-                y: toggle.opened ? "0%" : hiddenPositions[index]?.y,
-              }}
-              aria-hidden={!toggle.opened}
-              className="absolute inset-0 will-change-transform"
-              initial={false}
-              transition={{
-                duration: reducedMotion ? 0 : 0.75,
-                ease: [0.22, 1, 0.36, 1],
-              }}
-            >
-              <InvitationCard
-                className="!absolute inset-0 h-full"
-                contentClassName="relative h-full"
-                design={design}
-                packageCode="couture"
-                photo
-                surfaceClassName="bg-transparent"
-              >
-                <Image
-                  alt={person.photo.alt}
-                  className="object-cover object-[center_28%]"
-                  fill
-                  sizes="(max-width: 1023px) 100vw, 50vw"
-                  src={person.photo.src}
-                />
-              </InvitationCard>
-            </motion.div>
-            <AnimatePresence>
-              {toggle.opened ? (
-                <motion.div
-                  animate={{ opacity: 1, y: 0 }}
-                  className="absolute inset-x-10 bottom-14 z-30 px-4 pb-2 pt-4 text-center shadow-lg sm:inset-x-16 md:inset-x-20 md:bottom-16 lg:inset-x-12 lg:bottom-8"
-                  data-couture-couple-caption={person.role}
-                  exit={{ opacity: 0, y: reducedMotion ? 0 : 8 }}
-                  initial={reducedMotion ? false : { opacity: 0, y: 14 }}
-                  transition={{
-                    delay: reducedMotion ? 0 : 0.76,
-                    duration: reducedMotion ? 0 : 0.45,
-                  }}
-                >
-                  <div
-                    className={`${design.surface} absolute inset-0 opacity-40`}
-                  />
-                  <div
-                    className={coupleCaptionTextClass(design)}
-                    data-couple-caption-text={design.key}
-                  >
-                    <h2 className="font-serif text-2xl italic leading-tight tracking-[0.03em] md:text-3xl">
-                      {person.name}
-                    </h2>
-                    <p className="mt-2 font-sans text-sm font-medium leading-relaxed tracking-[0.02em]">
-                      {person.description}
-                    </p>
-                  </div>
-                </motion.div>
-              ) : null}
-            </AnimatePresence>
-          </div>
-        ))}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-1/2 z-30 h-px lg:inset-y-0 lg:bottom-0 lg:left-1/2 lg:right-auto lg:top-0 lg:h-auto lg:w-px"
-          style={{
-            backgroundColor: design.cardBorderColor,
-            boxShadow: `0 0 18px ${design.cardGlowColor}, 0 0 5px ${design.cardShineColor}`,
-          }}
-        />
-        <div className="absolute left-1/2 top-1/2 z-[70] -translate-x-1/2 -translate-y-1/2">
-          {toggle.button}
-        </div>
-      </div>
+      <CouplePortraitPanels
+        design={design}
+        opened={toggle.opened}
+        packageCode="couture"
+        panelId="couture-couple-reveal-panels"
+        people={people}
+        toggle={toggle.button}
+      />
     </section>
   );
 }

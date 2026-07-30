@@ -1,0 +1,112 @@
+.portraitFrame {
+  width: clamp(7.75rem, 28vw, 11.5rem);
+}
+
+.nameFrame {
+  --name-border: currentColor;
+  --name-glow: transparent;
+  --name-shine: currentColor;
+  position: relative;
+  display: inline-grid;
+  min-width: min(11.5rem, 62vw);
+  max-width: 100%;
+  overflow: hidden;
+  place-items: center;
+  padding: 0.3rem 0.75rem 0.38rem;
+  isolation: isolate;
+  border: 1px solid var(--name-border);
+  background: transparent;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--name-border) 16%, transparent),
+    0 0 15px color-mix(in srgb, var(--name-glow) 22%, transparent);
+  text-shadow: 0 0 10px color-mix(in srgb, var(--name-shine) 32%, transparent);
+}
+
+.nameFrame::before {
+  position: absolute;
+  z-index: -1;
+  top: -120%;
+  bottom: -120%;
+  left: -35%;
+  width: 24%;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--name-shine) 45%, transparent),
+    transparent
+  );
+  content: "";
+  filter: blur(1px);
+  transform: translateX(-220%) rotate(16deg);
+  animation: section-two-name-shine 7.5s ease-in-out infinite;
+}
+
+.essential::before {
+  opacity: 0.72;
+}
+
+.signature {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--name-border) 24%, transparent),
+    0 0 22px color-mix(in srgb, var(--name-glow) 34%, transparent);
+}
+
+.signature::before {
+  width: 28%;
+  animation-duration: 5.8s;
+}
+
+.couture {
+  border-color: color-mix(in srgb, var(--name-border) 88%, var(--name-shine));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--name-shine) 22%, transparent),
+    0 0 28px color-mix(in srgb, var(--name-glow) 44%, transparent),
+    inset 0 0 16px color-mix(in srgb, var(--name-shine) 9%, transparent);
+}
+
+.couture::before {
+  width: 32%;
+  animation-duration: 4.4s;
+}
+
+@media (min-width: 64rem) {
+  .portraitFrame {
+    width: clamp(15rem, min(27vw, 42vh), 27rem);
+  }
+
+  .nameFrame {
+    min-width: min(15rem, 32vw);
+    padding: 0.48rem 1.15rem 0.58rem;
+  }
+}
+
+@keyframes section-two-name-shine {
+  0%,
+  30% {
+    transform: translateX(-220%) rotate(16deg);
+  }
+
+  55%,
+  100% {
+    transform: translateX(650%) rotate(16deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nameFrame::before {
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: auto;
+    background: linear-gradient(
+      105deg,
+      transparent 20%,
+      color-mix(in srgb, var(--name-shine) 16%, transparent) 50%,
+      transparent 80%
+    );
+    animation: none;
+    transform: none;
+  }
+}

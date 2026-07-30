@@ -11,7 +11,11 @@ import React from "react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { mediaSectionStartFor } from "./media-plan";
-import { getPremiumVisualConfig, themeFrameColors } from "./presentation";
+import {
+  getPremiumVisualConfig,
+  themeFrameColors,
+  themeVisualConfig,
+} from "./presentation";
 import { RendererV2, sectionPhotosFromGallery } from "./renderer-v2";
 import { getSampleInvitation } from "./samples";
 import { shouldAnimatePremium } from "./theme-ornament";
@@ -519,6 +523,28 @@ describe("renderer v2 invitation experience", () => {
         "opening-burst",
       );
       expect(
+        view.container.querySelector(
+          '[data-couture-section="2"] [data-section-two-layout="portrait-stack"]',
+        ),
+      ).not.toBeNull();
+      const couturePhotoCards = view.container.querySelectorAll(
+        '[data-section-two-photo-frame="couture"] [data-invitation-card="couture"][data-photo-card="true"]',
+      );
+      expect(couturePhotoCards).toHaveLength(2);
+      expect(
+        Array.from(couturePhotoCards).map((card) =>
+          card.getAttribute("data-frame-motion"),
+        ),
+      ).toEqual(["animated", "animated"]);
+      const coutureNameFrames = view.container.querySelectorAll<HTMLElement>(
+        '[data-section-two-name-frame="couture"]',
+      );
+      expect(coutureNameFrames).toHaveLength(2);
+      expect(coutureNameFrames[0]?.textContent).not.toContain("Mempelai pria");
+      expect(
+        coutureNameFrames[0]?.style.getPropertyValue("--name-border"),
+      ).toBe(themeVisualConfig["dark-cinematic"].cardBorderColor);
+      expect(
         toggle.querySelector('[data-couture-light-burst="outside"]'),
       ).not.toBeNull();
 
@@ -783,6 +809,31 @@ describe("renderer v2 invitation experience", () => {
         (panel) => panel.getAttribute("data-couple-panel"),
       ),
     ).toEqual(["groom", "bride"]);
+    const portraitStack = container.querySelector(
+      '[data-section-two-layout="portrait-stack"]',
+    ) as HTMLElement;
+    expect(portraitStack).not.toBeNull();
+    expect(portraitStack.className).toContain("min-h-[max(100svh,54rem)]");
+    expect(portraitStack.dataset.sectionTwoDesktopLayout).toBe("split");
+    expect(portraitStack.className).toContain("lg:grid-cols-2");
+    expect(portraitStack.className).toContain("lg:grid-rows-1");
+    expect(portraitStack.className).toContain("lg:min-h-[100svh]");
+    const couplePanels = Array.from(
+      container.querySelectorAll<HTMLElement>("[data-couple-panel]"),
+    );
+    expect(couplePanels[0]?.className).toContain("pb-16");
+    expect(couplePanels[1]?.className).toContain("pt-16");
+    expect(couplePanels[1]?.className).toContain("pb-24");
+    expect(couplePanels[0]?.className).toContain("lg:min-h-[100svh]");
+    expect(couplePanels[1]?.className).toContain("lg:py-10");
+    expect(
+      container.querySelectorAll('[data-section-two-photo-frame="none"]'),
+    ).toHaveLength(2);
+    expect(
+      container.querySelector(
+        '[data-essential-section="2"] [data-invitation-card]',
+      ),
+    ).toBeNull();
 
     const toggle = screen.getByRole("button", {
       name: "Buka foto kedua mempelai",
@@ -828,12 +879,19 @@ describe("renderer v2 invitation experience", () => {
       '[data-couple-caption="groom"]',
     ) as HTMLElement;
     expect(groomCaption.classList.contains("border")).toBe(false);
-    expect(groomCaption.classList.contains("bottom-14")).toBe(true);
     expect(
-      groomCaption
-        .querySelector("[data-couple-caption-surface]")
-        ?.classList.contains("opacity-40"),
-    ).toBe(true);
+      groomCaption.querySelector("[data-couple-caption-surface]"),
+    ).toBeNull();
+    const essentialNameFrames = container.querySelectorAll<HTMLElement>(
+      '[data-section-two-name-frame="essential"]',
+    );
+    expect(essentialNameFrames).toHaveLength(2);
+    expect(essentialNameFrames[0]?.textContent?.trim()).toBe("Raka");
+    expect(essentialNameFrames[0]?.className).not.toContain("undefined");
+    expect(essentialNameFrames[0]?.textContent).not.toContain("Mempelai pria");
+    expect(
+      essentialNameFrames[0]?.style.getPropertyValue("--name-border"),
+    ).toBe(themeFrameColors["elegant-classic"]);
 
     fireEvent.click(toggle);
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
@@ -915,6 +973,30 @@ describe("renderer v2 invitation experience", () => {
     expect(
       container.querySelectorAll("[data-signature-couple-photo] img"),
     ).toHaveLength(2);
+    expect(
+      container.querySelector('[data-section-two-layout="portrait-stack"]'),
+    ).not.toBeNull();
+    const signaturePhotoCards = container.querySelectorAll(
+      '[data-section-two-photo-frame="signature"] [data-invitation-card="signature"][data-photo-card="true"]',
+    );
+    expect(signaturePhotoCards).toHaveLength(2);
+    expect(
+      Array.from(signaturePhotoCards).map((card) =>
+        card.getAttribute("data-frame-motion"),
+      ),
+    ).toEqual(["animated", "animated"]);
+    expect(
+      Array.from(signaturePhotoCards).map((card) =>
+        card.getAttribute("data-card-context"),
+      ),
+    ).toEqual(["section-2-groom", "section-2-bride"]);
+    const signatureDivider = container.querySelector(
+      '[data-signature-section="2"] [data-signature-divider]',
+    ) as HTMLElement;
+    expect(signatureDivider.classList.contains("h-px")).toBe(true);
+    expect(signatureDivider.className).toContain("lg:w-px");
+    expect(signatureDivider.className).toContain("lg:left-1/2");
+    expect(signatureDivider.className).toContain("lg:h-auto");
     fireEvent.click(coupleToggle);
     expect(coupleToggle.getAttribute("aria-expanded")).toBe("true");
     expect(
@@ -922,6 +1004,14 @@ describe("renderer v2 invitation experience", () => {
         .querySelector('[data-signature-couple-panel="groom"] h2')
         ?.textContent?.trim(),
     ).toBe(invitation.content.couple.partnerTwo);
+    const signatureNameFrames = container.querySelectorAll<HTMLElement>(
+      '[data-section-two-name-frame="signature"]',
+    );
+    expect(signatureNameFrames).toHaveLength(2);
+    expect(signatureNameFrames[0]?.textContent).not.toContain("Mempelai pria");
+    expect(
+      signatureNameFrames[0]?.style.getPropertyValue("--name-border"),
+    ).toBe(themeFrameColors["elegant-classic"]);
     fireEvent.click(coupleToggle);
     expect(coupleToggle.getAttribute("aria-expanded")).toBe("false");
 
