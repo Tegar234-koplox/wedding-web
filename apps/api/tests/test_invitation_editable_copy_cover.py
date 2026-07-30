@@ -96,7 +96,9 @@ def test_staff_copy_and_replaced_cover_round_trip_to_preview_and_public(client):
             },
             "couple": {
                 "partnerOneDescription": " Putri terkasih dari keluarga. ",
+                "partnerOneFullName": " Alya Putri Maheswari ",
                 "partnerTwoDescription": " Putra terkasih dari keluarga. ",
+                "partnerTwoFullName": " Raka Aditya Pratama ",
             },
             "media_urls": {"gallery": gallery_urls, "photo": cover_url},
             "photo_focal": {"focal_x": "24.25", "focal_y": 73.5},
@@ -123,7 +125,9 @@ def test_staff_copy_and_replaced_cover_round_trip_to_preview_and_public(client):
     }
     assert detail["invitation"]["couple"] == {
         "partnerOneDescription": "Putri terkasih dari keluarga.",
+        "partnerOneFullName": "Alya Putri Maheswari",
         "partnerTwoDescription": "Putra terkasih dari keluarga.",
+        "partnerTwoFullName": "Raka Aditya Pratama",
     }
     photo_payload = next(item for item in detail["media"] if item["role"] == "photo")
     assert photo_payload["asset"]["secure_url"] == cover_url
@@ -152,8 +156,10 @@ def test_staff_copy_and_replaced_cover_round_trip_to_preview_and_public(client):
     assert invitation.content["couple"] == {
         "partnerOne": "Nadia",
         "partnerOneDescription": "Putri terkasih dari keluarga.",
+        "partnerOneFullName": "Alya Putri Maheswari",
         "partnerTwo": "Faris",
         "partnerTwoDescription": "Putra terkasih dari keluarga.",
+        "partnerTwoFullName": "Raka Aditya Pratama",
         "monogram": "N&F",
     }
 
@@ -186,9 +192,11 @@ def test_staff_copy_and_replaced_cover_round_trip_to_preview_and_public(client):
         assert payload["content"]["couple"]["partnerOneDescription"] == (
             "Putri terkasih dari keluarga."
         )
+        assert payload["content"]["couple"]["partnerOneFullName"] == ("Alya Putri Maheswari")
         assert payload["content"]["couple"]["partnerTwoDescription"] == (
             "Putra terkasih dari keluarga."
         )
+        assert payload["content"]["couple"]["partnerTwoFullName"] == ("Raka Aditya Pratama")
         assert len(payload["content"]["gallery"]) == 14
 
     clear_response = client.patch(
@@ -221,6 +229,10 @@ def test_staff_copy_and_replaced_cover_round_trip_to_preview_and_public(client):
         (
             {"couple": {"partnerOneDescription": "x" * 301}},
             "couple.partnerOneDescription",
+        ),
+        (
+            {"couple": {"partnerOneFullName": "x" * 121}},
+            "couple.partnerOneFullName",
         ),
         ({"photo_focal": {"focal_x": -1, "focal_y": 50}}, "photo_focal.focal_x"),
         ({"photo_focal": {"focal_x": 50, "focal_y": 101}}, "photo_focal.focal_y"),

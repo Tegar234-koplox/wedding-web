@@ -218,7 +218,9 @@ export type StaffOrderDetail = {
     bank_accounts: Array<Record<string, string>>;
     couple?: {
       partnerOneDescription?: string;
+      partnerOneFullName?: string;
       partnerTwoDescription?: string;
+      partnerTwoFullName?: string;
     };
     rsvp_manual: Record<string, number | string>;
     story: {

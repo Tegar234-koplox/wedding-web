@@ -329,12 +329,18 @@ def _update_invitation_content(invitation: Invitation, data: dict) -> None:
             raise ValidationError({"couple": "Couple must be an object."})
         current_couple = content.get("couple") if isinstance(content.get("couple"), dict) else {}
         updated_couple = dict(current_couple)
-        for field in ["partnerOneDescription", "partnerTwoDescription"]:
+        field_limits = {
+            "partnerOneDescription": 300,
+            "partnerOneFullName": 120,
+            "partnerTwoDescription": 300,
+            "partnerTwoFullName": 120,
+        }
+        for field, limit in field_limits.items():
             if field not in raw_couple:
                 continue
             value = str(raw_couple.get(field) or "").strip()
-            if len(value) > 300:
-                raise ValidationError({f"couple.{field}": "Must be 300 characters or fewer."})
+            if len(value) > limit:
+                raise ValidationError({f"couple.{field}": f"Must be {limit} characters or fewer."})
             if value:
                 updated_couple[field] = value
             else:

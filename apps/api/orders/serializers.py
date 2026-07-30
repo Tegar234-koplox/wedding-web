@@ -301,7 +301,9 @@ class StaffOrderDetailSerializer(serializers.Serializer):
             "bank_accounts": content.get("bank_accounts", []),
             "couple": {
                 "partnerOneDescription": couple.get("partnerOneDescription", ""),
+                "partnerOneFullName": couple.get("partnerOneFullName", ""),
                 "partnerTwoDescription": couple.get("partnerTwoDescription", ""),
+                "partnerTwoFullName": couple.get("partnerTwoFullName", ""),
             },
             "rsvp_manual": content.get("rsvp_manual", {}),
             "story": story,

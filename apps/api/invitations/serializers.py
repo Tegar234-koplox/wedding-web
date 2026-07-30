@@ -433,11 +433,21 @@ class PublicInvitationSerializer(serializers.ModelSerializer[Invitation]):
             "couple": {
                 "partnerOne": partner_one or "Nama Pasangan",
                 **(
+                    {"partnerOneFullName": str(couple.get("partnerOneFullName")).strip()}
+                    if str(couple.get("partnerOneFullName") or "").strip()
+                    else {}
+                ),
+                **(
                     {"partnerOneDescription": str(couple.get("partnerOneDescription")).strip()}
                     if str(couple.get("partnerOneDescription") or "").strip()
                     else {}
                 ),
                 "partnerTwo": partner_two or "Nama Pasangan",
+                **(
+                    {"partnerTwoFullName": str(couple.get("partnerTwoFullName")).strip()}
+                    if str(couple.get("partnerTwoFullName") or "").strip()
+                    else {}
+                ),
                 **(
                     {"partnerTwoDescription": str(couple.get("partnerTwoDescription")).strip()}
                     if str(couple.get("partnerTwoDescription") or "").strip()

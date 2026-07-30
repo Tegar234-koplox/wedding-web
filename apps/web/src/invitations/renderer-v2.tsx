@@ -894,14 +894,14 @@ function EssentialCoupleRevealSection({
     {
       description:
         couple.partnerTwoDescription ?? (id ? "Mempelai pria" : "Groom"),
-      name: couple.partnerTwo,
+      name: couple.partnerTwoFullName ?? couple.partnerTwo,
       photo: photos[0] ?? essentialCouplePhotos[0],
       role: "groom",
     },
     {
       description:
         couple.partnerOneDescription ?? (id ? "Mempelai wanita" : "Bride"),
-      name: couple.partnerOne,
+      name: couple.partnerOneFullName ?? couple.partnerOne,
       photo: photos[1] ?? essentialCouplePhotos[1],
       role: "bride",
     },
@@ -1063,14 +1063,14 @@ function SignatureCoupleRevealSection({
     {
       description:
         couple.partnerTwoDescription ?? (id ? "Mempelai pria" : "Groom"),
-      name: couple.partnerTwo,
+      name: couple.partnerTwoFullName ?? couple.partnerTwo,
       photo: photos[0] ?? signatureCouplePhotos[0],
       role: "groom",
     },
     {
       description:
         couple.partnerOneDescription ?? (id ? "Mempelai wanita" : "Bride"),
-      name: couple.partnerOne,
+      name: couple.partnerOneFullName ?? couple.partnerOne,
       photo: photos[1] ?? signatureCouplePhotos[1],
       role: "bride",
     },
@@ -1777,14 +1777,14 @@ function CoutureCoupleRevealSection({
     {
       description:
         couple.partnerTwoDescription ?? (id ? "Mempelai pria" : "Groom"),
-      name: couple.partnerTwo,
+      name: couple.partnerTwoFullName ?? couple.partnerTwo,
       photo: photos[0] ?? coutureCouplePhotos[0],
       role: "groom",
     },
     {
       description:
         couple.partnerOneDescription ?? (id ? "Mempelai wanita" : "Bride"),
-      name: couple.partnerOne,
+      name: couple.partnerOneFullName ?? couple.partnerOne,
       photo: photos[1] ?? coutureCouplePhotos[1],
       role: "bride",
     },

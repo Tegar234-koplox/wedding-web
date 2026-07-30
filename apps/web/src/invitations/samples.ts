@@ -9,7 +9,9 @@ import {
 
 type SampleIdentity = {
   partnerOne: string;
+  partnerOneFullName: string;
   partnerTwo: string;
+  partnerTwoFullName: string;
   dateId: string;
   dateEn: string;
   venue: string;
@@ -21,7 +23,9 @@ type SampleIdentity = {
 const identities: Record<RendererKey, SampleIdentity> = {
   "elegant-classic": {
     partnerOne: "Alya",
+    partnerOneFullName: "Alya Putri Maheswari",
     partnerTwo: "Raka",
+    partnerTwoFullName: "Raka Aditya Pratama",
     dateId: "Sabtu, 12 September 2026",
     dateEn: "Saturday, 12 September 2026",
     venue: "The Langham Jakarta",
@@ -33,7 +37,9 @@ const identities: Record<RendererKey, SampleIdentity> = {
   },
   "islamic-soft": {
     partnerOne: "Nadia",
+    partnerOneFullName: "Nadia Rahmawati",
     partnerTwo: "Fahri",
+    partnerTwoFullName: "Muhammad Fahri Ramadhan",
     dateId: "Ahad, 18 Oktober 2026",
     dateEn: "Sunday, 18 October 2026",
     venue: "Masjid Agung Al-Azhar",
@@ -45,7 +51,9 @@ const identities: Record<RendererKey, SampleIdentity> = {
   },
   "luxury-gold": {
     partnerOne: "Clarissa",
+    partnerOneFullName: "Clarissa Aurelia Wijaya",
     partnerTwo: "Jonathan",
+    partnerTwoFullName: "Jonathan Alexander Hartono",
     dateId: "Sabtu, 7 November 2026",
     dateEn: "Saturday, 7 November 2026",
     venue: "The Apurva Kempinski Bali",
@@ -57,7 +65,9 @@ const identities: Record<RendererKey, SampleIdentity> = {
   },
   "minimalist-white": {
     partnerOne: "Tara",
+    partnerOneFullName: "Tara Anindita",
     partnerTwo: "Dimas",
+    partnerTwoFullName: "Dimas Arya Saputra",
     dateId: "Minggu, 15 November 2026",
     dateEn: "Sunday, 15 November 2026",
     venue: "Plataran Cilandak",
@@ -69,7 +79,9 @@ const identities: Record<RendererKey, SampleIdentity> = {
   },
   "dark-cinematic": {
     partnerOne: "Keira",
+    partnerOneFullName: "Keira Adeline",
     partnerTwo: "Arvin",
+    partnerTwoFullName: "Arvin Mahendra",
     dateId: "Sabtu, 21 November 2026",
     dateEn: "Saturday, 21 November 2026",
     venue: "The Tribrata Darmawangsa",
@@ -81,7 +93,9 @@ const identities: Record<RendererKey, SampleIdentity> = {
   },
   "floral-romantic": {
     partnerOne: "Amara",
+    partnerOneFullName: "Amara Kirana",
     partnerTwo: "Bima",
+    partnerTwoFullName: "Bima Pradana",
     dateId: "Sabtu, 5 Desember 2026",
     dateEn: "Saturday, 5 December 2026",
     venue: "Royal Ambarrukmo",
@@ -93,7 +107,9 @@ const identities: Record<RendererKey, SampleIdentity> = {
   },
   "javanese-traditional": {
     partnerOne: "Sekar",
+    partnerOneFullName: "Sekar Ayu Lestari",
     partnerTwo: "Bagas",
+    partnerTwoFullName: "Bagas Raden Prasetya",
     dateId: "Minggu, 13 Desember 2026",
     dateEn: "Sunday, 13 December 2026",
     venue: "Pendopo Agung Royal Ambarrukmo",
@@ -304,10 +320,12 @@ function createContent(
       partnerOneDescription: id
         ? "Mempelai wanita, putri terkasih dari keluarga."
         : "The bride, a beloved daughter of the family.",
+      partnerOneFullName: identity.partnerOneFullName,
       partnerTwo: identity.partnerTwo,
       partnerTwoDescription: id
         ? "Mempelai pria, putra terkasih dari keluarga."
         : "The groom, a beloved son of the family.",
+      partnerTwoFullName: identity.partnerTwoFullName,
       monogram: `${identity.partnerOne[0]}&${identity.partnerTwo[0]}`,
     },
     opening: {

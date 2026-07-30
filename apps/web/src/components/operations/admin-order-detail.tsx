@@ -77,7 +77,9 @@ type OrderDetailForm = {
   custom_checklist_parallax: boolean;
   custom_status: CustomStatus;
   bride_description: string;
+  bride_full_name: string;
   groom_description: string;
+  groom_full_name: string;
   gallery_urls: string;
   package_code: string;
   payment_status: PaymentStatus;
@@ -181,7 +183,9 @@ const emptyForm: OrderDetailForm = {
   custom_checklist_parallax: false,
   custom_status: "none",
   bride_description: "",
+  bride_full_name: "",
   groom_description: "",
+  groom_full_name: "",
   gallery_urls: "",
   package_code: "",
   payment_status: "unpaid",
@@ -493,7 +497,9 @@ function fromDetail(detail: StaffOrderDetail): OrderDetailForm {
     custom_checklist_parallax: Boolean(customChecklist.parallax_plan),
     custom_status: detail.order.custom_status ?? "none",
     bride_description: detail.invitation?.couple?.partnerOneDescription ?? "",
+    bride_full_name: detail.invitation?.couple?.partnerOneFullName ?? "",
     groom_description: detail.invitation?.couple?.partnerTwoDescription ?? "",
+    groom_full_name: detail.invitation?.couple?.partnerTwoFullName ?? "",
     gallery_urls: gallerySlotsFromMedia(detail.media),
     package_code:
       detail.order.package_code ?? detail.invitation?.package_code ?? "",
@@ -802,7 +808,9 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
               ? {
                   couple: {
                     partnerOneDescription: form.bride_description.trim(),
+                    partnerOneFullName: form.bride_full_name.trim(),
                     partnerTwoDescription: form.groom_description.trim(),
+                    partnerTwoFullName: form.groom_full_name.trim(),
                   },
                 }
               : {}),
@@ -1492,7 +1500,7 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
 
           <Panel eyebrow="Data Client" title="Informasi customer dan acara.">
             <div className="grid gap-4 md:grid-cols-3">
-              <Field label="Nama">
+              <Field label="Nama panggilan pasangan (cover)">
                 <input
                   className={controlClassName}
                   onChange={(event) =>
@@ -1501,6 +1509,9 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
                   placeholder="Reno dan Erisa"
                   value={form.client_name}
                 />
+                <p className="mt-2 text-xs leading-5 text-white/45">
+                  Dipakai di cover undangan, contoh: Reno &amp; Erisa.
+                </p>
                 {nameWarning ? (
                   <p className="mt-2 text-xs leading-5 text-[#f4ddb0]">
                     {nameWarning}
@@ -1530,6 +1541,28 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
               form.package_code,
             ) ? (
               <div className="mt-5 grid gap-4 md:grid-cols-2">
+                <Field label="Nama lengkap mempelai pria (Section 2)">
+                  <input
+                    className={controlClassName}
+                    maxLength={120}
+                    onChange={(event) =>
+                      updateForm("groom_full_name", event.target.value)
+                    }
+                    placeholder="Contoh: Muhammad Reno Pratama"
+                    value={form.groom_full_name}
+                  />
+                </Field>
+                <Field label="Nama lengkap mempelai wanita (Section 2)">
+                  <input
+                    className={controlClassName}
+                    maxLength={120}
+                    onChange={(event) =>
+                      updateForm("bride_full_name", event.target.value)
+                    }
+                    placeholder="Contoh: Erisa Putri Maharani"
+                    value={form.bride_full_name}
+                  />
+                </Field>
                 <Field label="Keterangan mempelai pria">
                   <textarea
                     className={`${controlClassName} min-h-28 py-3`}

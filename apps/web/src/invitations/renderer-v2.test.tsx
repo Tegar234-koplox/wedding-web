@@ -794,6 +794,20 @@ describe("renderer v2 invitation experience", () => {
       <RendererV2 invitation={invitation} packageCode="essential" />,
     );
 
+    const coverHeading = container.querySelector("h1");
+    expect(coverHeading?.textContent).toContain(
+      invitation.content.couple.partnerOne,
+    );
+    expect(coverHeading?.textContent).toContain(
+      invitation.content.couple.partnerTwo,
+    );
+    expect(coverHeading?.textContent).not.toContain(
+      invitation.content.couple.partnerOneFullName,
+    );
+    expect(coverHeading?.textContent).not.toContain(
+      invitation.content.couple.partnerTwoFullName,
+    );
+
     fireEvent.click(screen.getByRole("button", { name: "Buka Undangan" }));
 
     expect(
@@ -869,12 +883,12 @@ describe("renderer v2 invitation experience", () => {
       container
         .querySelector('[data-couple-panel="groom"] h2')
         ?.textContent?.trim(),
-    ).toBe("Raka");
+    ).toBe(invitation.content.couple.partnerTwoFullName);
     expect(
       container
         .querySelector('[data-couple-panel="bride"] h2')
         ?.textContent?.trim(),
-    ).toBe("Alya");
+    ).toBe(invitation.content.couple.partnerOneFullName);
     const groomCaption = container.querySelector(
       '[data-couple-caption="groom"]',
     ) as HTMLElement;
@@ -886,7 +900,9 @@ describe("renderer v2 invitation experience", () => {
       '[data-section-two-name-frame="essential"]',
     );
     expect(essentialNameFrames).toHaveLength(2);
-    expect(essentialNameFrames[0]?.textContent?.trim()).toBe("Raka");
+    expect(essentialNameFrames[0]?.textContent?.trim()).toBe(
+      invitation.content.couple.partnerTwoFullName,
+    );
     expect(essentialNameFrames[0]?.className).not.toContain("undefined");
     expect(essentialNameFrames[0]?.textContent).not.toContain("Mempelai pria");
     expect(
@@ -896,6 +912,40 @@ describe("renderer v2 invitation experience", () => {
     fireEvent.click(toggle);
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
     expect(toggle.getAttribute("data-heart-state")).toBe("broken");
+  });
+
+  it("falls back to cover nicknames in Section 2 for existing invitations", () => {
+    const sample = getSampleInvitation("elegant-classic", "id", "essential");
+    const invitation = {
+      ...sample,
+      content: {
+        ...sample.content,
+        couple: {
+          ...sample.content.couple,
+          partnerOneFullName: undefined,
+          partnerTwoFullName: undefined,
+        },
+      },
+    };
+    const { container } = render(
+      <RendererV2 invitation={invitation} packageCode="essential" />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Buka Undangan" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Buka foto kedua mempelai" }),
+    );
+
+    expect(
+      container
+        .querySelector('[data-couple-panel="groom"] h2')
+        ?.textContent?.trim(),
+    ).toBe(sample.content.couple.partnerTwo);
+    expect(
+      container
+        .querySelector('[data-couple-panel="bride"] h2')
+        ?.textContent?.trim(),
+    ).toBe(sample.content.couple.partnerOne);
   });
 
   it("renders the thirteen Signature sections and both toggle interactions", () => {
@@ -1003,7 +1053,7 @@ describe("renderer v2 invitation experience", () => {
       container
         .querySelector('[data-signature-couple-panel="groom"] h2')
         ?.textContent?.trim(),
-    ).toBe(invitation.content.couple.partnerTwo);
+    ).toBe(invitation.content.couple.partnerTwoFullName);
     const signatureNameFrames = container.querySelectorAll<HTMLElement>(
       '[data-section-two-name-frame="signature"]',
     );
@@ -1087,7 +1137,7 @@ describe("renderer v2 invitation experience", () => {
     );
     expect(caption?.classList.contains("!text-[#271216]")).toBe(true);
     expect(caption?.textContent).toContain(
-      invitation.content.couple.partnerTwo,
+      invitation.content.couple.partnerTwoFullName,
     );
     expect(caption?.textContent).toContain("Mempelai pria");
   });
@@ -1119,10 +1169,10 @@ describe("renderer v2 invitation experience", () => {
       expect(couplePanels[0]?.getAttribute("data-couple-panel")).toBe("groom");
       expect(couplePanels[1]?.getAttribute("data-couple-panel")).toBe("bride");
       expect(couplePanels[0]?.querySelector("h2")?.textContent?.trim()).toBe(
-        invitation.content.couple.partnerTwo,
+        invitation.content.couple.partnerTwoFullName,
       );
       expect(couplePanels[1]?.querySelector("h2")?.textContent?.trim()).toBe(
-        invitation.content.couple.partnerOne,
+        invitation.content.couple.partnerOneFullName,
       );
       essential.unmount();
 

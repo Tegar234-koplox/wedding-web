@@ -42,6 +42,14 @@ def validate_invitation_content(value: Any) -> None:
 
     couple = value.get("couple")
     if isinstance(couple, dict):
+        for field in ["partnerOneFullName", "partnerTwoFullName"]:
+            full_name = couple.get(field)
+            if full_name is not None and (
+                not isinstance(full_name, str) or len(full_name.strip()) > 120
+            ):
+                raise ValidationError(
+                    f"Invitation {field} must be text with at most 120 characters."
+                )
         for field in ["partnerOneDescription", "partnerTwoDescription"]:
             description = couple.get(field)
             if description is not None and (

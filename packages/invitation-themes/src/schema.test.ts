@@ -38,12 +38,14 @@ describe("section story copy", () => {
 });
 
 describe("couple profile copy", () => {
-  it("accepts optional descriptions up to 300 characters", () => {
+  it("accepts optional full names and descriptions", () => {
     const result = invitationContentSchema.shape.couple.safeParse({
       partnerOne: "Alya",
       partnerOneDescription: "Putra terkasih dari keluarga.",
+      partnerOneFullName: "Alya Putri Maheswari",
       partnerTwo: "Raka",
       partnerTwoDescription: "Putri terkasih dari keluarga.",
+      partnerTwoFullName: "Raka Aditya Pratama",
       monogram: "A&R",
     });
 
@@ -54,6 +56,17 @@ describe("couple profile copy", () => {
     const result = invitationContentSchema.shape.couple.safeParse({
       partnerOne: "Alya",
       partnerOneDescription: "a".repeat(301),
+      partnerTwo: "Raka",
+      monogram: "A&R",
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a full name longer than 120 characters", () => {
+    const result = invitationContentSchema.shape.couple.safeParse({
+      partnerOne: "Alya",
+      partnerOneFullName: "a".repeat(121),
       partnerTwo: "Raka",
       monogram: "A&R",
     });
