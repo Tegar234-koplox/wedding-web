@@ -52,12 +52,14 @@ def validate_invitation_content(value: Any) -> None:
                 )
 
     gallery = value.get("gallery")
-    if not isinstance(gallery, list) or not 3 <= len(gallery) <= 36:
-        raise ValidationError("Invitation gallery must contain between 3 and 36 items.")
+    if not isinstance(gallery, list) or len(gallery) > 36:
+        raise ValidationError("Invitation gallery must contain at most 36 slots.")
 
     for item in gallery:
+        if item is None:
+            continue
         if not isinstance(item, dict):
-            raise ValidationError("Each gallery item must be an object.")
+            raise ValidationError("Each gallery slot must be an object or null.")
         src = item.get("src")
         alt = item.get("alt")
         if not isinstance(src, str):

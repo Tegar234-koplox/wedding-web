@@ -18,6 +18,12 @@ import {
   NetworkAwarePreloader,
   NiskalaPreloader,
 } from "@/components/site/niskala-preloader";
+import {
+  mediaPlanFor,
+  mediaSectionStart,
+  mediaSlotCountFor,
+  type MediaSectionPlan,
+} from "@/invitations/media-plan";
 import { cn } from "@/lib/utils";
 
 import { CoverFocalPreview, normalizeFocalPoint } from "./cover-focal-preview";
@@ -116,14 +122,6 @@ type PaymentRecordForm = {
   proof_url: string;
   rejection_reason: string;
   review_status: ManualPaymentReviewStatus;
-};
-
-type MediaSectionPlan = {
-  count: number;
-  description: string;
-  label: string;
-  photoLabels?: string[];
-  section: number;
 };
 
 type ChecklistItem = {
@@ -240,151 +238,6 @@ const optionClassName = "bg-[#0b0b09] text-white";
 const outlineButtonClassName =
   "inline-flex min-h-11 items-center justify-center gap-3 border border-white/15 px-4 text-xs font-semibold uppercase tracking-[0.14em] text-white/70 transition hover:border-[var(--color-gold)] hover:text-[var(--color-gold)] disabled:opacity-45";
 
-const mediaSectionPlans: Record<string, MediaSectionPlan[]> = {
-  couture: [
-    {
-      count: 2,
-      description: "Foto interaktif kedua mempelai setelah waktu dan tempat.",
-      label: "2 foto",
-      photoLabels: ["Mempelai pria", "Mempelai wanita"],
-      section: 2,
-    },
-    {
-      count: 3,
-      description: "Foto setelah love story bagian 01-03.",
-      label: "3 foto",
-      photoLabels: ["Foto atas", "Foto tengah", "Foto bawah"],
-      section: 4,
-    },
-    {
-      count: 1,
-      description: "Foto latar penuh untuk love story bagian 04-06.",
-      label: "1 background",
-      photoLabels: ["Background story"],
-      section: 5,
-    },
-    {
-      count: 5,
-      description:
-        "Satu foto penuh dan empat foto kuadran interaktif dengan toggle Couture.",
-      label: "5 foto",
-      photoLabels: [
-        "Foto penuh",
-        "Pojok kiri atas",
-        "Pojok kanan atas",
-        "Pojok kiri bawah",
-        "Pojok kanan bawah",
-      ],
-      section: 6,
-    },
-    {
-      count: 9,
-      description: "Galeri kilauan dengan penataan 3 x 3.",
-      label: "9 foto",
-      section: 8,
-    },
-    {
-      count: 3,
-      description: "Tiga background fade untuk love story bagian 07-09.",
-      label: "3 background",
-      photoLabels: ["Background 1", "Background 2", "Background 3"],
-      section: 9,
-    },
-    {
-      count: 10,
-      description: "Satu background penuh dan sembilan foto carousel.",
-      label: "1 background + 9 foto",
-      photoLabels: [
-        "Background penuh",
-        "Carousel 1",
-        "Carousel 2",
-        "Carousel 3",
-        "Carousel 4",
-        "Carousel 5",
-        "Carousel 6",
-        "Carousel 7",
-        "Carousel 8",
-        "Carousel 9",
-      ],
-      section: 10,
-    },
-    {
-      count: 3,
-      description: "Tiga foto slideshow looping sebelum prakiraan cuaca.",
-      label: "3 foto slideshow",
-      photoLabels: ["Slideshow 1", "Slideshow 2", "Slideshow 3"],
-      section: 12,
-    },
-  ],
-  essential: [
-    {
-      count: 2,
-      description: "Foto interaktif kedua mempelai setelah waktu dan tempat.",
-      label: "2 foto",
-      photoLabels: ["Mempelai pria", "Mempelai wanita"],
-      section: 2,
-    },
-    {
-      count: 3,
-      description: "Foto setelah short love story.",
-      label: "3 foto",
-      section: 4,
-    },
-    {
-      count: 9,
-      description: "Galeri 3 x 3 setelah gift sebelum closing.",
-      label: "9 foto",
-      section: 6,
-    },
-  ],
-  signature: [
-    {
-      count: 2,
-      description: "Foto interaktif kedua mempelai setelah waktu dan tempat.",
-      label: "2 foto",
-      photoLabels: ["Mempelai pria", "Mempelai wanita"],
-      section: 2,
-    },
-    {
-      count: 3,
-      description: "Foto setelah love story bagian 01-03.",
-      label: "3 foto",
-      photoLabels: ["Foto atas", "Foto tengah", "Foto bawah"],
-      section: 4,
-    },
-    {
-      count: 5,
-      description:
-        "Satu foto penuh saat tertutup dan empat foto kuadran interaktif.",
-      label: "5 foto",
-      photoLabels: [
-        "Foto penuh",
-        "Pojok kiri atas",
-        "Pojok kanan atas",
-        "Pojok kiri bawah",
-        "Pojok kanan bawah",
-      ],
-      section: 6,
-    },
-    {
-      count: 9,
-      description: "Galeri kilauan dengan penataan 3 x 3.",
-      label: "9 foto",
-      section: 8,
-    },
-    {
-      count: 9,
-      description: "Galeri carousel dengan navigasi kanan dan kiri.",
-      label: "9 foto",
-      section: 10,
-    },
-  ],
-};
-
-export function mediaPlanFor(packageCode: string): MediaSectionPlan[] {
-  return mediaSectionPlans[packageCode] ?? mediaSectionPlans.essential!;
-}
-
 function timelineBlocksFor(packageCode: string): TimelineBlock[] {
   if (packageCode === "couture") {
     return [
@@ -495,13 +348,34 @@ function gallerySlots(value: string): string[] {
   return value ? value.split("\n") : [];
 }
 
-function mediaSectionStart(
-  sections: MediaSectionPlan[],
-  index: number,
-): number {
-  return sections
-    .slice(0, index)
-    .reduce((total, section) => total + section.count, 0);
+export function gallerySlotsFromMedia(
+  media: Array<{
+    asset: { secure_url: string };
+    role: string;
+    sort_order: number;
+  }>,
+): string {
+  const gallery = media.filter((item) => item.role === "gallery");
+  if (!gallery.length) {
+    return "";
+  }
+
+  const highestSlot = Math.max(...gallery.map((item) => item.sort_order));
+  const slots = Array.from({ length: highestSlot + 1 }, () => "");
+  for (const item of gallery) {
+    slots[item.sort_order] = item.asset.secure_url;
+  }
+  return slots.join("\n");
+}
+
+export function galleryPayloadFor(
+  value: string,
+  packageCode: string,
+): string[] {
+  const slots = gallerySlots(value);
+  return Array.from({ length: mediaSlotCountFor(packageCode) }, (_, index) =>
+    (slots[index] ?? "").trim(),
+  );
 }
 
 function parseCoupleNames(value: string): {
@@ -588,7 +462,6 @@ function fromDetail(detail: StaffOrderDetail): OrderDetailForm {
   const account = detail.invitation?.bank_accounts?.[0] ?? {};
   const rsvpManual = detail.invitation?.rsvp_manual ?? {};
   const photo = detail.media.find((item) => item.role === "photo");
-  const gallery = detail.media.filter((item) => item.role === "gallery");
   const backsound = detail.media.find((item) => item.role === "backsound");
   const customChecklist = detail.order.custom_checklist ?? {};
   const story = detail.invitation?.story ?? {};
@@ -621,7 +494,7 @@ function fromDetail(detail: StaffOrderDetail): OrderDetailForm {
     custom_status: detail.order.custom_status ?? "none",
     bride_description: detail.invitation?.couple?.partnerOneDescription ?? "",
     groom_description: detail.invitation?.couple?.partnerTwoDescription ?? "",
-    gallery_urls: gallery.map((item) => item.asset.secure_url).join("\n"),
+    gallery_urls: gallerySlotsFromMedia(detail.media),
     package_code:
       detail.order.package_code ?? detail.invitation?.package_code ?? "",
     payment_status: detail.order.payment_status,
@@ -946,10 +819,7 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
             custom_status: form.custom_status,
             media_urls: {
               backsound: form.backsound_url.trim(),
-              gallery: form.gallery_urls
-                .split("\n")
-                .map((item) => item.trim())
-                .filter(Boolean),
+              gallery: galleryPayloadFor(form.gallery_urls, form.package_code),
               photo: form.photo_url.trim(),
             },
             photo_focal: {

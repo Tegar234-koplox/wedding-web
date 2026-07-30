@@ -165,12 +165,13 @@ export const invitationContentSchema = z.object({
   }),
   gallery: z
     .array(
-      z.object({
-        src: safeMediaSrc,
-        alt: safeText.max(180),
-      }),
+      z
+        .object({
+          src: safeMediaSrc,
+          alt: safeText.max(180),
+        })
+        .nullable(),
     )
-    .min(3)
     .max(36),
   closing: z.object({
     heading: safeText.max(120),

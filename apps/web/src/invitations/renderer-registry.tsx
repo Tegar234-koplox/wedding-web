@@ -14,7 +14,10 @@ import {
 import Image from "next/image";
 import type { ComponentType, ReactNode } from "react";
 
-import { RendererV2 } from "@/invitations/renderer-v2";
+import {
+  RendererV2,
+  sectionPhotosFromGallery,
+} from "@/invitations/renderer-v2";
 import type {
   InvitationAudio,
   InvitationCover,
@@ -41,6 +44,15 @@ type Design = {
   coverMode: "split" | "center" | "image" | "minimal";
   ornament?: string;
 };
+
+const legacyStoryPhotoFallback = [
+  { src: "/images/hero-editorial.webp", alt: "Portrait of the couple" },
+  {
+    src: "/images/themes/elegant-classic.webp",
+    alt: "Invitation detail",
+  },
+  { src: "/images/themes/dark-cinematic.webp", alt: "Editorial detail" },
+] as const;
 
 const designs: Record<RendererKey, Design> = {
   "elegant-classic": {
@@ -360,6 +372,12 @@ function StorySection({
   design,
 }: RendererProps & { design: Design }) {
   const { story, quote, gallery } = invitation.content;
+  const photos = sectionPhotosFromGallery(
+    gallery,
+    0,
+    3,
+    legacyStoryPhotoFallback,
+  );
 
   return (
     <>
@@ -392,7 +410,7 @@ function StorySection({
       </section>
 
       <section className="grid gap-2 px-2 md:grid-cols-12">
-        {gallery.map((image, index) => (
+        {photos.map((image, index) => (
           <div
             className={`relative min-h-[55svh] overflow-hidden ${
               index === 0 ? "md:col-span-7" : "md:col-span-5"
@@ -596,9 +614,7 @@ function InvitationDocument({
   );
 }
 
-function createRenderer(
-  key: RendererKey,
-): ComponentType<RendererProps> {
+function createRenderer(key: RendererKey): ComponentType<RendererProps> {
   function RegisteredRenderer(props: RendererProps) {
     return <InvitationDocument design={designs[key]} {...props} />;
   }

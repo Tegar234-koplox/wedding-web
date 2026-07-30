@@ -36,6 +36,7 @@ import {
   type ThemeVisual,
 } from "@/invitations/presentation";
 import { InvitationCard, InvitationFrame } from "@/invitations/invitation-card";
+import { mediaSectionStartFor } from "@/invitations/media-plan";
 import {
   CoverTextContrastLayer,
   ThemeCoverDecoration,
@@ -298,9 +299,11 @@ const coutureToggleAssets: Record<
   { after: string; before: string; closeSound: string; openSound: string }
 >;
 
-type GalleryPhoto = InvitationEnvelope["content"]["gallery"][number];
+type GalleryPhoto = NonNullable<
+  InvitationEnvelope["content"]["gallery"][number]
+>;
 
-function sectionPhotosFromGallery(
+export function sectionPhotosFromGallery(
   gallery: InvitationEnvelope["content"]["gallery"],
   start: number,
   count: number,
@@ -719,7 +722,12 @@ function EssentialCoupleRevealSection({
   const reducedMotion = useReducedMotion();
   const id = invitation.locale === "id";
   const { couple, gallery } = invitation.content;
-  const photos = sectionPhotosFromGallery(gallery, 0, 2, essentialCouplePhotos);
+  const photos = sectionPhotosFromGallery(
+    gallery,
+    mediaSectionStartFor("essential", 2),
+    2,
+    essentialCouplePhotos,
+  );
   const people = [
     {
       description:
@@ -967,7 +975,12 @@ function SignatureCoupleRevealSection({
   const reducedMotion = useReducedMotion();
   const id = invitation.locale === "id";
   const { couple, gallery } = invitation.content;
-  const photos = sectionPhotosFromGallery(gallery, 0, 2, signatureCouplePhotos);
+  const photos = sectionPhotosFromGallery(
+    gallery,
+    mediaSectionStartFor("signature", 2),
+    2,
+    signatureCouplePhotos,
+  );
   const people = [
     {
       description:
@@ -1127,7 +1140,7 @@ function SignatureThreePhotoSection({
 }) {
   const photos = sectionPhotosFromGallery(
     gallery,
-    2,
+    mediaSectionStartFor("signature", 4),
     3,
     signatureSectionFourPhotos,
   );
@@ -1185,7 +1198,7 @@ function SignatureQuadrantRevealSection({
   const id = invitation.locale === "id";
   const photos = sectionPhotosFromGallery(
     invitation.content.gallery,
-    5,
+    mediaSectionStartFor("signature", 6),
     5,
     signatureSectionSixPhotos,
   );
@@ -1316,7 +1329,7 @@ function SignatureNinePhotoGallery({
   const reducedMotion = useReducedMotion();
   const photos = sectionPhotosFromGallery(
     gallery,
-    10,
+    mediaSectionStartFor("signature", 8),
     9,
     signatureSectionEightPhotos,
   );
@@ -1412,7 +1425,7 @@ function SignatureCarouselSection({
   const [activeIndex, setActiveIndex] = useState(0);
   const photos = sectionPhotosFromGallery(
     gallery,
-    19,
+    mediaSectionStartFor("signature", 10),
     9,
     signatureSectionTenPhotos,
   );
@@ -1776,7 +1789,12 @@ function CoutureCoupleRevealSection({
   const reducedMotion = useReducedMotion();
   const id = invitation.locale === "id";
   const { couple, gallery } = invitation.content;
-  const photos = sectionPhotosFromGallery(gallery, 0, 2, coutureCouplePhotos);
+  const photos = sectionPhotosFromGallery(
+    gallery,
+    mediaSectionStartFor("couture", 2),
+    2,
+    coutureCouplePhotos,
+  );
   const people = [
     {
       description:
@@ -1915,7 +1933,7 @@ function CoutureThreePhotoSection({
 }) {
   const photos = sectionPhotosFromGallery(
     gallery,
-    2,
+    mediaSectionStartFor("couture", 4),
     3,
     coutureSectionFourPhotos,
   );
@@ -1970,7 +1988,7 @@ function CoutureQuadrantRevealSection({
   const id = invitation.locale === "id";
   const photos = sectionPhotosFromGallery(
     invitation.content.gallery,
-    6,
+    mediaSectionStartFor("couture", 6),
     5,
     coutureSectionSixPhotos,
   );
@@ -2079,7 +2097,7 @@ function CoutureNinePhotoGallery({
   const reducedMotion = useReducedMotion();
   const photos = sectionPhotosFromGallery(
     gallery,
-    11,
+    mediaSectionStartFor("couture", 8),
     9,
     coutureSectionEightPhotos,
   );
@@ -2155,7 +2173,7 @@ function CoutureCarouselSection({
   const [activeIndex, setActiveIndex] = useState(0);
   const media = sectionPhotosFromGallery(
     gallery,
-    23,
+    mediaSectionStartFor("couture", 10),
     10,
     coutureSectionTenPhotos,
   );
@@ -2265,7 +2283,7 @@ function CoutureSlideshowSection({
   const [activeIndex, setActiveIndex] = useState(0);
   const photos = sectionPhotosFromGallery(
     gallery,
-    33,
+    mediaSectionStartFor("couture", 12),
     3,
     coutureSectionTwelvePhotos,
   );
@@ -2341,7 +2359,7 @@ function EssentialNinePhotoGallery({
   const reducedMotion = useReducedMotion();
   const photos = sectionPhotosFromGallery(
     gallery,
-    5,
+    mediaSectionStartFor("essential", 6),
     9,
     essentialSectionSixPhotos,
   );
@@ -3320,6 +3338,12 @@ function EventStory({
   const id = invitation.locale === "id";
   const capability = packageCapabilities[packageCode];
   const revealDistance = capability.motion === "refined" ? 46 : 28;
+  const legacyGallery = sectionPhotosFromGallery(
+    gallery,
+    0,
+    3,
+    essentialSectionFourPhotos,
+  );
 
   if (packageCode === "signature") {
     return (
@@ -3475,7 +3499,7 @@ function EventStory({
         <SignatureStoryTimelineSection
           backgrounds={sectionPhotosFromGallery(
             gallery,
-            5,
+            mediaSectionStartFor("couture", 5),
             1,
             coutureSectionFiveBackground,
           )}
@@ -3518,7 +3542,7 @@ function EventStory({
         <SignatureStoryTimelineSection
           backgrounds={sectionPhotosFromGallery(
             gallery,
-            20,
+            mediaSectionStartFor("couture", 9),
             3,
             coutureSectionNineBackgrounds,
           )}
@@ -3641,7 +3665,7 @@ function EventStory({
           design={design}
           photos={sectionPhotosFromGallery(
             gallery,
-            2,
+            mediaSectionStartFor("essential", 4),
             3,
             essentialSectionFourPhotos,
           )}
@@ -3730,7 +3754,7 @@ function EventStory({
           showOverlay={packageCode === "couture"}
         />
         <div className="relative z-10 grid gap-2 md:grid-cols-12">
-          {gallery.map((image, index) => (
+          {legacyGallery.map((image, index) => (
             <motion.div
               className={`relative min-h-[52svh] overflow-hidden ${
                 index === 0 ? "md:col-span-7" : "md:col-span-5"

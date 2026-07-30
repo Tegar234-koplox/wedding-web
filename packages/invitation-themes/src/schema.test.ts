@@ -110,6 +110,30 @@ describe("renderer manifest", () => {
 });
 
 describe("invitation envelope", () => {
+  it("accepts partial gallery slots without collapsing their positions", () => {
+    const gallery = Array.from({ length: 36 }, () => null) as Array<null | {
+      alt: string;
+      src: string;
+    }>;
+    gallery[0] = {
+      alt: "Section 2 groom",
+      src: "https://res.cloudinary.com/demo/image/upload/section-2-groom.jpg",
+    };
+    gallery[33] = {
+      alt: "Section 12 slideshow",
+      src: "https://res.cloudinary.com/demo/image/upload/section-12.jpg",
+    };
+
+    const result = invitationContentSchema.shape.gallery.safeParse(gallery);
+
+    expect(result.success).toBe(true);
+    expect(result.data?.[1]).toBeNull();
+    expect(result.data?.[33]?.src).toContain("section-12.jpg");
+    expect(invitationContentSchema.shape.gallery.safeParse([]).success).toBe(
+      true,
+    );
+  });
+
   it("accepts 36 gallery items and rejects a 37th item", () => {
     const makeGallery = (length: number) =>
       Array.from({ length }, (_, index) => ({

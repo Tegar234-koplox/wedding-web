@@ -10,8 +10,9 @@ import { rendererKeys } from "@wedding/invitation-themes";
 import React from "react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
+import { mediaSectionStartFor } from "./media-plan";
 import { getPremiumVisualConfig, themeFrameColors } from "./presentation";
-import { RendererV2 } from "./renderer-v2";
+import { RendererV2, sectionPhotosFromGallery } from "./renderer-v2";
 import { getSampleInvitation } from "./samples";
 import { shouldAnimatePremium } from "./theme-ornament";
 
@@ -63,6 +64,29 @@ afterEach(() => {
 });
 
 describe("renderer v2 invitation experience", () => {
+  it("keeps sparse custom media in its intended later section", () => {
+    const invitation = getSampleInvitation("elegant-classic", "id", "couture");
+    const sectionStart = mediaSectionStartFor("couture", 12);
+    const gallery: typeof invitation.content.gallery = Array.from(
+      { length: 36 },
+      () => null,
+    );
+    const customPhoto = {
+      alt: "Custom Section 12 slideshow",
+      src: "https://res.cloudinary.com/demo/image/upload/custom-section-12.jpg",
+    };
+    gallery[sectionStart] = customPhoto;
+    const fallback = invitation.content.gallery
+      .slice(sectionStart, sectionStart + 3)
+      .filter((photo) => photo !== null);
+
+    const photos = sectionPhotosFromGallery(gallery, sectionStart, 3, fallback);
+
+    expect(photos[0]).toEqual(customPhoto);
+    expect(photos[1]).toEqual(fallback[1]);
+    expect(photos[2]).toEqual(fallback[2]);
+  });
+
   it.each([
     ["elegant-classic", "Cormorant Garamond", "Montserrat"],
     ["islamic-soft", "Marcellus", "Lora"],

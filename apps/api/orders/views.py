@@ -441,11 +441,11 @@ def _update_invitation_content(invitation: Invitation, data: dict) -> None:
         content["rsvp_manual"] = data.get("rsvp_manual") or {}
         changed = True
     if "gallery" in data:
-        content["gallery"] = [
-            {"src": url, "alt": f"Gallery {index + 1}"}
-            for index, url in enumerate(str(item).strip() for item in data.get("gallery") or [])
-            if url
-        ]
+        gallery: list[dict[str, str] | None] = []
+        for index, item in enumerate(data.get("gallery") or []):
+            url = str(item or "").strip()
+            gallery.append({"src": url, "alt": f"Gallery {index + 1}"} if url else None)
+        content["gallery"] = gallery
         changed = True
     if changed:
         invitation.content = content
@@ -494,10 +494,11 @@ def _replace_media(invitation: Invitation, role: str, urls: list[str]) -> None:
 def _validated_gallery_urls(value: object) -> list[str]:
     if not isinstance(value, list):
         raise ValidationError({"media_urls.gallery": "Gallery must be a list of URLs."})
-    urls = [str(item).strip() for item in value if str(item).strip()]
-    if len(urls) > 36:
-        raise ValidationError({"media_urls.gallery": "Gallery must contain no more than 36 items."})
-    if len(set(urls)) != len(urls):
+    if len(value) > 36:
+        raise ValidationError({"media_urls.gallery": "Gallery must contain no more than 36 slots."})
+    urls = [str(item or "").strip() for item in value]
+    populated_urls = [url for url in urls if url]
+    if len(set(populated_urls)) != len(populated_urls):
         raise ValidationError({"media_urls.gallery": "Gallery URLs must be unique."})
     return urls
 

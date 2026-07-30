@@ -244,20 +244,25 @@ def test_staff_rejects_invalid_editable_copy_and_focal_point(client, payload, er
 
 def test_invitation_content_validator_accepts_thirty_six_http_gallery_items():
     content = invitation_content()
-    content["gallery"] = [
-        {
-            "src": f"https://res.cloudinary.com/demo/image/upload/gallery-{index}.jpg",
-            "alt": f"Gallery {index}",
-        }
-        for index in range(1, 37)
-    ]
+    content["gallery"] = [None] * 36
+    content["gallery"][0] = {
+        "src": "https://res.cloudinary.com/demo/image/upload/gallery-1.jpg",
+        "alt": "Gallery 1",
+    }
+    content["gallery"][33] = {
+        "src": "https://res.cloudinary.com/demo/image/upload/gallery-34.jpg",
+        "alt": "Gallery 34",
+    }
 
+    validate_invitation_content(content)
+
+    content["gallery"] = []
     validate_invitation_content(content)
 
     content["gallery"] = [
         {"src": f"/images/gallery-{index}.jpg", "alt": f"Gallery {index}"} for index in range(1, 38)
     ]
-    with pytest.raises(ValidationError, match="between 3 and 36"):
+    with pytest.raises(ValidationError, match="at most 36"):
         validate_invitation_content(content)
 
 
@@ -320,6 +325,75 @@ def test_staff_round_trips_thirty_six_couture_gallery_items_and_rejects_thirty_s
     assert preview_response.status_code == 200
     assert len(public_response.json()["content"]["gallery"]) == 36
     assert len(preview_response.json()["content"]["gallery"]) == 36
+
+
+@pytest.mark.django_db
+def test_sparse_gallery_slots_keep_every_couture_section_position(client):
+    staff, order, invitation, _media = _staff_order_with_photo("sparse-gallery-slots")
+    couture = create_package(code="couture")
+    client.force_login(staff)
+    gallery_slots = [""] * 36
+    custom_slots = {
+        0: "section-2-groom",
+        1: "section-2-bride",
+        2: "section-4",
+        5: "section-5",
+        6: "section-6",
+        11: "section-8",
+        20: "section-9",
+        23: "section-10",
+        33: "section-12",
+    }
+    for index, name in custom_slots.items():
+        gallery_slots[index] = f"https://res.cloudinary.com/demo/image/upload/{name}.jpg"
+
+    response = client.patch(
+        reverse("admin-order-detail", kwargs={"reference": order.reference}),
+        {
+            "package_code": couture.code,
+            "media_urls": {"gallery": gallery_slots},
+        },
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200
+    invitation.refresh_from_db()
+    assert len(invitation.content["gallery"]) == 36
+    assert invitation.content["gallery"][0]["src"].endswith("section-2-groom.jpg")
+    assert invitation.content["gallery"][1]["src"].endswith("section-2-bride.jpg")
+    assert invitation.content["gallery"][3] is None
+    assert invitation.content["gallery"][33]["src"].endswith("section-12.jpg")
+    assert list(
+        invitation.media.filter(role=InvitationMedia.Role.GALLERY).values_list(
+            "sort_order", flat=True
+        )
+    ) == list(custom_slots)
+
+    preview_response = client.get(
+        reverse("invitation-preview-detail", kwargs={"public_slug": invitation.public_slug}),
+        {"token": preview_token_for(invitation)},
+    )
+    assert preview_response.status_code == 200
+    preview_gallery = preview_response.json()["content"]["gallery"]
+    assert preview_gallery[0]["src"].endswith("section-2-groom.jpg")
+    assert preview_gallery[1]["src"].endswith("section-2-bride.jpg")
+    assert preview_gallery[3] is None
+    assert preview_gallery[33]["src"].endswith("section-12.jpg")
+
+    invitation.status = Invitation.Status.PUBLISHED
+    invitation.approval_status = Invitation.ApprovalStatus.PUBLISHED
+    invitation.published_at = timezone.now()
+    invitation.save(update_fields=["status", "approval_status", "published_at", "updated_at"])
+
+    public_response = client.get(
+        reverse("invitation-detail", kwargs={"public_slug": invitation.public_slug})
+    )
+    assert public_response.status_code == 200
+    public_gallery = public_response.json()["content"]["gallery"]
+    assert public_gallery[0]["src"].endswith("section-2-groom.jpg")
+    assert public_gallery[1]["src"].endswith("section-2-bride.jpg")
+    assert public_gallery[3] is None
+    assert public_gallery[33]["src"].endswith("section-12.jpg")
 
 
 @pytest.mark.django_db

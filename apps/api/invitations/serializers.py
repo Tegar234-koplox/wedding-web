@@ -418,7 +418,7 @@ class PublicInvitationSerializer(serializers.ModelSerializer[Invitation]):
             {"https://maps.google.com", "https://maps.google.com/"},
         )
         gallery = content.get("gallery")
-        if not isinstance(gallery, list) or not 3 <= len(gallery) <= 36:
+        if not isinstance(gallery, list) or len(gallery) > 36:
             gallery = [
                 {"src": "/images/hero-editorial.webp", "alt": "Portrait of the couple"},
                 {"src": "/images/themes/elegant-classic.webp", "alt": "Invitation detail"},
