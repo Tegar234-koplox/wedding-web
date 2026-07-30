@@ -1499,7 +1499,7 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
           </Panel>
 
           <Panel eyebrow="Data Client" title="Informasi customer dan acara.">
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="max-w-xl">
               <Field label="Nama panggilan pasangan (cover)">
                 <input
                   className={controlClassName}
@@ -1517,24 +1517,6 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
                     {nameWarning}
                   </p>
                 ) : null}
-              </Field>
-              <Field label="Email">
-                <input
-                  className={controlClassName}
-                  onChange={(event) =>
-                    updateForm("client_email", event.target.value)
-                  }
-                  value={form.client_email}
-                />
-              </Field>
-              <Field label="Phone">
-                <input
-                  className={controlClassName}
-                  onChange={(event) =>
-                    updateForm("client_phone", event.target.value)
-                  }
-                  value={form.client_phone}
-                />
               </Field>
             </div>
             {["essential", "signature", "couture"].includes(
