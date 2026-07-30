@@ -7,6 +7,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from common.validators import validate_invitation_content
+from invitations.expiration import publication_expires_at
 from invitations.models import Invitation, InvitationMedia
 from invitations.preview import preview_token_for
 from media_library.models import MediaAsset
@@ -166,7 +167,19 @@ def test_staff_copy_and_replaced_cover_round_trip_to_preview_and_public(client):
     invitation.status = Invitation.Status.PUBLISHED
     invitation.approval_status = Invitation.ApprovalStatus.PUBLISHED
     invitation.published_at = timezone.now()
-    invitation.save(update_fields=["status", "approval_status", "published_at", "updated_at"])
+    invitation.expires_at = publication_expires_at(
+        invitation,
+        published_at=invitation.published_at,
+    )
+    invitation.save(
+        update_fields=[
+            "status",
+            "approval_status",
+            "published_at",
+            "expires_at",
+            "updated_at",
+        ]
+    )
 
     public_response = client.get(
         reverse("invitation-detail", kwargs={"public_slug": invitation.public_slug})
@@ -324,7 +337,19 @@ def test_staff_round_trips_thirty_six_couture_gallery_items_and_rejects_thirty_s
     invitation.status = Invitation.Status.PUBLISHED
     invitation.approval_status = Invitation.ApprovalStatus.PUBLISHED
     invitation.published_at = timezone.now()
-    invitation.save(update_fields=["status", "approval_status", "published_at", "updated_at"])
+    invitation.expires_at = publication_expires_at(
+        invitation,
+        published_at=invitation.published_at,
+    )
+    invitation.save(
+        update_fields=[
+            "status",
+            "approval_status",
+            "published_at",
+            "expires_at",
+            "updated_at",
+        ]
+    )
 
     public_response = client.get(
         reverse("invitation-detail", kwargs={"public_slug": invitation.public_slug})
@@ -429,7 +454,19 @@ def test_sparse_gallery_slots_keep_every_couture_section_position(client):
     invitation.status = Invitation.Status.PUBLISHED
     invitation.approval_status = Invitation.ApprovalStatus.PUBLISHED
     invitation.published_at = timezone.now()
-    invitation.save(update_fields=["status", "approval_status", "published_at", "updated_at"])
+    invitation.expires_at = publication_expires_at(
+        invitation,
+        published_at=invitation.published_at,
+    )
+    invitation.save(
+        update_fields=[
+            "status",
+            "approval_status",
+            "published_at",
+            "expires_at",
+            "updated_at",
+        ]
+    )
 
     public_response = client.get(
         reverse("invitation-detail", kwargs={"public_slug": invitation.public_slug})

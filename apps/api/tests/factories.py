@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import Any
 
 from django.utils import timezone
@@ -118,6 +119,7 @@ def create_invitation(
     public_slug: str = "alya-raka",
     is_sample: bool = True,
 ) -> Invitation:
+    published_at = timezone.now() if status == Invitation.Status.PUBLISHED else None
     invitation = Invitation.objects.create(
         public_slug=public_slug,
         theme=theme,
@@ -126,7 +128,12 @@ def create_invitation(
         content_schema_version=1,
         status=status,
         is_sample=is_sample,
-        published_at=timezone.now() if status == Invitation.Status.PUBLISHED else None,
+        published_at=published_at,
+        expires_at=(
+            published_at + timedelta(days=90)
+            if published_at is not None and not is_sample
+            else None
+        ),
         content=invitation_content(),
     )
     Guest.objects.create(

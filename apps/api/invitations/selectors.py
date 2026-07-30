@@ -1,4 +1,5 @@
-from django.db.models import QuerySet
+from django.db.models import Q, QuerySet
+from django.utils import timezone
 
 from invitations.models import Invitation
 
@@ -9,6 +10,7 @@ def public_invitations() -> QuerySet[Invitation]:
             status=Invitation.Status.PUBLISHED,
             archived_at__isnull=True,
         )
+        .filter(Q(is_sample=True) | Q(expires_at__gt=timezone.now()))
         .select_related("theme", "package")
         .prefetch_related("events__location", "media__asset", "theme__media__asset")
     )

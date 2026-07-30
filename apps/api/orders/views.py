@@ -22,6 +22,7 @@ from rest_framework.views import APIView
 from common.models import AuditEvent
 from common.notifications import enqueue_client_notification
 from common.permissions import require_recent_staff_mfa
+from invitations.expiration import publication_expires_at
 from invitations.models import (
     EventLocation,
     Invitation,
@@ -236,7 +237,19 @@ def _publish_invitation_for_order(order: Order, actor) -> Invitation:
     invitation.status = Invitation.Status.PUBLISHED
     invitation.approval_status = Invitation.ApprovalStatus.PUBLISHED
     invitation.published_at = timezone.now()
-    invitation.save(update_fields=["status", "approval_status", "published_at", "updated_at"])
+    invitation.expires_at = publication_expires_at(
+        invitation,
+        published_at=invitation.published_at,
+    )
+    invitation.save(
+        update_fields=[
+            "status",
+            "approval_status",
+            "published_at",
+            "expires_at",
+            "updated_at",
+        ]
+    )
     AuditEvent.objects.create(
         actor=actor,
         action="invitation.published",
@@ -1054,10 +1067,14 @@ class BillingLifecycleRefreshView(APIView):
             expires_at__gt=now,
         )
         expired = Invitation.objects.filter(
-            status__in=[Invitation.Status.ACTIVE, Invitation.Status.EXPIRING_SOON],
+            status__in=[
+                Invitation.Status.ACTIVE,
+                Invitation.Status.EXPIRING_SOON,
+                Invitation.Status.PUBLISHED,
+            ],
             expires_at__isnull=False,
             expires_at__lte=now,
-        )
+        ).exclude(status=Invitation.Status.PUBLISHED, is_sample=True)
 
         expiring_count = 0
         for invitation in expiring:

@@ -772,13 +772,21 @@ def test_staff_publishing_order_turns_preview_link_into_public_link(client):
         is_staff=True,
     )
     theme = create_theme()
-    invitation = create_invitation(theme=theme, status="draft", public_slug="n011")
+    package = create_package(code="signature")
+    invitation = create_invitation(
+        theme=theme,
+        status="draft",
+        public_slug="n011",
+        is_sample=False,
+    )
+    invitation.package = package
     invitation.approval_status = Invitation.ApprovalStatus.APPROVED_FOR_PUBLISH
-    invitation.save(update_fields=["approval_status", "updated_at"])
+    invitation.save(update_fields=["package", "approval_status", "updated_at"])
     order = Order.objects.create(
         reference="N011",
         client_name="Fahri",
         theme=theme,
+        package=package,
         invitation=invitation,
     )
     client.force_login(staff)
@@ -796,6 +804,7 @@ def test_staff_publishing_order_turns_preview_link_into_public_link(client):
     assert order.status == Order.Status.PUBLISHED
     assert order.invitation.status == Invitation.Status.PUBLISHED
     assert order.invitation.approval_status == Invitation.ApprovalStatus.PUBLISHED
+    assert order.invitation.expires_at == order.invitation.published_at + timedelta(days=180)
     assert response.json()["preview_url"] == "https://wedding.example/id/i/n011"
     assert "preview=" not in response.json()["preview_url"]
 

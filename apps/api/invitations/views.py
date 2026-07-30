@@ -29,6 +29,7 @@ from invitations.capabilities import (
     invitation_supports_guest_wishes,
     invitation_supports_rsvp,
 )
+from invitations.expiration import publication_expires_at
 from invitations.models import Guest, Invitation, InvitationMedia
 from invitations.preview import (
     guest_management_token_payload,
@@ -1006,7 +1007,19 @@ class StaffInvitationPublishView(APIView):
         invitation.status = Invitation.Status.PUBLISHED
         invitation.approval_status = Invitation.ApprovalStatus.PUBLISHED
         invitation.published_at = timezone.now()
-        invitation.save(update_fields=["status", "approval_status", "published_at", "updated_at"])
+        invitation.expires_at = publication_expires_at(
+            invitation,
+            published_at=invitation.published_at,
+        )
+        invitation.save(
+            update_fields=[
+                "status",
+                "approval_status",
+                "published_at",
+                "expires_at",
+                "updated_at",
+            ]
+        )
         _transition_order_status(
             invitation=invitation,
             status=Order.Status.PUBLISHED,
