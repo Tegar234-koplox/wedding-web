@@ -42,6 +42,7 @@ describe("preview controls", () => {
     });
     expect(hide.getAttribute("aria-expanded")).toBe("true");
     expect(screen.getByRole("button", { name: "essential" })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: /WhatsApp/i })).toBeNull();
 
     fireEvent.click(hide);
 

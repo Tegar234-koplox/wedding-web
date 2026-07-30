@@ -1,12 +1,11 @@
 "use client";
 
 import { packageCodes, type PackageCode } from "@wedding/invitation-themes";
-import { Eye, EyeOff, MessageCircle } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import type { Route } from "next";
 import { usePathname, useRouter } from "next/navigation";
 import React, { useState } from "react";
 
-import { createWhatsAppUrl } from "@/lib/whatsapp";
 import type { Locale } from "@/lib/locales";
 import { cn } from "@/lib/utils";
 
@@ -19,7 +18,6 @@ type PreviewPackageSelectorProps = {
 export function PreviewPackageSelector({
   locale,
   selected,
-  theme,
 }: PreviewPackageSelectorProps) {
   const [controlsVisible, setControlsVisible] = useState(true);
   const pathname = usePathname();
@@ -60,23 +58,6 @@ export function PreviewPackageSelector({
             {packageCode}
           </button>
         ))}
-        <a
-          aria-label={
-            locale === "id"
-              ? "Konsultasi tema dan paket ini melalui WhatsApp"
-              : "Consult about this theme and package via WhatsApp"
-          }
-          className="grid size-10 place-items-center border border-white/20 text-[#d5ad55] transition hover:border-[#d5ad55]"
-          href={createWhatsAppUrl({
-            locale,
-            theme,
-            packageCode: selected,
-          })}
-          rel="noopener noreferrer"
-          target="_blank"
-        >
-          <MessageCircle size={16} />
-        </a>
       </div>
       <button
         aria-controls="preview-package-controls"

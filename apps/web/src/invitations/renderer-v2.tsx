@@ -365,6 +365,12 @@ function FadeText({
   );
 }
 
+function coupleCaptionTextClass(design: ThemeVisual) {
+  return design.key === "floral-romantic"
+    ? "relative !text-[#271216] [text-shadow:0_1px_3px_rgba(255,255,255,0.95),0_0_12px_rgba(255,255,255,0.8)]"
+    : `relative ${design.ink} [text-shadow:0_1px_2px_rgba(255,255,255,0.55),0_2px_7px_rgba(0,0,0,0.8)]`;
+}
+
 function Cover({
   invitation,
   packageCode,
@@ -819,7 +825,8 @@ function EssentialCoupleRevealSection({
                     data-couple-caption-surface
                   />
                   <div
-                    className={`relative ${design.ink} [text-shadow:0_1px_2px_rgba(255,255,255,0.55),0_2px_7px_rgba(0,0,0,0.8)]`}
+                    className={coupleCaptionTextClass(design)}
+                    data-couple-caption-text={design.key}
                   >
                     <h2 className="font-serif text-2xl italic leading-tight tracking-[0.03em] md:text-3xl">
                       {person.name}
@@ -1069,7 +1076,8 @@ function SignatureCoupleRevealSection({
                     className={`${design.surface} absolute inset-0 opacity-40`}
                   />
                   <div
-                    className={`relative ${design.ink} [text-shadow:0_1px_2px_rgba(255,255,255,0.55),0_2px_7px_rgba(0,0,0,0.8)]`}
+                    className={coupleCaptionTextClass(design)}
+                    data-couple-caption-text={design.key}
                   >
                     <h2 className="font-serif text-2xl italic leading-tight tracking-[0.03em] md:text-3xl">
                       {person.name}
@@ -1865,7 +1873,8 @@ function CoutureCoupleRevealSection({
                     className={`${design.surface} absolute inset-0 opacity-40`}
                   />
                   <div
-                    className={`relative ${design.ink} [text-shadow:0_1px_2px_rgba(255,255,255,0.55),0_2px_7px_rgba(0,0,0,0.8)]`}
+                    className={coupleCaptionTextClass(design)}
+                    data-couple-caption-text={design.key}
                   >
                     <h2 className="font-serif text-2xl italic leading-tight tracking-[0.03em] md:text-3xl">
                       {person.name}

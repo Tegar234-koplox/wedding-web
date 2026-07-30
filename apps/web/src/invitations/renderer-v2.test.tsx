@@ -951,6 +951,33 @@ describe("renderer v2 invitation experience", () => {
     },
   );
 
+  it("uses a darker high-contrast caption for Floral Romantic Section 2", () => {
+    const invitation = getSampleInvitation(
+      "floral-romantic",
+      "id",
+      "signature",
+    );
+    const { container } = render(
+      <RendererV2 invitation={invitation} packageCode="signature" />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Buka Undangan" }));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Buka foto Signature kedua mempelai",
+      }),
+    );
+
+    const caption = container.querySelector(
+      '[data-signature-couple-caption="groom"] [data-couple-caption-text="floral-romantic"]',
+    );
+    expect(caption?.classList.contains("!text-[#271216]")).toBe(true);
+    expect(caption?.textContent).toContain(
+      invitation.content.couple.partnerTwo,
+    );
+    expect(caption?.textContent).toContain("Mempelai pria");
+  });
+
   it.each(rendererKeys)(
     "uses the %s heart assets for Essential without adding them to premium packages",
     (rendererKey) => {
