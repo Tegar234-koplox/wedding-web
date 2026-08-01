@@ -15,7 +15,9 @@ const staffGateCookie = "niskala_staff_gate";
 function deploymentHeaders(response: NextResponse) {
   response.headers.set(
     "X-Niskala-Environment",
-    process.env.DEPLOYMENT_ENVIRONMENT ?? process.env.VERCEL_ENV ?? "development",
+    process.env.DEPLOYMENT_ENVIRONMENT ??
+      process.env.VERCEL_ENV ??
+      "development",
   );
   response.headers.set(
     "X-Niskala-Release",
@@ -174,5 +176,14 @@ function applySensitiveHeaders(
 }
 
 export const config = {
-  matcher: ["/(.*)"],
+  matcher: [
+    {
+      source:
+        "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)",
+      missing: [
+        { type: "header", key: "next-router-prefetch" },
+        { type: "header", key: "purpose", value: "prefetch" },
+      ],
+    },
+  ],
 };
