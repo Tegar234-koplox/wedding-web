@@ -2,10 +2,25 @@
 
 import { staffApiPath } from "@/lib/api/staff-client";
 
+export const staffRoles = [
+  "owner",
+  "finance",
+  "editor",
+  "support",
+  "viewer",
+] as const;
+
+export type StaffRole = (typeof staffRoles)[number];
+
+export function isStaffRole(value: unknown): value is StaffRole {
+  return staffRoles.includes(value as StaffRole);
+}
+
 export type StaffSessionUser = {
   username: string;
   email: string;
   role: string;
+  staff_role: StaffRole;
   display_name: string;
   mfa_enrolled: boolean;
 };

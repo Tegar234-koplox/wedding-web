@@ -1,6 +1,13 @@
 "use client";
 
-import { Download, LogOut, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
+import {
+  Download,
+  LogOut,
+  Plus,
+  RefreshCw,
+  Search,
+  Trash2,
+} from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -33,7 +40,6 @@ type OrderForm = {
   client_name: string;
   client_phone: string;
   package_code: string;
-  payment_status: PaymentStatus;
   reference: string;
   total_amount: string;
 };
@@ -43,7 +49,6 @@ const emptyOrderForm: OrderForm = {
   client_name: "",
   client_phone: "",
   package_code: "",
-  payment_status: "unpaid",
   reference: "",
   total_amount: "",
 };
@@ -69,7 +74,9 @@ function nextOrderReference(orders: Order[]): string {
 export function AdminOperations() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [packages, setPackages] = useState<PackageOption[]>([]);
-  const [staffSession, setStaffSession] = useState<StaffSession["user"] | null>(null);
+  const [staffSession, setStaffSession] = useState<StaffSession["user"] | null>(
+    null,
+  );
   const [search, setSearch] = useState("");
   const [workflowFilter, setWorkflowFilter] = useState("");
   const [paymentFilter, setPaymentFilter] = useState("");
@@ -81,6 +88,10 @@ export function AdminOperations() {
   const [savingContext, setSavingContext] = useState<PreloaderContext>("save");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const isOwner = staffSession?.staff_role === "owner";
+  const canViewFinance =
+    staffSession?.staff_role === "owner" ||
+    staffSession?.staff_role === "finance";
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);
@@ -99,7 +110,11 @@ export function AdminOperations() {
         reference: current.reference || nextOrderReference(nextOrders),
       }));
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Dashboard staff gagal dimuat.");
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Dashboard staff gagal dimuat.",
+      );
     } finally {
       setLoading(false);
     }
@@ -122,24 +137,43 @@ export function AdminOperations() {
           order.reference,
           order.client_name,
           order.package_code ?? "",
-          order.total_amount,
-          paymentLabels[order.payment_status],
           workflow,
+          ...(canViewFinance
+            ? [
+                order.total_amount ?? "",
+                paymentLabels[order.payment_status] ?? "",
+              ]
+            : []),
         ]
           .join(" ")
           .toLowerCase()
           .includes(query);
       const matchesWorkflow = !workflowFilter || workflow === workflowFilter;
-      const matchesPayment = !paymentFilter || order.payment_status === paymentFilter;
-      const matchesPackage = !packageFilter || order.package_code === packageFilter;
-      return matchesSearch && matchesWorkflow && matchesPayment && matchesPackage;
+      const matchesPayment =
+        !canViewFinance ||
+        !paymentFilter ||
+        order.payment_status === paymentFilter;
+      const matchesPackage =
+        !packageFilter || order.package_code === packageFilter;
+      return (
+        matchesSearch && matchesWorkflow && matchesPayment && matchesPackage
+      );
     });
-  }, [orders, packageFilter, paymentFilter, search, workflowFilter]);
+  }, [
+    canViewFinance,
+    orders,
+    packageFilter,
+    paymentFilter,
+    search,
+    workflowFilter,
+  ]);
 
   const financeSummary = useMemo(() => {
     return orders.reduce(
       (summary, order) => ({
-        outstanding: summary.outstanding + Number(order.payment_outstanding ?? order.total_amount),
+        outstanding:
+          summary.outstanding +
+          Number(order.payment_outstanding ?? order.total_amount),
         pending: summary.pending + Number(order.payment_pending_total ?? 0),
         total: summary.total + Number(order.total_amount || 0),
         valid: summary.valid + Number(order.payment_valid_total ?? 0),
@@ -149,6 +183,10 @@ export function AdminOperations() {
   }, [orders]);
 
   function openAddOrder() {
+    if (!isOwner) {
+      setError("Hanya owner yang dapat membuat order.");
+      return;
+    }
     setOrderForm({
       ...emptyOrderForm,
       reference: nextOrderReference(orders),
@@ -159,6 +197,10 @@ export function AdminOperations() {
   }
 
   async function createOrder() {
+    if (!isOwner) {
+      setError("Hanya owner yang dapat membuat order.");
+      return;
+    }
     if (!orderForm.reference.trim() || !orderForm.client_name.trim()) {
       setError("ORDER ID dan CLIENT wajib diisi.");
       return;
@@ -176,7 +218,6 @@ export function AdminOperations() {
           client_phone: orderForm.client_phone.trim(),
           currency: "IDR",
           package_code: orderForm.package_code || null,
-          payment_status: orderForm.payment_status,
           reference: orderForm.reference.trim(),
           status: "lead",
           total_amount: totalAmount,
@@ -187,13 +228,19 @@ export function AdminOperations() {
       setShowAdd(false);
       setNotice(`Order ${created.reference} dibuat.`);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Order gagal dibuat.");
+      setError(
+        caught instanceof Error ? caught.message : "Order gagal dibuat.",
+      );
     } finally {
       setSaving(false);
     }
   }
 
   async function archiveOrder(order: Order) {
+    if (!isOwner) {
+      setError("Hanya owner yang dapat mengarsipkan order.");
+      return;
+    }
     const confirmed = window.confirm(
       `Arsipkan order ${order.reference}? Data tidak dihapus permanen.`,
     );
@@ -205,17 +252,27 @@ export function AdminOperations() {
     setError("");
     setNotice("");
     try {
-      await staffFetch<void>(`/admin/orders/${order.reference}`, { method: "DELETE" });
-      setOrders((current) => current.filter((item) => item.reference !== order.reference));
+      await staffFetch<void>(`/admin/orders/${order.reference}`, {
+        method: "DELETE",
+      });
+      setOrders((current) =>
+        current.filter((item) => item.reference !== order.reference),
+      );
       setNotice(`Order ${order.reference} diarsipkan.`);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Order gagal diarsipkan.");
+      setError(
+        caught instanceof Error ? caught.message : "Order gagal diarsipkan.",
+      );
     } finally {
       setSaving(false);
     }
   }
 
   async function exportOrders() {
+    if (!isOwner) {
+      setError("Hanya owner yang dapat mengekspor order.");
+      return;
+    }
     setSavingContext("action");
     setSaving(true);
     setError("");
@@ -232,7 +289,9 @@ export function AdminOperations() {
       window.URL.revokeObjectURL(url);
       setNotice("Export CSV order berhasil disiapkan.");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Export CSV order gagal.");
+      setError(
+        caught instanceof Error ? caught.message : "Export CSV order gagal.",
+      );
     } finally {
       setSaving(false);
     }
@@ -259,13 +318,14 @@ export function AdminOperations() {
             Order History
           </p>
           <p className="mt-2 text-sm text-white/55">
-            Tabel utama untuk order customer dari WhatsApp dan pembayaran transfer.
+            Tabel utama untuk order customer dari WhatsApp dan pembayaran
+            transfer.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           {staffSession ? (
             <p className="text-xs uppercase tracking-[0.14em] text-white/45">
-              {staffSession.display_name} / {staffSession.role}
+              {staffSession.display_name} / {staffSession.staff_role}
             </p>
           ) : null}
           <button
@@ -289,38 +349,62 @@ export function AdminOperations() {
         </div>
       </div>
 
-      {error ? <NiskalaPreloader compact description={error} state="error" /> : null}
-      {notice ? <NiskalaPreloader compact description={notice} state="success" /> : null}
+      {error ? (
+        <NiskalaPreloader compact description={error} state="error" />
+      ) : null}
+      {notice ? (
+        <NiskalaPreloader compact description={notice} state="success" />
+      ) : null}
       {loading ? <NetworkAwarePreloader compact context="refresh" /> : null}
-      {saving ? <NetworkAwarePreloader compact context={savingContext} /> : null}
+      {saving ? (
+        <NetworkAwarePreloader compact context={savingContext} />
+      ) : null}
 
-      <section className="grid gap-3 md:grid-cols-4">
-        <Metric label="Total Tagihan" value={formatCurrency(financeSummary.total)} />
-        <Metric label="Pembayaran Valid" value={formatCurrency(financeSummary.valid)} />
-        <Metric label="Menunggu Cek" value={formatCurrency(financeSummary.pending)} />
-        <Metric label="Sisa Tagihan" value={formatCurrency(financeSummary.outstanding)} />
-      </section>
+      {canViewFinance ? (
+        <section className="grid gap-3 md:grid-cols-4">
+          <Metric
+            label="Total Tagihan"
+            value={formatCurrency(financeSummary.total)}
+          />
+          <Metric
+            label="Pembayaran Valid"
+            value={formatCurrency(financeSummary.valid)}
+          />
+          <Metric
+            label="Menunggu Cek"
+            value={formatCurrency(financeSummary.pending)}
+          />
+          <Metric
+            label="Sisa Tagihan"
+            value={formatCurrency(financeSummary.outstanding)}
+          />
+        </section>
+      ) : null}
 
       <section className="border border-white/12 bg-[#141411]">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 p-4">
           <div className="flex flex-wrap items-center gap-3">
-            <button
-              className="inline-flex min-h-10 items-center gap-2 bg-[var(--color-gold)] px-4 text-xs font-semibold uppercase tracking-[0.14em] text-black transition hover:bg-[#f4ddb0]"
-              onClick={openAddOrder}
-              type="button"
-            >
-              <Plus size={15} />
-              Tambah Order
-            </button>
-            <button
-              className={ghostButtonClassName}
-              disabled={saving || loading}
-              onClick={() => void exportOrders()}
-              type="button"
-            >
-              <Download size={15} />
-              Export CSV
-            </button>
+            {isOwner ? (
+              <>
+                <button
+                  className="inline-flex min-h-10 items-center gap-2 bg-[var(--color-gold)] px-4 text-xs font-semibold uppercase tracking-[0.14em] text-black transition hover:bg-[#f4ddb0]"
+                  onClick={openAddOrder}
+                  type="button"
+                >
+                  <Plus size={15} />
+                  Tambah Order
+                </button>
+                <button
+                  className={ghostButtonClassName}
+                  disabled={saving || loading}
+                  onClick={() => void exportOrders()}
+                  type="button"
+                >
+                  <Download size={15} />
+                  Export CSV
+                </button>
+              </>
+            ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <select
@@ -332,7 +416,11 @@ export function AdminOperations() {
                 Semua paket
               </option>
               {packages.map((item) => (
-                <option className={optionClassName} key={item.code} value={item.code}>
+                <option
+                  className={optionClassName}
+                  key={item.code}
+                  value={item.code}
+                >
                   {item.name}
                 </option>
               ))}
@@ -351,20 +439,22 @@ export function AdminOperations() {
                 </option>
               ))}
             </select>
-            <select
-              className={cn(selectClassName, "w-44")}
-              onChange={(event) => setPaymentFilter(event.target.value)}
-              value={paymentFilter}
-            >
-              <option className={optionClassName} value="">
-                Semua bayar
-              </option>
-              {Object.entries(paymentLabels).map(([value, label]) => (
-                <option className={optionClassName} key={value} value={value}>
-                  {label}
+            {canViewFinance ? (
+              <select
+                className={cn(selectClassName, "w-44")}
+                onChange={(event) => setPaymentFilter(event.target.value)}
+                value={paymentFilter}
+              >
+                <option className={optionClassName} value="">
+                  Semua bayar
                 </option>
-              ))}
-            </select>
+                {Object.entries(paymentLabels).map(([value, label]) => (
+                  <option className={optionClassName} key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            ) : null}
             <label className="flex min-h-10 w-60 items-center gap-3 border border-white/12 bg-black/20 px-3 text-sm text-white/60">
               <Search size={15} />
               <input
@@ -384,8 +474,8 @@ export function AdminOperations() {
                 <Th>Order ID</Th>
                 <Th>Client</Th>
                 <Th>Paket</Th>
-                <Th>Harga</Th>
-                <Th>Status Pembayaran</Th>
+                {canViewFinance ? <Th>Harga</Th> : null}
+                {canViewFinance ? <Th>Status Pembayaran</Th> : null}
                 <Th>Tanggal Order</Th>
                 <Th>Status</Th>
                 <Th>Action</Th>
@@ -394,14 +484,20 @@ export function AdminOperations() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td className="px-5 py-8 text-white/45" colSpan={8}>
+                  <td
+                    className="px-5 py-8 text-white/45"
+                    colSpan={canViewFinance ? 8 : 6}
+                  >
                     Memuat order...
                   </td>
                 </tr>
               ) : null}
               {!loading && filteredOrders.length === 0 ? (
                 <tr>
-                  <td className="px-5 py-8 text-white/45" colSpan={8}>
+                  <td
+                    className="px-5 py-8 text-white/45"
+                    colSpan={canViewFinance ? 8 : 6}
+                  >
                     Belum ada order yang cocok.
                   </td>
                 </tr>
@@ -411,12 +507,16 @@ export function AdminOperations() {
                   <Td strong>{order.reference}</Td>
                   <Td>{order.client_name}</Td>
                   <Td>{order.package_code ?? "Belum dipilih"}</Td>
-                  <Td>{formatCurrency(order.total_amount)}</Td>
-                  <Td>
-                    <Badge tone={order.payment_status}>
-                      {paymentLabels[order.payment_status]}
-                    </Badge>
-                  </Td>
+                  {canViewFinance ? (
+                    <Td>{formatCurrency(order.total_amount)}</Td>
+                  ) : null}
+                  {canViewFinance ? (
+                    <Td>
+                      <Badge tone={order.payment_status}>
+                        {paymentLabels[order.payment_status]}
+                      </Badge>
+                    </Td>
+                  ) : null}
                   <Td>{formatDate(order.created_at)}</Td>
                   <Td>
                     <Badge tone="status">{workflowFor(order)}</Badge>
@@ -429,15 +529,17 @@ export function AdminOperations() {
                       >
                         Update
                       </Link>
-                      <button
-                        className="inline-flex min-h-9 items-center gap-2 border border-white/12 px-3 text-xs font-semibold uppercase tracking-[0.12em] text-white/60 transition hover:border-red-300/60 hover:text-red-200 disabled:opacity-45"
-                        disabled={saving}
-                        onClick={() => void archiveOrder(order)}
-                        type="button"
-                      >
-                        <Trash2 size={14} />
-                        Hapus
-                      </button>
+                      {isOwner ? (
+                        <button
+                          className="inline-flex min-h-9 items-center gap-2 border border-white/12 px-3 text-xs font-semibold uppercase tracking-[0.12em] text-white/60 transition hover:border-red-300/60 hover:text-red-200 disabled:opacity-45"
+                          disabled={saving}
+                          onClick={() => void archiveOrder(order)}
+                          type="button"
+                        >
+                          <Trash2 size={14} />
+                          Arsipkan
+                        </button>
+                      ) : null}
                     </div>
                   </Td>
                 </tr>
@@ -447,7 +549,7 @@ export function AdminOperations() {
         </div>
       </section>
 
-      {showAdd ? (
+      {isOwner && showAdd ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 px-4">
           <section className="w-full max-w-2xl border border-white/12 bg-[#141411] p-5 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
@@ -455,7 +557,9 @@ export function AdminOperations() {
                 <p className="text-[0.65rem] uppercase tracking-[0.22em] text-[var(--color-gold)]">
                   Tambah Order
                 </p>
-                <h2 className="mt-3 font-serif text-3xl">Input order manual.</h2>
+                <h2 className="mt-3 font-serif text-3xl">
+                  Input order manual.
+                </h2>
               </div>
               <button
                 className="text-sm uppercase tracking-[0.14em] text-white/45 hover:text-white"
@@ -470,7 +574,10 @@ export function AdminOperations() {
                 <input
                   className={controlClassName}
                   onChange={(event) =>
-                    setOrderForm((current) => ({ ...current, reference: event.target.value }))
+                    setOrderForm((current) => ({
+                      ...current,
+                      reference: event.target.value,
+                    }))
                   }
                   value={orderForm.reference}
                 />
@@ -479,7 +586,10 @@ export function AdminOperations() {
                 <input
                   className={controlClassName}
                   onChange={(event) =>
-                    setOrderForm((current) => ({ ...current, client_name: event.target.value }))
+                    setOrderForm((current) => ({
+                      ...current,
+                      client_name: event.target.value,
+                    }))
                   }
                   placeholder="Fahri"
                   value={orderForm.client_name}
@@ -489,7 +599,10 @@ export function AdminOperations() {
                 <input
                   className={controlClassName}
                   onChange={(event) =>
-                    setOrderForm((current) => ({ ...current, client_email: event.target.value }))
+                    setOrderForm((current) => ({
+                      ...current,
+                      client_email: event.target.value,
+                    }))
                   }
                   placeholder="client@example.com"
                   type="email"
@@ -500,7 +613,10 @@ export function AdminOperations() {
                 <input
                   className={controlClassName}
                   onChange={(event) =>
-                    setOrderForm((current) => ({ ...current, client_phone: event.target.value }))
+                    setOrderForm((current) => ({
+                      ...current,
+                      client_phone: event.target.value,
+                    }))
                   }
                   placeholder="+62812"
                   value={orderForm.client_phone}
@@ -510,7 +626,10 @@ export function AdminOperations() {
                 <select
                   className={selectClassName}
                   onChange={(event) =>
-                    setOrderForm((current) => ({ ...current, package_code: event.target.value }))
+                    setOrderForm((current) => ({
+                      ...current,
+                      package_code: event.target.value,
+                    }))
                   }
                   value={orderForm.package_code}
                 >
@@ -518,7 +637,11 @@ export function AdminOperations() {
                     Belum memilih paket
                   </option>
                   {packages.map((item) => (
-                    <option className={optionClassName} key={item.code} value={item.code}>
+                    <option
+                      className={optionClassName}
+                      key={item.code}
+                      value={item.code}
+                    >
                       {item.name}
                     </option>
                   ))}
@@ -528,29 +651,21 @@ export function AdminOperations() {
                 <input
                   className={controlClassName}
                   onChange={(event) =>
-                    setOrderForm((current) => ({ ...current, total_amount: event.target.value }))
+                    setOrderForm((current) => ({
+                      ...current,
+                      total_amount: event.target.value,
+                    }))
                   }
                   placeholder="345000 atau 345.000"
                   value={orderForm.total_amount}
                 />
               </Field>
               <Field label="Status Pembayaran">
-                <select
-                  className={selectClassName}
-                  onChange={(event) =>
-                    setOrderForm((current) => ({
-                      ...current,
-                      payment_status: event.target.value as PaymentStatus,
-                    }))
-                  }
-                  value={orderForm.payment_status}
-                >
-                  {Object.entries(paymentLabels).map(([value, label]) => (
-                    <option className={optionClassName} key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
+                <input
+                  className={controlClassName}
+                  disabled
+                  value="Belum bayar (otomatis dari pembayaran manual)"
+                />
               </Field>
             </div>
             <button
@@ -573,9 +688,20 @@ function Th({ children }: { children: ReactNode }) {
   return <th className="px-5 py-4 font-semibold">{children}</th>;
 }
 
-function Td({ children, strong = false }: { children: ReactNode; strong?: boolean }) {
+function Td({
+  children,
+  strong = false,
+}: {
+  children: ReactNode;
+  strong?: boolean;
+}) {
   return (
-    <td className={cn("px-5 py-4 text-white/70", strong && "font-semibold text-white")}>
+    <td
+      className={cn(
+        "px-5 py-4 text-white/70",
+        strong && "font-semibold text-white",
+      )}
+    >
       {children}
     </td>
   );
@@ -606,7 +732,9 @@ function Badge({
 function Field({ children, label }: { children: ReactNode; label: string }) {
   return (
     <label className="block">
-      <span className="text-xs uppercase tracking-[0.14em] text-white/45">{label}</span>
+      <span className="text-xs uppercase tracking-[0.14em] text-white/45">
+        {label}
+      </span>
       <div className="mt-2">{children}</div>
     </label>
   );
@@ -615,7 +743,9 @@ function Field({ children, label }: { children: ReactNode; label: string }) {
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div className="border border-white/10 bg-[#141411] p-4">
-      <p className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">{label}</p>
+      <p className="text-[0.6rem] uppercase tracking-[0.16em] text-white/40">
+        {label}
+      </p>
       <p className="mt-3 font-serif text-2xl text-white">{value}</p>
     </div>
   );

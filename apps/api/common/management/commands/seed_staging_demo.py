@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.auth.hashers import make_password
 from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
@@ -29,12 +30,8 @@ class Command(BaseCommand):
 
         password = os.environ.get("STAGING_DEMO_STAFF_PASSWORD", "")
         mfa_key = os.environ.get("STAGING_DEMO_MFA_KEY", "").strip().lower()
-        guest_token = os.environ.get("STAGING_DEMO_GUEST_TOKEN", "").strip()
-        if not password or not mfa_key or not guest_token:
-            raise CommandError(
-                "STAGING_DEMO_STAFF_PASSWORD, STAGING_DEMO_MFA_KEY, and "
-                "STAGING_DEMO_GUEST_TOKEN are required"
-            )
+        if not password or not mfa_key:
+            raise CommandError("STAGING_DEMO_STAFF_PASSWORD and STAGING_DEMO_MFA_KEY are required")
         try:
             key_bytes = bytes.fromhex(mfa_key)
         except ValueError as exc:
@@ -42,10 +39,10 @@ class Command(BaseCommand):
         if len(key_bytes) != 20:
             raise CommandError("STAGING_DEMO_MFA_KEY must encode exactly 20 bytes")
 
-        self._seed(password, mfa_key, guest_token)
+        self._seed(password, mfa_key)
 
     @transaction.atomic
-    def _seed(self, password: str, mfa_key: str, guest_token: str) -> None:
+    def _seed(self, password: str, mfa_key: str) -> None:
         call_command("seed_demo_content", verbosity=0)
 
         user_model = get_user_model()
@@ -147,17 +144,16 @@ class Command(BaseCommand):
             },
         )
         Guest.objects.update_or_create(
-            access_token_hash=guest_token,
+            invitation=invitation,
+            display_name="Synthetic Staging Guest",
             defaults={
-                "invitation": invitation,
-                "display_name": "Synthetic Staging Guest",
+                "access_token_hash": make_password(None),
                 "email": "synthetic-guest@niskala.invalid",
                 "phone": "+620000000001",
                 "party_size": 2,
                 "rsvp_status": Guest.RSVPStatus.PENDING,
                 "attendance_count": 0,
                 "metadata": {
-                    "delivery_token": guest_token,
                     "source": "seed_staging_demo",
                     "synthetic": True,
                 },

@@ -7,9 +7,16 @@ from rest_framework.views import APIView
 
 from common.models import AuditEvent
 from common.notifications import enqueue_client_notification
+from common.permissions import (
+    HasStaffRole,
+    filter_order_related_for_staff,
+    require_recent_staff_mfa,
+    require_staff_order_access,
+)
 from orders.permissions import IsStaffRole
 from tickets.models import Ticket
 from tickets.serializers import StaffTicketUpdateSerializer, TicketSerializer
+from users.models import User
 
 TICKET_TRANSITIONS = {
     Ticket.Status.OPEN: {Ticket.Status.IN_PROGRESS},
@@ -35,7 +42,11 @@ def ensure_ticket_transition(current: str, target: str) -> None:
 
 
 class StaffTicketListView(ListCreateAPIView):
-    permission_classes = [IsStaffRole]
+    permission_classes = [IsStaffRole, HasStaffRole]
+    required_staff_roles = (
+        User.StaffRole.OWNER,
+        User.StaffRole.SUPPORT,
+    )
     serializer_class = TicketSerializer
     pagination_class = None
     http_method_names = ["get"]
@@ -53,28 +64,41 @@ class StaffTicketListView(ListCreateAPIView):
             queryset = queryset.filter(category=category)
         if status:
             queryset = queryset.filter(status=status)
-        return queryset.order_by("created_at")
+        return filter_order_related_for_staff(
+            queryset,
+            self.request.user,
+            order_lookup="invitation__order",
+        ).order_by("created_at")
 
 
 class StaffTicketDetailView(APIView):
-    permission_classes = [IsStaffRole]
+    permission_classes = [IsStaffRole, HasStaffRole]
+    required_staff_roles = (
+        User.StaffRole.OWNER,
+        User.StaffRole.SUPPORT,
+    )
 
     def patch(self, request, ticket_id: str) -> Response:
-        ticket = (
-            Ticket.objects.select_related(
-                "invitation",
-                "invitation__client_user",
-                "created_by",
-                "assigned_staff",
-            )
-            .filter(id=ticket_id)
-            .first()
-        )
+        queryset = Ticket.objects.select_related(
+            "invitation",
+            "invitation__order",
+            "invitation__client_user",
+            "created_by",
+            "assigned_staff",
+        ).filter(id=ticket_id)
+        ticket = filter_order_related_for_staff(
+            queryset,
+            request.user,
+            order_lookup="invitation__order",
+        ).first()
         if ticket is None:
             raise Http404
+        require_staff_order_access(request, ticket.invitation)
         serializer = StaffTicketUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
+        if "custom_domain" in data:
+            require_recent_staff_mfa(request)
 
         with transaction.atomic():
             update_fields = ["updated_at"]

@@ -68,14 +68,34 @@ jobs:
       - name: Django production deployment checks
         env:
           DJANGO_SECRET_KEY: production-check-only-not-a-real-secret-0123456789abcdef
-          DJANGO_ALLOWED_HOSTS: api.example.com
-          DJANGO_CORS_ALLOWED_ORIGINS: https://example.com
-          DJANGO_CSRF_TRUSTED_ORIGINS: https://example.com
-          DATABASE_URL: sqlite:///production-check.sqlite3
-          DATABASE_DIRECT_URL: sqlite:///production-check.sqlite3
-          REDIS_URL: redis://localhost:6379/0
-          CELERY_BROKER_URL: redis://localhost:6379/1
-          CELERY_RESULT_BACKEND: redis://localhost:6379/2
+          DJANGO_ALLOWED_HOSTS: api.example.com,healthcheck.railway.app
+          DJANGO_CORS_ALLOWED_ORIGINS: https://example.com,https://client.example.com,https://staff.example.com
+          DJANGO_CSRF_TRUSTED_ORIGINS: https://example.com,https://client.example.com,https://staff.example.com
+          STAFF_MFA_REQUIRED: "true"
+          PUBLIC_SITE_URL: https://example.com
+          CLIENT_SITE_URL: https://client.example.com
+          STAFF_SITE_URL: https://staff.example.com
+          PRODUCTION_EXPECTED_PUBLIC_ORIGIN: https://example.com
+          PRODUCTION_EXPECTED_CLIENT_ORIGIN: https://client.example.com
+          PRODUCTION_EXPECTED_STAFF_ORIGIN: https://staff.example.com
+          PRODUCTION_EXPECTED_API_HOST: api.example.com
+          PRODUCTION_EXPECTED_DATABASE_HOST: prod-db.example.com
+          PRODUCTION_EXPECTED_DATABASE_DIRECT_HOST: prod-db-direct.example.com
+          PRODUCTION_EXPECTED_DATABASE_NAME: niskala_prod
+          PRODUCTION_EXPECTED_REDIS_HOST: prod-redis.example.com
+          PRODUCTION_EXPECTED_CLOUDINARY_CLOUD_NAME: niskala-production
+          CAPABILITY_KEYS_JSON: '{"ci":"Ci-capability-2026!Az3#Km7$Np2%Qr5&St8*Vx1"}'
+          CAPABILITY_PRIMARY_KEY_ID: ci
+          NISKALA_BFF_SHARED_SECRET: Bff-ci-2026!Az3#Km7$Np2%Qr5&St8*Vx1
+          DATABASE_URL: postgresql://ci:ci@prod-db.example.com:5432/niskala_prod
+          DATABASE_DIRECT_URL: postgresql://ci:ci@prod-db-direct.example.com:5432/niskala_prod
+          REDIS_URL: redis://prod-redis.example.com:6379/0
+          CELERY_BROKER_URL: redis://prod-redis.example.com:6379/1
+          CELERY_RESULT_BACKEND: redis://prod-redis.example.com:6379/2
+          CLOUDINARY_CLOUD_NAME: niskala-production
+          CLOUDINARY_API_KEY: ci-cloudinary-key
+          CLOUDINARY_API_SECRET: ci-cloudinary-secret
+          SENTRY_DSN: https://public@example.ingest.sentry.io/1
           DEPLOYMENT_ENVIRONMENT: production
           DEPLOYMENT_RELEASE: ci-check
           SENTRY_ENVIRONMENT: production

@@ -4,7 +4,9 @@ from rest_framework.permissions import AllowAny
 
 from analytics.models import AnalyticsEvent
 from analytics.serializers import AnalyticsEventSerializer, AnalyticsMetricsSerializer
+from common.permissions import HasStaffRole
 from orders.permissions import IsStaffRole
+from users.models import User
 
 
 class AnalyticsEventCreateView(CreateAPIView):
@@ -13,7 +15,8 @@ class AnalyticsEventCreateView(CreateAPIView):
 
 
 class AnalyticsMetricsView(ListAPIView):
-    permission_classes = [IsStaffRole]
+    permission_classes = [IsStaffRole, HasStaffRole]
+    required_staff_roles = (User.StaffRole.OWNER,)
     serializer_class = AnalyticsMetricsSerializer
     pagination_class = None
 

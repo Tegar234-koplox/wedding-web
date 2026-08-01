@@ -83,7 +83,7 @@ export default defineConfig({
         command:
           "pnpm --filter @wedding/web exec next dev --hostname 127.0.0.1 --port 3100",
         env: {
-          NEXT_PUBLIC_API_URL: "http://127.0.0.1:8000/api/v1",
+          API_URL: "http://127.0.0.1:8000/api/v1",
           NEXT_PUBLIC_SITE_URL: baseURL,
         },
         reuseExistingServer: !process.env.CI,

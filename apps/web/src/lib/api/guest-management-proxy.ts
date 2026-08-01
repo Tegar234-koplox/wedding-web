@@ -1,7 +1,7 @@
 import "server-only";
 
 import { proxyAccessRequest } from "@/lib/api/access-proxy";
-import { env } from "@/lib/env";
+import { serverEnv } from "@/lib/server-env";
 
 function normalizedToken(token: string): string {
   try {
@@ -14,7 +14,7 @@ function normalizedToken(token: string): string {
 function upstreamUrl(request: Request, token: string, path: string[]): URL {
   const suffix = path.map((segment) => encodeURIComponent(segment)).join("/");
   const url = new URL(
-    `${env.NEXT_PUBLIC_API_URL}/guest-management/${normalizedToken(token)}${suffix ? `/${suffix}` : ""}`,
+    `${serverEnv.API_URL}/guest-management/${normalizedToken(token)}${suffix ? `/${suffix}` : ""}`,
   );
   url.search = new URL(request.url).search;
   return url;
@@ -29,5 +29,6 @@ export async function proxyGuestManagementRequest(
     request,
     upstreamUrl(request, token, path),
     "Guest management service",
+    { maxBodyBytes: 2 * 1024 * 1024 },
   );
 }

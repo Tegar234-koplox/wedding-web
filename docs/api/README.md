@@ -37,28 +37,37 @@ provider is temporarily unavailable.
 - `GET /api/v1/admin/audit-events`
 - `GET /api/v1/admin/analytics/metrics`
 
-Staff endpoints require authenticated staff users. Role checks use owner, admin,
-editor, support, and viewer levels; sensitive mutations write `AuditEvent`
-records.
+Staff endpoints require an authenticated staff session plus MFA. Role checks use
+owner, finance, editor, support, and viewer levels; assignment scoping is applied
+to non-owner staff. Sensitive mutations write `AuditEvent` records. Generic order
+PATCH cannot set `payment_status`; that value is derived from reviewed manual
+payment records. `verified` and `rejected` transitions use their dedicated action
+endpoints rather than the generic order editor.
 
-## Client endpoints
+## Capability-session endpoints
 
-- `GET /api/v1/client/orders`
-- `GET /api/v1/client/invitations`
-- `GET|PATCH /api/v1/client/invitations/{public_slug}`
-- `POST /api/v1/client/invitations/{public_slug}/submit-revision`
-- `POST /api/v1/client/invitations/{public_slug}/approve-publish`
-- `GET /api/v1/client/invitations/{public_slug}/guests/export`
+- `POST /api/v1/access/client/bootstrap`
+- `POST /api/v1/access/client/login/{grant_id}`
+- `GET /api/v1/access/client/me`
+- `POST /api/v1/access/client/pin`
+- `POST /api/v1/access/client/logout`
+- `POST /api/v1/access/guest/redeem`
+- `GET /api/v1/access/guest/me`
+- `POST /api/v1/access/guest/logout`
+- `POST /api/v1/access/preview/redeem`
+- `POST /api/v1/access/preview/logout`
+- `GET /api/v1/client/portal`
+
+Bootstrap bearer grants arrive in URL fragments and are exchanged once for
+host-only HttpOnly sessions. Session mutations require CSRF protection. Legacy
+slug/query-token routes are disabled by default and may only be enabled for a
+short, explicit migration window.
 
 ## Payment endpoints
 
-- `POST /api/v1/payments/invoices`
-- `GET /api/v1/payments/invoices/{invoice_number}`
-- `POST /api/v1/payments/midtrans/webhook`
-
-Payment records are Midtrans-ready and webhooks are idempotent. The first
-implementation stores invoice/webhook state and audit events; external charge
-creation can be attached behind the same invoice contract.
+Payments are recorded and reviewed manually by authenticated staff. No public
+payment-provider webhook is exposed, and automated invoice endpoints are not
+routed.
 
 ## Operational endpoints
 

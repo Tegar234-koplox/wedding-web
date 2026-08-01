@@ -1,16 +1,20 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import timedelta
 from typing import Any
 
+from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
 from common.models import AuditEvent
 from common.notifications import enqueue_client_notification
-from invitations.models import Invitation
+from invitations.access import revoke_invitation_access
+from invitations.models import AccessGrant, AccessSession, Guest, Invitation
 from orders.models import Order
 
 ORDER_TRANSITIONS = {
@@ -218,6 +222,7 @@ def archive_expired_wedding(*, invitation: Invitation, actor, reason: str) -> In
     invitation.status = Invitation.Status.ARCHIVED
     invitation.archived_at = timezone.now()
     invitation.save(update_fields=["status", "archived_at", "updated_at"])
+    revoke_invitation_access(invitation)
     audit_and_notify(
         actor=actor,
         action="wedding.archived",
@@ -227,3 +232,123 @@ def archive_expired_wedding(*, invitation: Invitation, actor, reason: str) -> In
         metadata={"status": invitation.status},
     )
     return invitation
+
+
+@transaction.atomic
+def refresh_invitation_lifecycle(*, now=None, warning_days: int | None = None) -> dict[str, int]:
+    """Advance invitation expiry state from an internal scheduler.
+
+    This deliberately has no HTTP adapter. Celery Beat is the only production
+    caller so an absent or misconfigured cron secret cannot expose a public
+    mutation endpoint.
+    """
+
+    effective_now = now or timezone.now()
+    effective_warning_days = (
+        int(getattr(settings, "BILLING_EXPIRY_WARNING_DAYS", 14))
+        if warning_days is None
+        else warning_days
+    )
+    warning_at = effective_now + timedelta(days=effective_warning_days)
+    expiring = Invitation.objects.filter(
+        status=Invitation.Status.ACTIVE,
+        expires_at__isnull=False,
+        expires_at__lte=warning_at,
+        expires_at__gt=effective_now,
+    )
+    expired = Invitation.objects.filter(
+        status__in=[
+            Invitation.Status.ACTIVE,
+            Invitation.Status.EXPIRING_SOON,
+            Invitation.Status.PUBLISHED,
+        ],
+        expires_at__isnull=False,
+        expires_at__lte=effective_now,
+    ).exclude(status=Invitation.Status.PUBLISHED, is_sample=True)
+
+    expiring_count = 0
+    for invitation in expiring:
+        invitation.status = Invitation.Status.EXPIRING_SOON
+        invitation.save(update_fields=["status", "updated_at"])
+        enqueue_client_notification(
+            recipient=invitation_client_recipient(invitation),
+            event_type="wedding.expiring_soon",
+            payload={
+                "invitation": invitation.public_slug,
+                "expires_at": invitation.expires_at.isoformat(),
+            },
+        )
+        expiring_count += 1
+
+    expired_invitations = list(expired)
+    expired_count = expired.update(
+        status=Invitation.Status.EXPIRED,
+        updated_at=effective_now,
+    )
+    expired_ids = [invitation.id for invitation in expired_invitations]
+    if expired_ids:
+        AccessGrant.objects.filter(
+            invitation_id__in=expired_ids,
+            purpose__in=[
+                AccessGrant.Purpose.CLIENT_PREVIEW,
+                AccessGrant.Purpose.GUEST_INVITATION,
+            ],
+            revoked_at__isnull=True,
+        ).update(revoked_at=effective_now, updated_at=effective_now)
+        AccessSession.objects.filter(
+            invitation_id__in=expired_ids,
+            kind=AccessSession.Kind.GUEST,
+            revoked_at__isnull=True,
+        ).update(revoked_at=effective_now, updated_at=effective_now)
+
+    retention_cutoff = effective_now - timedelta(days=30)
+    retention_due = Invitation.objects.filter(is_sample=False).filter(
+        Q(
+            status=Invitation.Status.EXPIRED,
+            expires_at__isnull=False,
+            expires_at__lte=retention_cutoff,
+        )
+        | Q(
+            status=Invitation.Status.ARCHIVED,
+            archived_at__isnull=False,
+            archived_at__lte=retention_cutoff,
+        )
+        | Q(
+            status=Invitation.Status.ARCHIVED,
+            archived_at__isnull=True,
+            updated_at__lte=retention_cutoff,
+        )
+    )
+    retention_ids = list(retention_due.values_list("id", flat=True))
+    anonymized_count = 0
+    if retention_ids:
+        AccessGrant.objects.filter(
+            invitation_id__in=retention_ids,
+            revoked_at__isnull=True,
+        ).update(revoked_at=effective_now, updated_at=effective_now)
+        AccessSession.objects.filter(
+            invitation_id__in=retention_ids,
+            revoked_at__isnull=True,
+        ).update(revoked_at=effective_now, updated_at=effective_now)
+        for guest in Guest.objects.filter(
+            invitation_id__in=retention_ids,
+            anonymized_at__isnull=True,
+        ).iterator():
+            guest.anonymize()
+            guest.save(
+                update_fields=[
+                    "display_name",
+                    "email",
+                    "phone",
+                    "wishes",
+                    "metadata",
+                    "anonymized_at",
+                    "updated_at",
+                ]
+            )
+            anonymized_count += 1
+    return {
+        "expiring_soon": expiring_count,
+        "expired": expired_count,
+        "anonymized_guests": anonymized_count,
+    }

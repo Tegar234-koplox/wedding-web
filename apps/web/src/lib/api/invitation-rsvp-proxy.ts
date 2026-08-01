@@ -1,14 +1,14 @@
 import "server-only";
 
-import { proxyAccessRequest } from "@/lib/api/access-proxy";
-import { env } from "@/lib/env";
+import { proxyCapabilitySessionRequest } from "@/lib/api/capability-session-proxy";
 
 export function proxyInvitationRsvpRequest(
   request: Request,
   publicSlug: string,
 ): Promise<Response> {
-  const upstreamUrl = new URL(
-    `${env.NEXT_PUBLIC_API_URL}/invitations/${encodeURIComponent(publicSlug)}/rsvp`,
+  return proxyCapabilitySessionRequest(
+    request,
+    ["invitations", publicSlug, "rsvp"],
+    { maxBodyBytes: 16 * 1024 },
   );
-  return proxyAccessRequest(request, upstreamUrl, "RSVP service");
 }

@@ -2,13 +2,17 @@ import { getSampleInvitation } from "@/invitations/samples";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
-vi.mock("@/lib/env", () => ({
-  env: {
-    NEXT_PUBLIC_API_URL: "https://api.example.test/api/v1",
+vi.mock("@/lib/server-env", () => ({
+  serverEnv: {
+    API_URL: "https://api.example.test/api/v1",
   },
 }));
 
-import { fetchPublicInvitation, fetchPublicPackages } from "./public";
+import {
+  fetchInvitationWeather,
+  fetchPublicInvitation,
+  fetchPublicPackages,
+} from "./public";
 
 const invitationPayload = {
   ...getSampleInvitation("elegant-classic", "id"),
@@ -134,6 +138,34 @@ describe("fetchPublicInvitation", () => {
         }),
       }),
     );
+  });
+
+  it("forwards preview sessions to invitation and weather requests without caching", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(Response.json(invitationPayload))
+      .mockResolvedValueOnce(
+        Response.json({
+          attribution_url: "https://open-meteo.com/",
+          forecast: [],
+          provider: "Open-Meteo",
+          reason: "location_unconfigured",
+          status: "unavailable",
+        }),
+      );
+    const cookie = "__Host-niskala_preview=preview-session";
+
+    await fetchPublicInvitation("alya-raka", undefined, undefined, cookie);
+    await fetchInvitationWeather("alya-raka", undefined, cookie);
+
+    for (const [, options] of fetchMock.mock.calls) {
+      expect(options).toEqual(
+        expect.objectContaining({
+          cache: "no-store",
+          headers: expect.objectContaining({ Cookie: cookie }),
+        }),
+      );
+    }
   });
 
   it("normalizes complete Access header lines copied from Cloudflare", async () => {

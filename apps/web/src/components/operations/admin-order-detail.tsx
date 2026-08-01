@@ -45,6 +45,8 @@ import {
   type ManualPaymentType,
   type PackageOption,
   type PaymentStatus,
+  type StaffRole,
+  type StaffSession,
   type StaffOrderDetail,
   type ThemeOption,
   type ThemePage,
@@ -65,6 +67,7 @@ type OrderDetailForm = {
   ceremony_starts_at: string;
   ceremony_venue_name: string;
   client_email: string;
+  event_date: string;
   client_name: string;
   client_phone: string;
   custom_approval_notes: string;
@@ -81,6 +84,7 @@ type OrderDetailForm = {
   groom_description: string;
   groom_full_name: string;
   gallery_urls: string;
+  notes: string;
   package_code: string;
   payment_status: PaymentStatus;
   photo_focal_x: number;
@@ -113,6 +117,13 @@ type OrderDetailForm = {
   timeline_opening: string;
   timeline_trust: string;
   total_amount: string;
+};
+
+type ClientAccessIssue = {
+  bootstrap_url: string;
+  return_url: string;
+  initial_pin: string;
+  expires_at: string;
 };
 
 type PaymentRecordForm = {
@@ -171,6 +182,7 @@ const emptyForm: OrderDetailForm = {
   ceremony_starts_at: "",
   ceremony_venue_name: "",
   client_email: "",
+  event_date: "",
   client_name: "",
   client_phone: "",
   custom_approval_notes: "",
@@ -187,6 +199,7 @@ const emptyForm: OrderDetailForm = {
   groom_description: "",
   groom_full_name: "",
   gallery_urls: "",
+  notes: "",
   package_code: "",
   payment_status: "unpaid",
   photo_focal_x: 50,
@@ -241,6 +254,81 @@ const selectClassName = cn(
 const optionClassName = "bg-[#0b0b09] text-white";
 const outlineButtonClassName =
   "inline-flex min-h-11 items-center justify-center gap-3 border border-white/15 px-4 text-xs font-semibold uppercase tracking-[0.14em] text-white/70 transition hover:border-[var(--color-gold)] hover:text-[var(--color-gold)] disabled:opacity-45";
+const primaryButtonClassName =
+  "inline-flex min-h-11 items-center justify-center gap-3 bg-[var(--color-gold)] px-4 text-xs font-semibold uppercase tracking-[0.14em] text-black transition hover:brightness-110 disabled:opacity-45";
+
+const orderPatchFieldsByRole: Record<
+  Exclude<StaffRole, "owner">,
+  Set<string>
+> = {
+  editor: new Set([
+    "status",
+    "theme_slug",
+    "package_code",
+    "client_name",
+    "event_date",
+    "notes",
+    "custom_status",
+    "custom_brief",
+    "custom_approval_notes",
+    "custom_checklist",
+    "ceremony",
+    "reception",
+    "bank_accounts",
+    "couple",
+    "rsvp_manual",
+    "media_urls",
+    "photo_focal",
+    "quote",
+    "story",
+    "timeline",
+  ]),
+  finance: new Set(["total_amount", "currency"]),
+  support: new Set([
+    "client_name",
+    "client_email",
+    "client_phone",
+    "event_date",
+    "notes",
+  ]),
+  viewer: new Set(),
+};
+
+const editorOrderStatusTargets = new Set([
+  "confirmed",
+  "in_design",
+  "client_review",
+  "revision",
+  "approved",
+]);
+const editorWorkflowLabels = new Set([
+  "Data Kurang",
+  "Proses",
+  "Revisi",
+  "Final",
+]);
+
+export function orderPatchPayloadForRole(
+  role: StaffRole,
+  payload: Record<string, unknown>,
+): Record<string, unknown> {
+  const entries = Object.entries(payload).filter(
+    ([field]) => field !== "payment_status",
+  );
+  if (role === "owner") {
+    return Object.fromEntries(entries);
+  }
+  const allowedFields = orderPatchFieldsByRole[role];
+  return Object.fromEntries(
+    entries.filter(
+      ([field, value]) =>
+        allowedFields.has(field) &&
+        (role !== "editor" ||
+          field !== "status" ||
+          editorOrderStatusTargets.has(String(value))),
+    ),
+  );
+}
 
 function timelineBlocksFor(packageCode: string): TimelineBlock[] {
   if (packageCode === "couture") {
@@ -485,6 +573,7 @@ function fromDetail(detail: StaffOrderDetail): OrderDetailForm {
     ceremony_starts_at: toDatetimeInput(ceremony?.starts_at),
     ceremony_venue_name: ceremony?.venue_name ?? "",
     client_email: detail.order.client_email ?? "",
+    event_date: detail.order.event_date ?? "",
     client_name: detail.order.client_name ?? "",
     client_phone: detail.order.client_phone ?? "",
     custom_approval_notes: detail.order.custom_approval_notes ?? "",
@@ -501,9 +590,10 @@ function fromDetail(detail: StaffOrderDetail): OrderDetailForm {
     groom_description: detail.invitation?.couple?.partnerTwoDescription ?? "",
     groom_full_name: detail.invitation?.couple?.partnerTwoFullName ?? "",
     gallery_urls: gallerySlotsFromMedia(detail.media),
+    notes: detail.order.notes ?? "",
     package_code:
       detail.order.package_code ?? detail.invitation?.package_code ?? "",
-    payment_status: detail.order.payment_status,
+    payment_status: detail.order.payment_status ?? "unpaid",
     photo_focal_x: normalizeFocalPoint(photo?.focal_x),
     photo_focal_y: normalizeFocalPoint(photo?.focal_y),
     photo_url: photo?.asset.secure_url ?? "",
@@ -539,7 +629,7 @@ function fromDetail(detail: StaffOrderDetail): OrderDetailForm {
     timeline_middle: timelineEntriesToText(timeline.middle),
     timeline_opening: timelineEntriesToText(timeline.opening),
     timeline_trust: timelineEntriesToText(timeline.trust),
-    total_amount: detail.order.total_amount,
+    total_amount: detail.order.total_amount ?? "0",
   };
 }
 
@@ -617,6 +707,7 @@ function communicationStatus(
 
 export function AdminOrderDetail({ reference }: { reference: string }) {
   const [detail, setDetail] = useState<StaffOrderDetail | null>(null);
+  const [staffRole, setStaffRole] = useState<StaffRole | null>(null);
   const [form, setForm] = useState<OrderDetailForm>(emptyForm);
   const [guestLinks, setGuestLinks] = useState<GuestDeliveryLink[]>([]);
   const [paymentRecordForm, setPaymentRecordForm] = useState<PaymentRecordForm>(
@@ -633,6 +724,8 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
   const [saving, setSaving] = useState(false);
   const [savingPayment, setSavingPayment] = useState(false);
   const [savingRevision, setSavingRevision] = useState(false);
+  const [clientAccessIssue, setClientAccessIssue] =
+    useState<ClientAccessIssue | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
@@ -640,11 +733,16 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
     setLoading(true);
     setError("");
     try {
-      const [nextDetail, nextThemes, nextPackages] = await Promise.all([
-        staffFetch<StaffOrderDetail>(`/admin/orders/${reference}`),
-        staffFetch<ThemePage>("/themes?locale=id&page_size=50"),
-        staffFetch<PackageOption[]>("/packages?locale=id"),
-      ]);
+      const [session, nextDetail, nextThemes, nextPackages] = await Promise.all(
+        [
+          staffFetch<StaffSession>("/auth/me"),
+          staffFetch<StaffOrderDetail>(`/admin/orders/${reference}`),
+          staffFetch<ThemePage>("/themes?locale=id&page_size=50"),
+          staffFetch<PackageOption[]>("/packages?locale=id"),
+        ],
+      );
+      const nextStaffRole = session.user.staff_role;
+      setStaffRole(nextStaffRole);
       setDetail(nextDetail);
       setForm(fromDetail(nextDetail));
       setThemes(nextThemes.results);
@@ -654,7 +752,10 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
           nextDetail.revisions.map((revision) => [revision.id, revision.note]),
         ),
       );
-      if (nextDetail.invitation?.public_slug) {
+      if (
+        ["owner", "support"].includes(nextStaffRole) &&
+        nextDetail.invitation?.public_slug
+      ) {
         const links = await staffFetch<GuestDeliveryLink[]>(
           `/admin/invitations/${nextDetail.invitation.public_slug}/guest-links`,
         );
@@ -749,10 +850,22 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
   }
 
   async function saveDetail() {
-    const nameWarning = coupleNameWarning(form.client_name);
-    if (nameWarning) {
-      setError(nameWarning);
+    const currentStaffRole = staffRole;
+    if (
+      currentStaffRole !== "owner" &&
+      currentStaffRole !== "editor" &&
+      currentStaffRole !== "support" &&
+      currentStaffRole !== "finance"
+    ) {
+      setError("Peran staff Anda tidak diizinkan mengubah detail order.");
       return;
+    }
+    if (currentStaffRole !== "finance") {
+      const nameWarning = coupleNameWarning(form.client_name);
+      if (nameWarning) {
+        setError(nameWarning);
+        return;
+      }
     }
     setSaving(true);
     setError("");
@@ -781,94 +894,101 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
       const updated = await staffFetch<StaffOrderDetail>(
         `/admin/orders/${reference}`,
         {
-          body: JSON.stringify({
-            bank_accounts: [
-              {
-                bank: form.bank_account_bank.trim(),
-                name: form.bank_account_name.trim(),
-                number: form.bank_account_number.trim(),
+          body: JSON.stringify(
+            orderPatchPayloadForRole(currentStaffRole, {
+              bank_accounts: [
+                {
+                  bank: form.bank_account_bank.trim(),
+                  name: form.bank_account_name.trim(),
+                  number: form.bank_account_number.trim(),
+                },
+              ].filter(
+                (account) => account.bank || account.name || account.number,
+              ),
+              ceremony: {
+                address: form.ceremony_address.trim(),
+                latitude: form.ceremony_latitude.trim(),
+                longitude: form.ceremony_longitude.trim(),
+                map_url: form.ceremony_map_url.trim(),
+                starts_at: form.ceremony_starts_at,
+                venue_name: form.ceremony_venue_name.trim(),
               },
-            ].filter(
-              (account) => account.bank || account.name || account.number,
-            ),
-            ceremony: {
-              address: form.ceremony_address.trim(),
-              latitude: form.ceremony_latitude.trim(),
-              longitude: form.ceremony_longitude.trim(),
-              map_url: form.ceremony_map_url.trim(),
-              starts_at: form.ceremony_starts_at,
-              venue_name: form.ceremony_venue_name.trim(),
-            },
-            client_email: form.client_email.trim(),
-            client_name: form.client_name.trim(),
-            client_phone: form.client_phone.trim(),
-            ...(["essential", "signature", "couture"].includes(
-              form.package_code,
-            )
-              ? {
-                  couple: {
-                    partnerOneDescription: form.bride_description.trim(),
-                    partnerOneFullName: form.bride_full_name.trim(),
-                    partnerTwoDescription: form.groom_description.trim(),
-                    partnerTwoFullName: form.groom_full_name.trim(),
-                  },
-                }
-              : {}),
-            custom_approval_notes: form.custom_approval_notes.trim(),
-            custom_brief: form.custom_brief.trim(),
-            custom_checklist: {
-              assets_received: form.custom_checklist_assets,
-              copy_approved: form.custom_checklist_copy,
-              final_approved: form.custom_checklist_final,
-              motion_brief: form.custom_checklist_motion,
-              overlay_assets: form.custom_checklist_overlay,
-              parallax_plan: form.custom_checklist_parallax,
-            },
-            custom_status: form.custom_status,
-            media_urls: {
-              backsound: form.backsound_url.trim(),
-              gallery: galleryPayloadFor(form.gallery_urls, form.package_code),
-              photo: form.photo_url.trim(),
-            },
-            photo_focal: {
-              focal_x: form.photo_focal_x,
-              focal_y: form.photo_focal_y,
-            },
-            package_code: form.package_code || null,
-            payment_status: form.payment_status,
-            reception: {
-              address: form.reception_address.trim(),
-              latitude: form.reception_latitude.trim(),
-              longitude: form.reception_longitude.trim(),
-              map_url: form.reception_map_url.trim(),
-              starts_at: form.reception_starts_at,
-              venue_name: form.reception_venue_name.trim(),
-            },
-            rsvp_manual: {
-              response_rate: responseRate,
-              total_confirmed: totalConfirmed,
-              total_declined: totalDeclined,
-              total_invited: totalInvited,
-            },
-            status: workflowStatusDefaults[form.status_label] ?? "lead",
-            story: {
-              body: form.story_body.trim(),
-              heading: form.story_heading.trim(),
-              sectionBodies,
-            },
-            quote: {
-              attribution: form.quote_attribution.trim(),
-              text: form.quote_text.trim(),
-            },
-            theme_slug: form.theme_slug || null,
-            timeline: Object.fromEntries(
-              timelineBlocks.map((block) => [
-                block.mode,
-                timelineTextToEntries(form[block.field]),
-              ]),
-            ),
-            total_amount: totalAmount,
-          }),
+              client_email: form.client_email.trim(),
+              event_date: form.event_date || null,
+              client_name: form.client_name.trim(),
+              client_phone: form.client_phone.trim(),
+              notes: form.notes.trim(),
+              ...(["essential", "signature", "couture"].includes(
+                form.package_code,
+              )
+                ? {
+                    couple: {
+                      partnerOneDescription: form.bride_description.trim(),
+                      partnerOneFullName: form.bride_full_name.trim(),
+                      partnerTwoDescription: form.groom_description.trim(),
+                      partnerTwoFullName: form.groom_full_name.trim(),
+                    },
+                  }
+                : {}),
+              custom_approval_notes: form.custom_approval_notes.trim(),
+              custom_brief: form.custom_brief.trim(),
+              custom_checklist: {
+                assets_received: form.custom_checklist_assets,
+                copy_approved: form.custom_checklist_copy,
+                final_approved: form.custom_checklist_final,
+                motion_brief: form.custom_checklist_motion,
+                overlay_assets: form.custom_checklist_overlay,
+                parallax_plan: form.custom_checklist_parallax,
+              },
+              custom_status: form.custom_status,
+              media_urls: {
+                backsound: form.backsound_url.trim(),
+                gallery: galleryPayloadFor(
+                  form.gallery_urls,
+                  form.package_code,
+                ),
+                photo: form.photo_url.trim(),
+              },
+              photo_focal: {
+                focal_x: form.photo_focal_x,
+                focal_y: form.photo_focal_y,
+              },
+              package_code: form.package_code || null,
+              payment_status: form.payment_status,
+              reception: {
+                address: form.reception_address.trim(),
+                latitude: form.reception_latitude.trim(),
+                longitude: form.reception_longitude.trim(),
+                map_url: form.reception_map_url.trim(),
+                starts_at: form.reception_starts_at,
+                venue_name: form.reception_venue_name.trim(),
+              },
+              rsvp_manual: {
+                response_rate: responseRate,
+                total_confirmed: totalConfirmed,
+                total_declined: totalDeclined,
+                total_invited: totalInvited,
+              },
+              status: workflowStatusDefaults[form.status_label] ?? "lead",
+              story: {
+                body: form.story_body.trim(),
+                heading: form.story_heading.trim(),
+                sectionBodies,
+              },
+              quote: {
+                attribution: form.quote_attribution.trim(),
+                text: form.quote_text.trim(),
+              },
+              theme_slug: form.theme_slug || null,
+              timeline: Object.fromEntries(
+                timelineBlocks.map((block) => [
+                  block.mode,
+                  timelineTextToEntries(form[block.field]),
+                ]),
+              ),
+              total_amount: totalAmount,
+            }),
+          ),
           method: "PATCH",
         },
       );
@@ -913,6 +1033,51 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
     }
   }
 
+  async function issueClientPortalAccess() {
+    if (staffRole !== "owner" && staffRole !== "support") {
+      setError("Peran staff Anda tidak diizinkan mengelola akses client.");
+      return;
+    }
+    const publicSlug = detail?.invitation?.public_slug;
+    if (!publicSlug) {
+      setError(
+        "Simpan detail order terlebih dahulu agar akses client dapat dibuat.",
+      );
+      return;
+    }
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      const issued = await staffFetch<ClientAccessIssue>(
+        `/admin/invitations/${encodeURIComponent(publicSlug)}/client-access`,
+        {
+          body: JSON.stringify({}),
+          method: "POST",
+        },
+      );
+      setClientAccessIssue(issued);
+      setDetail((current) =>
+        current
+          ? {
+              ...current,
+              guest_management_url: issued.bootstrap_url,
+              wishes_url: issued.bootstrap_url,
+            }
+          : current,
+      );
+      setNotice(
+        "Akses client baru dibuat. Salin link dan PIN sekarang; PIN awal hanya ditampilkan pada respons ini.",
+      );
+    } catch (caught) {
+      setError(
+        caught instanceof Error ? caught.message : "Akses client gagal dibuat.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function copyPaymentReminder() {
     try {
       await navigator.clipboard.writeText(paymentReminderMessage(detail));
@@ -923,6 +1088,10 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
   }
 
   async function createPaymentRecord() {
+    if (staffRole !== "owner" && staffRole !== "finance") {
+      setError("Peran staff Anda tidak diizinkan mencatat pembayaran.");
+      return;
+    }
     if (!paymentRecordForm.amount.trim()) {
       setError("Nominal pembayaran wajib diisi.");
       return;
@@ -971,6 +1140,10 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
     payment: ManualPaymentRecord,
     reviewStatus: ManualPaymentReviewStatus,
   ) {
+    if (staffRole !== "owner" && staffRole !== "finance") {
+      setError("Peran staff Anda tidak diizinkan meninjau pembayaran.");
+      return;
+    }
     setSavingPayment(true);
     setError("");
     setNotice("");
@@ -1003,6 +1176,10 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
   }
 
   async function addRevisionNote() {
+    if (staffRole !== "owner" && staffRole !== "editor") {
+      setError("Peran staff Anda tidak diizinkan menambah revisi.");
+      return;
+    }
     if (!revisionNote.trim()) {
       setError("Catatan revisi wajib diisi.");
       return;
@@ -1042,6 +1219,10 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
   }
 
   async function saveRevision(revision: DetailRevision) {
+    if (staffRole !== "owner" && staffRole !== "editor") {
+      setError("Peran staff Anda tidak diizinkan mengubah revisi.");
+      return;
+    }
     setSavingRevision(true);
     setError("");
     setNotice("");
@@ -1075,6 +1256,14 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
   }
 
   const pricePreview = formatCurrency(form.total_amount || 0);
+  const canEditContent = staffRole === "owner" || staffRole === "editor";
+  const canEditContacts =
+    staffRole === "owner" || staffRole === "editor" || staffRole === "support";
+  const canEditSupportFields = staffRole === "owner" || staffRole === "support";
+  const canManageGuests = staffRole === "owner" || staffRole === "support";
+  const canManagePayments = staffRole === "owner" || staffRole === "finance";
+  const canPatchOrder =
+    canEditContent || staffRole === "support" || staffRole === "finance";
   const lifecycleLabel = linkLifecycleLabel(detail);
   const lifecycleDescription = linkLifecycleDescription(detail);
   const mediaSections = mediaPlanFor(form.package_code);
@@ -1137,15 +1326,17 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
           <ArrowLeft size={15} />
           Kembali
         </Link>
-        <button
-          className="inline-flex min-h-11 items-center gap-3 bg-[var(--color-gold)] px-4 text-xs font-semibold uppercase tracking-[0.14em] text-black transition hover:bg-[#f4ddb0] disabled:opacity-50"
-          disabled={saving || loading}
-          onClick={() => void saveDetail()}
-          type="button"
-        >
-          <Save size={15} />
-          {saving ? "Menyimpan" : "Simpan Detail"}
-        </button>
+        {canPatchOrder ? (
+          <button
+            className="inline-flex min-h-11 items-center gap-3 bg-[var(--color-gold)] px-4 text-xs font-semibold uppercase tracking-[0.14em] text-black transition hover:bg-[#f4ddb0] disabled:opacity-50"
+            disabled={saving || loading}
+            onClick={() => void saveDetail()}
+            type="button"
+          >
+            <Save size={15} />
+            {saving ? "Menyimpan" : "Simpan Detail"}
+          </button>
+        ) : null}
       </div>
 
       {error ? (
@@ -1158,10 +1349,16 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
       {saving || savingPayment || savingRevision ? (
         <NetworkAwarePreloader compact context="save" />
       ) : null}
-      {!loading && nameWarning ? (
+      {!loading && staffRole ? (
+        <Notice tone="info">
+          Akses {staffRole}. Kontrol yang tidak termasuk kewenangan peran ini
+          disembunyikan atau dibuat hanya-baca.
+        </Notice>
+      ) : null}
+      {!loading && canEditContacts && nameWarning ? (
         <Notice tone="warn">{nameWarning}</Notice>
       ) : null}
-      {!loading && missingMediaSections.length ? (
+      {!loading && canEditContent && missingMediaSections.length ? (
         <Notice tone="warn">
           Foto belum lengkap untuk{" "}
           {missingMediaSections
@@ -1184,6 +1381,7 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
               <Field label="Status">
                 <select
                   className={selectClassName}
+                  disabled={!canEditContent}
                   onChange={(event) =>
                     updateForm("status_label", event.target.value)
                   }
@@ -1192,6 +1390,10 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
                   {workflowLabels.map((label) => (
                     <option
                       className={optionClassName}
+                      disabled={
+                        staffRole === "editor" &&
+                        !editorWorkflowLabels.has(label)
+                      }
                       key={label}
                       value={label}
                     >
@@ -1200,1104 +1402,1209 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
                   ))}
                 </select>
               </Field>
-              <Field label="Status Pembayaran">
-                <select
-                  className={selectClassName}
-                  onChange={(event) =>
-                    updateForm(
-                      "payment_status",
-                      event.target.value as PaymentStatus,
-                    )
-                  }
-                  value={form.payment_status}
-                >
-                  {Object.entries(paymentLabels).map(([value, label]) => (
-                    <option
-                      className={optionClassName}
-                      key={value}
-                      value={value}
+              {canManagePayments ? (
+                <>
+                  <Field label="Status Pembayaran">
+                    <select
+                      className={selectClassName}
+                      disabled
+                      onChange={(event) =>
+                        updateForm(
+                          "payment_status",
+                          event.target.value as PaymentStatus,
+                        )
+                      }
+                      value={form.payment_status}
                     >
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label={`Harga (${pricePreview})`}>
-                <input
-                  className={controlClassName}
-                  onChange={(event) =>
-                    updateForm("total_amount", event.target.value)
-                  }
-                  value={form.total_amount}
-                />
-              </Field>
+                      {Object.entries(paymentLabels).map(([value, label]) => (
+                        <option
+                          className={optionClassName}
+                          key={value}
+                          value={value}
+                        >
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label={`Harga (${pricePreview})`}>
+                    <input
+                      className={controlClassName}
+                      disabled={!canManagePayments}
+                      onChange={(event) =>
+                        updateForm("total_amount", event.target.value)
+                      }
+                      value={form.total_amount}
+                    />
+                  </Field>
+                </>
+              ) : null}
             </div>
           </Panel>
 
-          <Panel eyebrow="Finance" title="Pembayaran manual.">
-            <div className="grid gap-3 md:grid-cols-4">
-              <MiniMetric
-                label="Tagihan"
-                value={formatCurrency(form.total_amount || 0)}
-              />
-              <MiniMetric
-                label="Valid"
-                value={formatCurrency(detail?.payment_summary.valid_total ?? 0)}
-              />
-              <MiniMetric
-                label="Menunggu"
-                value={formatCurrency(
-                  detail?.payment_summary.pending_total ?? 0,
-                )}
-              />
-              <MiniMetric
-                label="Sisa"
-                value={formatCurrency(
-                  detail?.payment_summary.outstanding ?? form.total_amount,
-                )}
-              />
-            </div>
+          {canManagePayments ? (
+            <Panel eyebrow="Finance" title="Pembayaran manual.">
+              <div className="grid gap-3 md:grid-cols-4">
+                <MiniMetric
+                  label="Tagihan"
+                  value={formatCurrency(form.total_amount || 0)}
+                />
+                <MiniMetric
+                  label="Valid"
+                  value={formatCurrency(
+                    detail?.payment_summary.valid_total ?? 0,
+                  )}
+                />
+                <MiniMetric
+                  label="Menunggu"
+                  value={formatCurrency(
+                    detail?.payment_summary.pending_total ?? 0,
+                  )}
+                />
+                <MiniMetric
+                  label="Sisa"
+                  value={formatCurrency(
+                    detail?.payment_summary.outstanding ?? form.total_amount,
+                  )}
+                />
+              </div>
 
-            <div className="mt-5 grid gap-4 md:grid-cols-3">
-              <Field label="Jenis">
-                <select
-                  className={selectClassName}
-                  onChange={(event) =>
-                    updatePaymentRecordForm(
-                      "payment_type",
-                      event.target.value as ManualPaymentType,
-                    )
-                  }
-                  value={paymentRecordForm.payment_type}
-                >
-                  {Object.entries(manualPaymentTypeLabels).map(
-                    ([value, label]) => (
-                      <option
-                        className={optionClassName}
-                        key={value}
-                        value={value}
-                      >
-                        {label}
-                      </option>
-                    ),
-                  )}
-                </select>
-              </Field>
-              <Field label="Metode">
-                <select
-                  className={selectClassName}
-                  onChange={(event) =>
-                    updatePaymentRecordForm(
-                      "method",
-                      event.target.value as ManualPaymentMethod,
-                    )
-                  }
-                  value={paymentRecordForm.method}
-                >
-                  {Object.entries(manualPaymentMethodLabels).map(
-                    ([value, label]) => (
-                      <option
-                        className={optionClassName}
-                        key={value}
-                        value={value}
-                      >
-                        {label}
-                      </option>
-                    ),
-                  )}
-                </select>
-              </Field>
-              <Field label="Status Bukti">
-                <select
-                  className={selectClassName}
-                  onChange={(event) =>
-                    updatePaymentRecordForm(
-                      "review_status",
-                      event.target.value as ManualPaymentReviewStatus,
-                    )
-                  }
-                  value={paymentRecordForm.review_status}
-                >
-                  {Object.entries(manualPaymentReviewLabels).map(
-                    ([value, label]) => (
-                      <option
-                        className={optionClassName}
-                        key={value}
-                        value={value}
-                      >
-                        {label}
-                      </option>
-                    ),
-                  )}
-                </select>
-              </Field>
-              <Field label="Nominal">
-                <input
-                  className={controlClassName}
-                  onChange={(event) =>
-                    updatePaymentRecordForm("amount", event.target.value)
-                  }
-                  placeholder="99000 atau 99.000"
-                  value={paymentRecordForm.amount}
-                />
-              </Field>
-              <Field label="Tanggal Bayar">
-                <input
-                  className={controlClassName}
-                  onChange={(event) =>
-                    updatePaymentRecordForm("paid_at", event.target.value)
-                  }
-                  type="datetime-local"
-                  value={paymentRecordForm.paid_at}
-                />
-              </Field>
-              <Field label="Bukti Transfer Cloudinary URL">
-                <input
-                  className={controlClassName}
-                  onChange={(event) =>
-                    updatePaymentRecordForm("proof_url", event.target.value)
-                  }
-                  placeholder="https://res.cloudinary.com/..."
-                  value={paymentRecordForm.proof_url}
-                />
-              </Field>
-              <Field label="Catatan">
-                <input
-                  className={controlClassName}
-                  onChange={(event) =>
-                    updatePaymentRecordForm("note", event.target.value)
-                  }
-                  placeholder="DP dari rekening BCA..."
-                  value={paymentRecordForm.note}
-                />
-              </Field>
-              <Field label="Alasan ditolak">
-                <input
-                  className={controlClassName}
-                  onChange={(event) =>
-                    updatePaymentRecordForm(
-                      "rejection_reason",
-                      event.target.value,
-                    )
-                  }
-                  placeholder="Nominal tidak sesuai"
-                  value={paymentRecordForm.rejection_reason}
-                />
-              </Field>
-              <div className="flex items-end">
+              <div className="mt-5 grid gap-4 md:grid-cols-3">
+                <Field label="Jenis">
+                  <select
+                    className={selectClassName}
+                    onChange={(event) =>
+                      updatePaymentRecordForm(
+                        "payment_type",
+                        event.target.value as ManualPaymentType,
+                      )
+                    }
+                    value={paymentRecordForm.payment_type}
+                  >
+                    {Object.entries(manualPaymentTypeLabels).map(
+                      ([value, label]) => (
+                        <option
+                          className={optionClassName}
+                          key={value}
+                          value={value}
+                        >
+                          {label}
+                        </option>
+                      ),
+                    )}
+                  </select>
+                </Field>
+                <Field label="Metode">
+                  <select
+                    className={selectClassName}
+                    onChange={(event) =>
+                      updatePaymentRecordForm(
+                        "method",
+                        event.target.value as ManualPaymentMethod,
+                      )
+                    }
+                    value={paymentRecordForm.method}
+                  >
+                    {Object.entries(manualPaymentMethodLabels).map(
+                      ([value, label]) => (
+                        <option
+                          className={optionClassName}
+                          key={value}
+                          value={value}
+                        >
+                          {label}
+                        </option>
+                      ),
+                    )}
+                  </select>
+                </Field>
+                <Field label="Status Bukti">
+                  <select
+                    className={selectClassName}
+                    onChange={(event) =>
+                      updatePaymentRecordForm(
+                        "review_status",
+                        event.target.value as ManualPaymentReviewStatus,
+                      )
+                    }
+                    value={paymentRecordForm.review_status}
+                  >
+                    {Object.entries(manualPaymentReviewLabels).map(
+                      ([value, label]) => (
+                        <option
+                          className={optionClassName}
+                          key={value}
+                          value={value}
+                        >
+                          {label}
+                        </option>
+                      ),
+                    )}
+                  </select>
+                </Field>
+                <Field label="Nominal">
+                  <input
+                    className={controlClassName}
+                    onChange={(event) =>
+                      updatePaymentRecordForm("amount", event.target.value)
+                    }
+                    placeholder="99000 atau 99.000"
+                    value={paymentRecordForm.amount}
+                  />
+                </Field>
+                <Field label="Tanggal Bayar">
+                  <input
+                    className={controlClassName}
+                    onChange={(event) =>
+                      updatePaymentRecordForm("paid_at", event.target.value)
+                    }
+                    type="datetime-local"
+                    value={paymentRecordForm.paid_at}
+                  />
+                </Field>
+                <Field label="Bukti Transfer Cloudinary URL">
+                  <input
+                    className={controlClassName}
+                    onChange={(event) =>
+                      updatePaymentRecordForm("proof_url", event.target.value)
+                    }
+                    placeholder="https://res.cloudinary.com/..."
+                    value={paymentRecordForm.proof_url}
+                  />
+                </Field>
+                <Field label="Catatan">
+                  <input
+                    className={controlClassName}
+                    onChange={(event) =>
+                      updatePaymentRecordForm("note", event.target.value)
+                    }
+                    placeholder="DP dari rekening BCA..."
+                    value={paymentRecordForm.note}
+                  />
+                </Field>
+                <Field label="Alasan ditolak">
+                  <input
+                    className={controlClassName}
+                    onChange={(event) =>
+                      updatePaymentRecordForm(
+                        "rejection_reason",
+                        event.target.value,
+                      )
+                    }
+                    placeholder="Nominal tidak sesuai"
+                    value={paymentRecordForm.rejection_reason}
+                  />
+                </Field>
+                <div className="flex items-end">
+                  <button
+                    className="inline-flex min-h-11 w-full items-center justify-center gap-3 bg-[var(--color-gold)] px-4 text-xs font-semibold uppercase tracking-[0.14em] text-black transition hover:bg-[#f4ddb0] disabled:opacity-50"
+                    disabled={savingPayment}
+                    onClick={() => void createPaymentRecord()}
+                    type="button"
+                  >
+                    <Plus size={15} />
+                    {savingPayment ? "Mencatat" : "Catat Payment"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-5 flex flex-wrap gap-3">
                 <button
-                  className="inline-flex min-h-11 w-full items-center justify-center gap-3 bg-[var(--color-gold)] px-4 text-xs font-semibold uppercase tracking-[0.14em] text-black transition hover:bg-[#f4ddb0] disabled:opacity-50"
-                  disabled={savingPayment}
-                  onClick={() => void createPaymentRecord()}
+                  className={outlineButtonClassName}
+                  onClick={() => void copyPaymentReminder()}
                   type="button"
                 >
-                  <Plus size={15} />
-                  {savingPayment ? "Mencatat" : "Catat Payment"}
+                  <MessageCircle size={15} />
+                  Copy Reminder WA
                 </button>
               </div>
-            </div>
 
-            <div className="mt-5 flex flex-wrap gap-3">
-              <button
-                className={outlineButtonClassName}
-                onClick={() => void copyPaymentReminder()}
-                type="button"
-              >
-                <MessageCircle size={15} />
-                Copy Reminder WA
-              </button>
-            </div>
-
-            <div className="mt-5 overflow-x-auto border border-white/10">
-              <table className="w-full min-w-[860px] border-collapse text-left text-sm">
-                <thead className="bg-white/[0.03] text-xs uppercase tracking-[0.14em] text-white/45">
-                  <tr>
-                    <th className="px-4 py-3">Jenis</th>
-                    <th className="px-4 py-3">Nominal</th>
-                    <th className="px-4 py-3">Metode</th>
-                    <th className="px-4 py-3">Tanggal</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {detail?.payments.length ? null : (
+              <div className="mt-5 overflow-x-auto border border-white/10">
+                <table className="w-full min-w-[860px] border-collapse text-left text-sm">
+                  <thead className="bg-white/[0.03] text-xs uppercase tracking-[0.14em] text-white/45">
                     <tr>
-                      <td className="px-4 py-6 text-white/45" colSpan={6}>
-                        Belum ada pembayaran yang dicatat.
-                      </td>
+                      <th className="px-4 py-3">Jenis</th>
+                      <th className="px-4 py-3">Nominal</th>
+                      <th className="px-4 py-3">Metode</th>
+                      <th className="px-4 py-3">Tanggal</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3">Action</th>
                     </tr>
-                  )}
-                  {detail?.payments.map((payment) => (
-                    <tr className="border-t border-white/10" key={payment.id}>
-                      <td className="px-4 py-4">
-                        <p className="font-semibold text-white">
-                          {manualPaymentTypeLabels[payment.payment_type]}
-                        </p>
-                        {payment.proof_url ? (
-                          <a
-                            className="mt-1 block text-xs text-[var(--color-gold)]"
-                            href={payment.proof_url}
-                            rel="noreferrer"
-                            target="_blank"
-                          >
-                            Buka bukti
-                          </a>
-                        ) : null}
-                      </td>
-                      <td className="px-4 py-4 text-white/70">
-                        {formatCurrency(payment.amount)}
-                      </td>
-                      <td className="px-4 py-4 text-white/60">
-                        {manualPaymentMethodLabels[payment.method]}
-                      </td>
-                      <td className="px-4 py-4 text-white/60">
-                        {payment.paid_at
-                          ? new Date(payment.paid_at).toLocaleDateString(
-                              "id-ID",
-                            )
-                          : "-"}
-                      </td>
-                      <td className="px-4 py-4 text-white/60">
-                        {manualPaymentReviewLabels[payment.review_status]}
-                        {payment.review_status === "rejected" &&
-                        payment.rejection_reason ? (
-                          <p className="mt-1 text-xs text-red-200">
-                            {payment.rejection_reason}
+                  </thead>
+                  <tbody>
+                    {detail?.payments.length ? null : (
+                      <tr>
+                        <td className="px-4 py-6 text-white/45" colSpan={6}>
+                          Belum ada pembayaran yang dicatat.
+                        </td>
+                      </tr>
+                    )}
+                    {detail?.payments.map((payment) => (
+                      <tr className="border-t border-white/10" key={payment.id}>
+                        <td className="px-4 py-4">
+                          <p className="font-semibold text-white">
+                            {manualPaymentTypeLabels[payment.payment_type]}
                           </p>
-                        ) : null}
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            className={outlineButtonClassName}
-                            disabled={savingPayment}
-                            onClick={() =>
-                              void updatePaymentReview(payment, "valid")
-                            }
-                            type="button"
-                          >
-                            Valid
-                          </button>
-                          <button
-                            className={outlineButtonClassName}
-                            disabled={savingPayment}
-                            onClick={() =>
-                              void updatePaymentReview(payment, "rejected")
-                            }
-                            type="button"
-                          >
-                            Tolak
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Panel>
+                          {payment.proof_url ? (
+                            <a
+                              className="mt-1 block text-xs text-[var(--color-gold)]"
+                              href={payment.proof_url}
+                              rel="noreferrer"
+                              target="_blank"
+                            >
+                              Buka bukti
+                            </a>
+                          ) : null}
+                        </td>
+                        <td className="px-4 py-4 text-white/70">
+                          {formatCurrency(payment.amount)}
+                        </td>
+                        <td className="px-4 py-4 text-white/60">
+                          {manualPaymentMethodLabels[payment.method]}
+                        </td>
+                        <td className="px-4 py-4 text-white/60">
+                          {payment.paid_at
+                            ? new Date(payment.paid_at).toLocaleDateString(
+                                "id-ID",
+                              )
+                            : "-"}
+                        </td>
+                        <td className="px-4 py-4 text-white/60">
+                          {manualPaymentReviewLabels[payment.review_status]}
+                          {payment.review_status === "rejected" &&
+                          payment.rejection_reason ? (
+                            <p className="mt-1 text-xs text-red-200">
+                              {payment.rejection_reason}
+                            </p>
+                          ) : null}
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              className={outlineButtonClassName}
+                              disabled={savingPayment}
+                              onClick={() =>
+                                void updatePaymentReview(payment, "valid")
+                              }
+                              type="button"
+                            >
+                              Valid
+                            </button>
+                            <button
+                              className={outlineButtonClassName}
+                              disabled={savingPayment}
+                              onClick={() =>
+                                void updatePaymentReview(payment, "rejected")
+                              }
+                              type="button"
+                            >
+                              Tolak
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Panel>
+          ) : null}
 
-          <Panel eyebrow="Data Client" title="Informasi customer dan acara.">
-            <div className="max-w-xl">
-              <Field label="Nama panggilan pasangan (cover)">
-                <input
-                  className={controlClassName}
-                  onChange={(event) =>
-                    updateForm("client_name", event.target.value)
-                  }
-                  placeholder="Reno dan Erisa"
-                  value={form.client_name}
-                />
-                <p className="mt-2 text-xs leading-5 text-white/45">
-                  Dipakai di cover undangan, contoh: Reno &amp; Erisa.
-                </p>
-                {nameWarning ? (
-                  <p className="mt-2 text-xs leading-5 text-[#f4ddb0]">
-                    {nameWarning}
+          {canEditContacts ? (
+            <Panel eyebrow="Data Client" title="Informasi customer dan acara.">
+              <div className="max-w-xl">
+                <Field label="Nama panggilan pasangan (cover)">
+                  <input
+                    className={controlClassName}
+                    onChange={(event) =>
+                      updateForm("client_name", event.target.value)
+                    }
+                    placeholder="Reno dan Erisa"
+                    value={form.client_name}
+                  />
+                  <p className="mt-2 text-xs leading-5 text-white/45">
+                    Dipakai di cover undangan, contoh: Reno &amp; Erisa.
                   </p>
-                ) : null}
-              </Field>
-            </div>
-            {["essential", "signature", "couture"].includes(
-              form.package_code,
-            ) ? (
+                  {nameWarning ? (
+                    <p className="mt-2 text-xs leading-5 text-[#f4ddb0]">
+                      {nameWarning}
+                    </p>
+                  ) : null}
+                </Field>
+              </div>
               <div className="mt-5 grid gap-4 md:grid-cols-2">
-                <Field label="Nama lengkap mempelai pria (Section 2)">
+                {canEditSupportFields ? (
+                  <>
+                    <Field label="Email client">
+                      <input
+                        className={controlClassName}
+                        onChange={(event) =>
+                          updateForm("client_email", event.target.value)
+                        }
+                        type="email"
+                        value={form.client_email}
+                      />
+                    </Field>
+                    <Field label="Nomor WhatsApp client">
+                      <input
+                        className={controlClassName}
+                        onChange={(event) =>
+                          updateForm("client_phone", event.target.value)
+                        }
+                        type="tel"
+                        value={form.client_phone}
+                      />
+                    </Field>
+                  </>
+                ) : null}
+                <Field label="Tanggal acara ringkas">
                   <input
                     className={controlClassName}
-                    maxLength={120}
                     onChange={(event) =>
-                      updateForm("groom_full_name", event.target.value)
+                      updateForm("event_date", event.target.value)
                     }
-                    placeholder="Contoh: Muhammad Reno Pratama"
-                    value={form.groom_full_name}
+                    type="date"
+                    value={form.event_date}
                   />
                 </Field>
-                <Field label="Nama lengkap mempelai wanita (Section 2)">
-                  <input
-                    className={controlClassName}
-                    maxLength={120}
-                    onChange={(event) =>
-                      updateForm("bride_full_name", event.target.value)
-                    }
-                    placeholder="Contoh: Erisa Putri Maharani"
-                    value={form.bride_full_name}
-                  />
-                </Field>
-                <Field label="Keterangan mempelai pria">
+                <Field label="Catatan operasional">
                   <textarea
-                    className={`${controlClassName} min-h-28 py-3`}
-                    maxLength={300}
+                    className={`${controlClassName} min-h-24 py-3`}
                     onChange={(event) =>
-                      updateForm("groom_description", event.target.value)
+                      updateForm("notes", event.target.value)
                     }
-                    placeholder="Contoh: Putra dari Bapak ... dan Ibu ..."
-                    value={form.groom_description}
-                  />
-                </Field>
-                <Field label="Keterangan mempelai wanita">
-                  <textarea
-                    className={`${controlClassName} min-h-28 py-3`}
-                    maxLength={300}
-                    onChange={(event) =>
-                      updateForm("bride_description", event.target.value)
-                    }
-                    placeholder="Contoh: Putri dari Bapak ... dan Ibu ..."
-                    value={form.bride_description}
+                    value={form.notes}
                   />
                 </Field>
               </div>
-            ) : null}
-            <div className="mt-5 grid gap-4 md:grid-cols-2">
-              <EventFields
-                address={form.ceremony_address}
-                latitude={form.ceremony_latitude}
-                longitude={form.ceremony_longitude}
-                mapUrl={form.ceremony_map_url}
-                onChange={updateForm}
-                startsAt={form.ceremony_starts_at}
-                title="Akad"
-                venueName={form.ceremony_venue_name}
-                prefix="ceremony"
-              />
-              <EventFields
-                address={form.reception_address}
-                latitude={form.reception_latitude}
-                longitude={form.reception_longitude}
-                mapUrl={form.reception_map_url}
-                onChange={updateForm}
-                startsAt={form.reception_starts_at}
-                title="Resepsi"
-                venueName={form.reception_venue_name}
-                prefix="reception"
-              />
-            </div>
-          </Panel>
+              {canEditContent &&
+              ["essential", "signature", "couture"].includes(
+                form.package_code,
+              ) ? (
+                <div className="mt-5 grid gap-4 md:grid-cols-2">
+                  <Field label="Nama lengkap mempelai pria (Section 2)">
+                    <input
+                      className={controlClassName}
+                      maxLength={120}
+                      onChange={(event) =>
+                        updateForm("groom_full_name", event.target.value)
+                      }
+                      placeholder="Contoh: Muhammad Reno Pratama"
+                      value={form.groom_full_name}
+                    />
+                  </Field>
+                  <Field label="Nama lengkap mempelai wanita (Section 2)">
+                    <input
+                      className={controlClassName}
+                      maxLength={120}
+                      onChange={(event) =>
+                        updateForm("bride_full_name", event.target.value)
+                      }
+                      placeholder="Contoh: Erisa Putri Maharani"
+                      value={form.bride_full_name}
+                    />
+                  </Field>
+                  <Field label="Keterangan mempelai pria">
+                    <textarea
+                      className={`${controlClassName} min-h-28 py-3`}
+                      maxLength={300}
+                      onChange={(event) =>
+                        updateForm("groom_description", event.target.value)
+                      }
+                      placeholder="Contoh: Putra dari Bapak ... dan Ibu ..."
+                      value={form.groom_description}
+                    />
+                  </Field>
+                  <Field label="Keterangan mempelai wanita">
+                    <textarea
+                      className={`${controlClassName} min-h-28 py-3`}
+                      maxLength={300}
+                      onChange={(event) =>
+                        updateForm("bride_description", event.target.value)
+                      }
+                      placeholder="Contoh: Putri dari Bapak ... dan Ibu ..."
+                      value={form.bride_description}
+                    />
+                  </Field>
+                </div>
+              ) : null}
+              {canEditContent ? (
+                <div className="mt-5 grid gap-4 md:grid-cols-2">
+                  <EventFields
+                    address={form.ceremony_address}
+                    latitude={form.ceremony_latitude}
+                    longitude={form.ceremony_longitude}
+                    mapUrl={form.ceremony_map_url}
+                    onChange={updateForm}
+                    startsAt={form.ceremony_starts_at}
+                    title="Akad"
+                    venueName={form.ceremony_venue_name}
+                    prefix="ceremony"
+                  />
+                  <EventFields
+                    address={form.reception_address}
+                    latitude={form.reception_latitude}
+                    longitude={form.reception_longitude}
+                    mapUrl={form.reception_map_url}
+                    onChange={updateForm}
+                    startsAt={form.reception_starts_at}
+                    title="Resepsi"
+                    venueName={form.reception_venue_name}
+                    prefix="reception"
+                  />
+                </div>
+              ) : null}
+            </Panel>
+          ) : null}
 
-          <Panel eyebrow="Tema & Paket" title="Produk undangan.">
-            <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Tema">
-                <select
-                  className={selectClassName}
-                  onChange={(event) =>
-                    updateForm("theme_slug", event.target.value)
-                  }
-                  value={form.theme_slug}
-                >
-                  <option className={optionClassName} value="">
-                    Belum memilih tema
-                  </option>
-                  {themes.map((theme) => (
-                    <option
-                      className={optionClassName}
-                      key={theme.slug}
-                      value={theme.slug}
+          {canEditContent ? (
+            <>
+              <Panel eyebrow="Tema & Paket" title="Produk undangan.">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Field label="Tema">
+                    <select
+                      className={selectClassName}
+                      onChange={(event) =>
+                        updateForm("theme_slug", event.target.value)
+                      }
+                      value={form.theme_slug}
                     >
-                      {theme.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Paket">
-                <select
-                  className={selectClassName}
-                  onChange={(event) =>
-                    updateForm("package_code", event.target.value)
-                  }
-                  value={form.package_code}
-                >
-                  <option className={optionClassName} value="">
-                    Belum memilih paket
-                  </option>
-                  {packages.map((pack) => (
-                    <option
-                      className={optionClassName}
-                      key={pack.code}
-                      value={pack.code}
+                      <option className={optionClassName} value="">
+                        Belum memilih tema
+                      </option>
+                      {themes.map((theme) => (
+                        <option
+                          className={optionClassName}
+                          key={theme.slug}
+                          value={theme.slug}
+                        >
+                          {theme.name}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Paket">
+                    <select
+                      className={selectClassName}
+                      onChange={(event) =>
+                        updateForm("package_code", event.target.value)
+                      }
+                      value={form.package_code}
                     >
-                      {pack.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-            </div>
-          </Panel>
+                      <option className={optionClassName} value="">
+                        Belum memilih paket
+                      </option>
+                      {packages.map((pack) => (
+                        <option
+                          className={optionClassName}
+                          key={pack.code}
+                          value={pack.code}
+                        >
+                          {pack.name}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                </div>
+              </Panel>
 
-          <Panel eyebrow="Cerita & Timeline" title="Konten editorial.">
-            <div className="grid gap-4 md:grid-cols-[0.7fr_1.3fr]">
-              <Field label="Judul cerita">
-                <input
-                  className={controlClassName}
-                  onChange={(event) =>
-                    updateForm("story_heading", event.target.value)
-                  }
-                  placeholder="Cerita kami"
-                  value={form.story_heading}
-                />
-              </Field>
-              <Field label="Opening / cerita utama">
-                <textarea
-                  className="min-h-28 w-full border border-white/12 bg-black/20 p-3 text-sm text-white outline-none transition focus:border-[var(--color-gold)]"
-                  onChange={(event) =>
-                    updateForm("story_body", event.target.value)
-                  }
-                  placeholder="Tulis paragraf pembuka pasangan. Jika dikosongkan, preview memakai copy default tema."
-                  value={form.story_body}
-                />
-              </Field>
-            </div>
-
-            {storyCopyBlocks.length ? (
-              <div className="mt-5 grid gap-4 md:grid-cols-2">
-                {storyCopyBlocks.map((block) => (
-                  <Field
-                    key={block.field}
-                    label={`${block.label} - ${block.description}`}
-                  >
+              <Panel eyebrow="Cerita & Timeline" title="Konten editorial.">
+                <div className="grid gap-4 md:grid-cols-[0.7fr_1.3fr]">
+                  <Field label="Judul cerita">
+                    <input
+                      className={controlClassName}
+                      onChange={(event) =>
+                        updateForm("story_heading", event.target.value)
+                      }
+                      placeholder="Cerita kami"
+                      value={form.story_heading}
+                    />
+                  </Field>
+                  <Field label="Opening / cerita utama">
                     <textarea
                       className="min-h-28 w-full border border-white/12 bg-black/20 p-3 text-sm text-white outline-none transition focus:border-[var(--color-gold)]"
                       onChange={(event) =>
-                        updateForm(block.field, event.target.value)
+                        updateForm("story_body", event.target.value)
                       }
-                      placeholder="Kosongkan untuk memakai copy default template."
-                      value={form[block.field]}
+                      placeholder="Tulis paragraf pembuka pasangan. Jika dikosongkan, preview memakai copy default tema."
+                      value={form.story_body}
                     />
                   </Field>
-                ))}
-              </div>
-            ) : null}
-
-            <div className="mt-5 border border-white/10 bg-black/20 p-4">
-              <div className="mb-4">
-                <p className="text-xs uppercase tracking-[0.16em] text-[var(--color-gold)]">
-                  Kutipan undangan
-                </p>
-                <p className="mt-2 text-sm leading-6 text-white/55">
-                  Teks dan sumber berlaku pada preview serta undangan
-                  terpublikasi. Field kosong memakai kutipan default template.
-                  Copy paket lain tetap tersimpan saat paket diganti.
-                </p>
-              </div>
-              <div className="grid gap-4 md:grid-cols-[1.4fr_0.6fr]">
-                <Field label="Teks kutipan">
-                  <textarea
-                    className="min-h-24 w-full border border-white/12 bg-black/20 p-3 text-sm text-white outline-none transition focus:border-[var(--color-gold)]"
-                    onChange={(event) =>
-                      updateForm("quote_text", event.target.value)
-                    }
-                    placeholder="Dan di antara tanda-tanda kebesaran-Nya ialah Dia menciptakan pasangan-pasangan untukmu."
-                    value={form.quote_text}
-                  />
-                </Field>
-                <Field label="Sumber / atribusi">
-                  <input
-                    className={controlClassName}
-                    onChange={(event) =>
-                      updateForm("quote_attribution", event.target.value)
-                    }
-                    placeholder="Ar-Rum · 21"
-                    value={form.quote_attribution}
-                  />
-                </Field>
-              </div>
-            </div>
-
-            {timelineBlocks.length ? (
-              <div className="mt-5 grid gap-4">
-                <div className="border border-[var(--color-gold)]/35 bg-[var(--color-gold)]/10 p-4 text-sm leading-6 text-white/70">
-                  Isi satu timeline per baris dengan format{" "}
-                  <span className="font-semibold text-white">
-                    01 | Judul | Deskripsi
-                  </span>
-                  . Kosongkan blok yang ingin memakai timeline default template.
                 </div>
-                {timelineBlocks.map((block) => (
-                  <Field
-                    key={block.mode}
-                    label={`${block.label} - ${block.description}`}
-                  >
-                    <textarea
-                      className="min-h-32 w-full border border-white/12 bg-black/20 p-3 text-sm text-white outline-none transition focus:border-[var(--color-gold)]"
-                      onChange={(event) =>
-                        updateForm(block.field, event.target.value)
-                      }
-                      placeholder={
-                        "01 | Bertemu | Sebuah awal yang sederhana...\n02 | Bertumbuh | Cerita itu tumbuh melalui waktu..."
-                      }
-                      value={form[block.field]}
-                    />
-                  </Field>
-                ))}
-              </div>
-            ) : (
-              <p className="mt-4 border border-white/10 bg-black/20 p-4 text-sm leading-6 text-white/55">
-                Paket Essential memakai short love story tanpa timeline panjang.
-                Signature dan Couture akan menampilkan blok timeline tambahan
-                sesuai struktur paket.
-              </p>
-            )}
-          </Panel>
 
-          <Panel eyebrow="Custom Request" title="Brief dan approval.">
-            <div className="grid gap-4 md:grid-cols-[0.7fr_1.3fr]">
-              <Field label="Status custom">
-                <select
-                  className={selectClassName}
-                  onChange={(event) =>
-                    updateForm(
-                      "custom_status",
-                      event.target.value as CustomStatus,
-                    )
-                  }
-                  value={form.custom_status}
-                >
-                  {Object.entries(customStatusLabels).map(([value, label]) => (
-                    <option
-                      className={optionClassName}
-                      key={value}
-                      value={value}
-                    >
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Catatan approval">
-                <input
-                  className={controlClassName}
-                  onChange={(event) =>
-                    updateForm("custom_approval_notes", event.target.value)
-                  }
-                  placeholder="Scope disetujui, estimasi, batas revisi, atau alasan ditolak."
-                  value={form.custom_approval_notes}
-                />
-              </Field>
-            </div>
-            <Field label="Brief custom">
-              <textarea
-                className="min-h-36 w-full border border-white/12 bg-black/20 p-3 text-sm text-white outline-none transition focus:border-[var(--color-gold)]"
-                onChange={(event) =>
-                  updateForm("custom_brief", event.target.value)
-                }
-                placeholder="Mood, referensi, love story/timeline, art direction, parallax, overlay motion, deadline, dan batasan request."
-                value={form.custom_brief}
-              />
-            </Field>
-            <div className="mt-5 grid gap-3 md:grid-cols-2">
-              <CustomChecklistItem
-                checked={form.custom_checklist_assets}
-                label="Asset lengkap"
-                onChange={(checked) =>
-                  setForm((current) => ({
-                    ...current,
-                    custom_checklist_assets: checked,
-                  }))
-                }
-              />
-              <CustomChecklistItem
-                checked={form.custom_checklist_motion}
-                label="Brief motion jelas"
-                onChange={(checked) =>
-                  setForm((current) => ({
-                    ...current,
-                    custom_checklist_motion: checked,
-                  }))
-                }
-              />
-              <CustomChecklistItem
-                checked={form.custom_checklist_overlay}
-                label="Overlay asset siap"
-                onChange={(checked) =>
-                  setForm((current) => ({
-                    ...current,
-                    custom_checklist_overlay: checked,
-                  }))
-                }
-              />
-              <CustomChecklistItem
-                checked={form.custom_checklist_parallax}
-                label="Parallax plan aman"
-                onChange={(checked) =>
-                  setForm((current) => ({
-                    ...current,
-                    custom_checklist_parallax: checked,
-                  }))
-                }
-              />
-              <CustomChecklistItem
-                checked={form.custom_checklist_copy}
-                label="Copy/story approved"
-                onChange={(checked) =>
-                  setForm((current) => ({
-                    ...current,
-                    custom_checklist_copy: checked,
-                  }))
-                }
-              />
-              <CustomChecklistItem
-                checked={form.custom_checklist_final}
-                label="Final approval"
-                onChange={(checked) =>
-                  setForm((current) => ({
-                    ...current,
-                    custom_checklist_final: checked,
-                  }))
-                }
-              />
-            </div>
-          </Panel>
+                {storyCopyBlocks.length ? (
+                  <div className="mt-5 grid gap-4 md:grid-cols-2">
+                    {storyCopyBlocks.map((block) => (
+                      <Field
+                        key={block.field}
+                        label={`${block.label} - ${block.description}`}
+                      >
+                        <textarea
+                          className="min-h-28 w-full border border-white/12 bg-black/20 p-3 text-sm text-white outline-none transition focus:border-[var(--color-gold)]"
+                          onChange={(event) =>
+                            updateForm(block.field, event.target.value)
+                          }
+                          placeholder="Kosongkan untuk memakai copy default template."
+                          value={form[block.field]}
+                        />
+                      </Field>
+                    ))}
+                  </div>
+                ) : null}
 
-          <Panel eyebrow="Media" title="Foto, galeri, dan musik.">
-            <div className="grid gap-4">
-              <Field label="Foto cover utama (Cloudinary URL)">
-                <input
-                  className={controlClassName}
-                  onChange={(event) =>
-                    updateForm("photo_url", event.target.value)
-                  }
-                  placeholder="https://res.cloudinary.com/..."
-                  value={form.photo_url}
-                />
-              </Field>
-              <CoverFocalPreview
-                focalX={form.photo_focal_x}
-                focalY={form.photo_focal_y}
-                onFocalChange={(x, y) =>
-                  setForm((current) => ({
-                    ...current,
-                    photo_focal_x: normalizeFocalPoint(x),
-                    photo_focal_y: normalizeFocalPoint(y),
-                  }))
-                }
-                photoUrl={form.photo_url}
-              />
-              <div className="border border-white/10 bg-black/20 p-4">
-                <div className="flex flex-wrap items-end justify-between gap-3">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.16em] text-white/45">
-                      Galeri per section
+                <div className="mt-5 border border-white/10 bg-black/20 p-4">
+                  <div className="mb-4">
+                    <p className="text-xs uppercase tracking-[0.16em] text-[var(--color-gold)]">
+                      Kutipan undangan
                     </p>
                     <p className="mt-2 text-sm leading-6 text-white/55">
-                      Paket {form.package_code || "Essential"} membutuhkan{" "}
-                      {expectedGalleryCount} foto. Isi berurutan sesuai section
-                      agar preview customer dan undangan final tidak tertukar.
+                      Teks dan sumber berlaku pada preview serta undangan
+                      terpublikasi. Field kosong memakai kutipan default
+                      template. Copy paket lain tetap tersimpan saat paket
+                      diganti.
                     </p>
                   </div>
-                  <p className="text-xs uppercase tracking-[0.14em] text-[var(--color-gold)]">
-                    {filledGalleryCount}/{expectedGalleryCount} terisi
+                  <div className="grid gap-4 md:grid-cols-[1.4fr_0.6fr]">
+                    <Field label="Teks kutipan">
+                      <textarea
+                        className="min-h-24 w-full border border-white/12 bg-black/20 p-3 text-sm text-white outline-none transition focus:border-[var(--color-gold)]"
+                        onChange={(event) =>
+                          updateForm("quote_text", event.target.value)
+                        }
+                        placeholder="Dan di antara tanda-tanda kebesaran-Nya ialah Dia menciptakan pasangan-pasangan untukmu."
+                        value={form.quote_text}
+                      />
+                    </Field>
+                    <Field label="Sumber / atribusi">
+                      <input
+                        className={controlClassName}
+                        onChange={(event) =>
+                          updateForm("quote_attribution", event.target.value)
+                        }
+                        placeholder="Ar-Rum · 21"
+                        value={form.quote_attribution}
+                      />
+                    </Field>
+                  </div>
+                </div>
+
+                {timelineBlocks.length ? (
+                  <div className="mt-5 grid gap-4">
+                    <div className="border border-[var(--color-gold)]/35 bg-[var(--color-gold)]/10 p-4 text-sm leading-6 text-white/70">
+                      Isi satu timeline per baris dengan format{" "}
+                      <span className="font-semibold text-white">
+                        01 | Judul | Deskripsi
+                      </span>
+                      . Kosongkan blok yang ingin memakai timeline default
+                      template.
+                    </div>
+                    {timelineBlocks.map((block) => (
+                      <Field
+                        key={block.mode}
+                        label={`${block.label} - ${block.description}`}
+                      >
+                        <textarea
+                          className="min-h-32 w-full border border-white/12 bg-black/20 p-3 text-sm text-white outline-none transition focus:border-[var(--color-gold)]"
+                          onChange={(event) =>
+                            updateForm(block.field, event.target.value)
+                          }
+                          placeholder={
+                            "01 | Bertemu | Sebuah awal yang sederhana...\n02 | Bertumbuh | Cerita itu tumbuh melalui waktu..."
+                          }
+                          value={form[block.field]}
+                        />
+                      </Field>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-4 border border-white/10 bg-black/20 p-4 text-sm leading-6 text-white/55">
+                    Paket Essential memakai short love story tanpa timeline
+                    panjang. Signature dan Couture akan menampilkan blok
+                    timeline tambahan sesuai struktur paket.
+                  </p>
+                )}
+              </Panel>
+
+              <Panel eyebrow="Custom Request" title="Brief dan approval.">
+                <div className="grid gap-4 md:grid-cols-[0.7fr_1.3fr]">
+                  <Field label="Status custom">
+                    <select
+                      className={selectClassName}
+                      onChange={(event) =>
+                        updateForm(
+                          "custom_status",
+                          event.target.value as CustomStatus,
+                        )
+                      }
+                      value={form.custom_status}
+                    >
+                      {Object.entries(customStatusLabels).map(
+                        ([value, label]) => (
+                          <option
+                            className={optionClassName}
+                            key={value}
+                            value={value}
+                          >
+                            {label}
+                          </option>
+                        ),
+                      )}
+                    </select>
+                  </Field>
+                  <Field label="Catatan approval">
+                    <input
+                      className={controlClassName}
+                      onChange={(event) =>
+                        updateForm("custom_approval_notes", event.target.value)
+                      }
+                      placeholder="Scope disetujui, estimasi, batas revisi, atau alasan ditolak."
+                      value={form.custom_approval_notes}
+                    />
+                  </Field>
+                </div>
+                <Field label="Brief custom">
+                  <textarea
+                    className="min-h-36 w-full border border-white/12 bg-black/20 p-3 text-sm text-white outline-none transition focus:border-[var(--color-gold)]"
+                    onChange={(event) =>
+                      updateForm("custom_brief", event.target.value)
+                    }
+                    placeholder="Mood, referensi, love story/timeline, art direction, parallax, overlay motion, deadline, dan batasan request."
+                    value={form.custom_brief}
+                  />
+                </Field>
+                <div className="mt-5 grid gap-3 md:grid-cols-2">
+                  <CustomChecklistItem
+                    checked={form.custom_checklist_assets}
+                    label="Asset lengkap"
+                    onChange={(checked) =>
+                      setForm((current) => ({
+                        ...current,
+                        custom_checklist_assets: checked,
+                      }))
+                    }
+                  />
+                  <CustomChecklistItem
+                    checked={form.custom_checklist_motion}
+                    label="Brief motion jelas"
+                    onChange={(checked) =>
+                      setForm((current) => ({
+                        ...current,
+                        custom_checklist_motion: checked,
+                      }))
+                    }
+                  />
+                  <CustomChecklistItem
+                    checked={form.custom_checklist_overlay}
+                    label="Overlay asset siap"
+                    onChange={(checked) =>
+                      setForm((current) => ({
+                        ...current,
+                        custom_checklist_overlay: checked,
+                      }))
+                    }
+                  />
+                  <CustomChecklistItem
+                    checked={form.custom_checklist_parallax}
+                    label="Parallax plan aman"
+                    onChange={(checked) =>
+                      setForm((current) => ({
+                        ...current,
+                        custom_checklist_parallax: checked,
+                      }))
+                    }
+                  />
+                  <CustomChecklistItem
+                    checked={form.custom_checklist_copy}
+                    label="Copy/story approved"
+                    onChange={(checked) =>
+                      setForm((current) => ({
+                        ...current,
+                        custom_checklist_copy: checked,
+                      }))
+                    }
+                  />
+                  <CustomChecklistItem
+                    checked={form.custom_checklist_final}
+                    label="Final approval"
+                    onChange={(checked) =>
+                      setForm((current) => ({
+                        ...current,
+                        custom_checklist_final: checked,
+                      }))
+                    }
+                  />
+                </div>
+              </Panel>
+
+              <Panel eyebrow="Media" title="Foto, galeri, dan musik.">
+                <div className="grid gap-4">
+                  <Field label="Foto cover utama (Cloudinary URL)">
+                    <input
+                      className={controlClassName}
+                      onChange={(event) =>
+                        updateForm("photo_url", event.target.value)
+                      }
+                      placeholder="https://res.cloudinary.com/..."
+                      value={form.photo_url}
+                    />
+                  </Field>
+                  <CoverFocalPreview
+                    focalX={form.photo_focal_x}
+                    focalY={form.photo_focal_y}
+                    onFocalChange={(x, y) =>
+                      setForm((current) => ({
+                        ...current,
+                        photo_focal_x: normalizeFocalPoint(x),
+                        photo_focal_y: normalizeFocalPoint(y),
+                      }))
+                    }
+                    photoUrl={form.photo_url}
+                  />
+                  <div className="border border-white/10 bg-black/20 p-4">
+                    <div className="flex flex-wrap items-end justify-between gap-3">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.16em] text-white/45">
+                          Galeri per section
+                        </p>
+                        <p className="mt-2 text-sm leading-6 text-white/55">
+                          Paket {form.package_code || "Essential"} membutuhkan{" "}
+                          {expectedGalleryCount} foto. Isi berurutan sesuai
+                          section agar preview customer dan undangan final tidak
+                          tertukar.
+                        </p>
+                      </div>
+                      <p className="text-xs uppercase tracking-[0.14em] text-[var(--color-gold)]">
+                        {filledGalleryCount}/{expectedGalleryCount} terisi
+                      </p>
+                    </div>
+                    <div className="mt-5 grid gap-4">
+                      {mediaSections.map((section, sectionIndex) => {
+                        const start = mediaSectionStart(
+                          mediaSections,
+                          sectionIndex,
+                        );
+                        return (
+                          <div
+                            className="border border-white/10 p-4"
+                            key={section.section}
+                          >
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-semibold text-white">
+                                  Section {section.section}
+                                </p>
+                                <p className="mt-1 text-sm leading-6 text-white/50">
+                                  {section.description}
+                                </p>
+                              </div>
+                              <span
+                                className={cn(
+                                  "text-xs uppercase tracking-[0.14em]",
+                                  mediaSectionStatus(
+                                    section,
+                                    sectionIndex,
+                                    mediaSections,
+                                    galleryUrlSlots,
+                                  ).missing
+                                    ? "text-[#f4ddb0]"
+                                    : "text-emerald-200",
+                                )}
+                              >
+                                {
+                                  mediaSectionStatus(
+                                    section,
+                                    sectionIndex,
+                                    mediaSections,
+                                    galleryUrlSlots,
+                                  ).filled
+                                }
+                                /{section.count} terisi
+                              </span>
+                              <span className="text-xs uppercase tracking-[0.14em] text-[var(--color-gold)]">
+                                {section.label}
+                              </span>
+                            </div>
+                            <div className="mt-4 grid gap-3 md:grid-cols-3">
+                              {Array.from({ length: section.count }).map(
+                                (_, index) => {
+                                  const galleryIndex = start + index;
+                                  return (
+                                    <label className="block" key={galleryIndex}>
+                                      <span className="text-[0.62rem] uppercase tracking-[0.14em] text-white/40">
+                                        {section.photoLabels?.[index] ??
+                                          `Foto ${index + 1}`}
+                                      </span>
+                                      <input
+                                        className={`${controlClassName} mt-2`}
+                                        onChange={(event) =>
+                                          updateGallerySlot(
+                                            galleryIndex,
+                                            event.target.value,
+                                          )
+                                        }
+                                        placeholder="https://res.cloudinary.com/..."
+                                        value={
+                                          galleryUrlSlots[galleryIndex] ?? ""
+                                        }
+                                      />
+                                    </label>
+                                  );
+                                },
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <Field label="Musik / backsound Cloudinary URL">
+                    <input
+                      className={controlClassName}
+                      onChange={(event) =>
+                        updateForm("backsound_url", event.target.value)
+                      }
+                      placeholder="https://res.cloudinary.com/.../song.mp3"
+                      value={form.backsound_url}
+                    />
+                  </Field>
+                </div>
+              </Panel>
+
+              <Panel eyebrow="Rekening & RSVP" title="Data operasional.">
+                <div className="grid gap-4 md:grid-cols-3">
+                  <Field label="Bank">
+                    <input
+                      className={controlClassName}
+                      onChange={(event) =>
+                        updateForm("bank_account_bank", event.target.value)
+                      }
+                      value={form.bank_account_bank}
+                    />
+                  </Field>
+                  <Field label="Atas nama">
+                    <input
+                      className={controlClassName}
+                      onChange={(event) =>
+                        updateForm("bank_account_name", event.target.value)
+                      }
+                      value={form.bank_account_name}
+                    />
+                  </Field>
+                  <Field label="Nomor rekening">
+                    <input
+                      className={controlClassName}
+                      onChange={(event) =>
+                        updateForm("bank_account_number", event.target.value)
+                      }
+                      value={form.bank_account_number}
+                    />
+                  </Field>
+                  <Field label="RSVP invited">
+                    <input
+                      className={controlClassName}
+                      onChange={(event) =>
+                        updateForm("rsvp_invited", event.target.value)
+                      }
+                      value={form.rsvp_invited}
+                    />
+                  </Field>
+                  <Field label="RSVP hadir">
+                    <input
+                      className={controlClassName}
+                      onChange={(event) =>
+                        updateForm("rsvp_confirmed", event.target.value)
+                      }
+                      value={form.rsvp_confirmed}
+                    />
+                  </Field>
+                  <Field label="RSVP tidak hadir">
+                    <input
+                      className={controlClassName}
+                      onChange={(event) =>
+                        updateForm("rsvp_declined", event.target.value)
+                      }
+                      value={form.rsvp_declined}
+                    />
+                  </Field>
+                </div>
+              </Panel>
+            </>
+          ) : null}
+
+          {canManageGuests ? (
+            <Panel eyebrow="Link Tamu & Delivery" title="Portal Tamu Client.">
+              <div className="border border-[var(--color-gold)]/35 bg-[var(--color-gold)]/10 p-4">
+                <p className="text-sm leading-relaxed text-white/70">
+                  Bagikan link ini ke client setelah undangan sudah fix dan siap
+                  publikasi. Client dapat import CSV, export CSV, mencari tamu,
+                  copy link personal, dan menandai link yang sudah dikirim.
+                  Akses baru akan mencabut link dan sesi client sebelumnya.
+                </p>
+                <div className="mt-4 border border-white/10 bg-black/20 p-4">
+                  <p className="break-all text-sm text-white/80">
+                    {detail?.guest_management_url ||
+                      "Simpan detail order dulu agar link tersedia."}
                   </p>
                 </div>
-                <div className="mt-5 grid gap-4">
-                  {mediaSections.map((section, sectionIndex) => {
-                    const start = mediaSectionStart(
-                      mediaSections,
-                      sectionIndex,
-                    );
-                    return (
-                      <div
-                        className="border border-white/10 p-4"
-                        key={section.section}
-                      >
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                          <div>
-                            <p className="text-sm font-semibold text-white">
-                              Section {section.section}
-                            </p>
-                            <p className="mt-1 text-sm leading-6 text-white/50">
-                              {section.description}
-                            </p>
-                          </div>
-                          <span
-                            className={cn(
-                              "text-xs uppercase tracking-[0.14em]",
-                              mediaSectionStatus(
-                                section,
-                                sectionIndex,
-                                mediaSections,
-                                galleryUrlSlots,
-                              ).missing
-                                ? "text-[#f4ddb0]"
-                                : "text-emerald-200",
-                            )}
-                          >
-                            {
-                              mediaSectionStatus(
-                                section,
-                                sectionIndex,
-                                mediaSections,
-                                galleryUrlSlots,
-                              ).filled
-                            }
-                            /{section.count} terisi
-                          </span>
-                          <span className="text-xs uppercase tracking-[0.14em] text-[var(--color-gold)]">
-                            {section.label}
-                          </span>
-                        </div>
-                        <div className="mt-4 grid gap-3 md:grid-cols-3">
-                          {Array.from({ length: section.count }).map(
-                            (_, index) => {
-                              const galleryIndex = start + index;
-                              return (
-                                <label className="block" key={galleryIndex}>
-                                  <span className="text-[0.62rem] uppercase tracking-[0.14em] text-white/40">
-                                    {section.photoLabels?.[index] ??
-                                      `Foto ${index + 1}`}
-                                  </span>
-                                  <input
-                                    className={`${controlClassName} mt-2`}
-                                    onChange={(event) =>
-                                      updateGallerySlot(
-                                        galleryIndex,
-                                        event.target.value,
-                                      )
-                                    }
-                                    placeholder="https://res.cloudinary.com/..."
-                                    value={galleryUrlSlots[galleryIndex] ?? ""}
-                                  />
-                                </label>
-                              );
-                            },
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+                {clientAccessIssue ? (
+                  <div className="mt-3 border border-[var(--color-gold)]/40 bg-black/35 p-4">
+                    <p className="text-[10px] uppercase tracking-[0.16em] text-white/45">
+                      PIN awal — kirim melalui kanal terpisah
+                    </p>
+                    <p className="mt-2 font-mono text-xl tracking-[0.16em] text-[var(--color-gold)]">
+                      {clientAccessIssue.initial_pin}
+                    </p>
+                    <p className="mt-2 text-xs leading-5 text-white/45">
+                      Client wajib mengganti PIN ini pada login pertama. PIN
+                      tidak dapat ditampilkan kembali setelah halaman direfresh.
+                    </p>
+                  </div>
+                ) : null}
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <button
+                    className={primaryButtonClassName}
+                    disabled={saving || !detail?.invitation}
+                    onClick={() => void issueClientPortalAccess()}
+                    type="button"
+                  >
+                    <Plus size={15} />
+                    {detail?.guest_management_url
+                      ? "Rotasi Akses Client"
+                      : "Buat Akses Client"}
+                  </button>
+                  <button
+                    className={outlineButtonClassName}
+                    disabled={!detail?.guest_management_url}
+                    onClick={() => void copyGuestManagementUrl()}
+                    type="button"
+                  >
+                    <Copy size={15} />
+                    Copy Link Form
+                  </button>
+                  <a
+                    className={cn(
+                      outlineButtonClassName,
+                      !detail?.guest_management_url &&
+                        "pointer-events-none opacity-50",
+                    )}
+                    href={detail?.guest_management_url || "#"}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    <ExternalLink size={15} />
+                    Buka Form
+                  </a>
                 </div>
               </div>
-              <Field label="Musik / backsound Cloudinary URL">
-                <input
-                  className={controlClassName}
-                  onChange={(event) =>
-                    updateForm("backsound_url", event.target.value)
-                  }
-                  placeholder="https://res.cloudinary.com/.../song.mp3"
-                  value={form.backsound_url}
-                />
-              </Field>
-            </div>
-          </Panel>
 
-          <Panel eyebrow="Rekening & RSVP" title="Data operasional.">
-            <div className="grid gap-4 md:grid-cols-3">
-              <Field label="Bank">
-                <input
-                  className={controlClassName}
-                  onChange={(event) =>
-                    updateForm("bank_account_bank", event.target.value)
-                  }
-                  value={form.bank_account_bank}
-                />
-              </Field>
-              <Field label="Atas nama">
-                <input
-                  className={controlClassName}
-                  onChange={(event) =>
-                    updateForm("bank_account_name", event.target.value)
-                  }
-                  value={form.bank_account_name}
-                />
-              </Field>
-              <Field label="Nomor rekening">
-                <input
-                  className={controlClassName}
-                  onChange={(event) =>
-                    updateForm("bank_account_number", event.target.value)
-                  }
-                  value={form.bank_account_number}
-                />
-              </Field>
-              <Field label="RSVP invited">
-                <input
-                  className={controlClassName}
-                  onChange={(event) =>
-                    updateForm("rsvp_invited", event.target.value)
-                  }
-                  value={form.rsvp_invited}
-                />
-              </Field>
-              <Field label="RSVP hadir">
-                <input
-                  className={controlClassName}
-                  onChange={(event) =>
-                    updateForm("rsvp_confirmed", event.target.value)
-                  }
-                  value={form.rsvp_confirmed}
-                />
-              </Field>
-              <Field label="RSVP tidak hadir">
-                <input
-                  className={controlClassName}
-                  onChange={(event) =>
-                    updateForm("rsvp_declined", event.target.value)
-                  }
-                  value={form.rsvp_declined}
-                />
-              </Field>
-            </div>
-          </Panel>
-
-          <Panel eyebrow="Link Tamu & Delivery" title="Form client.">
-            <div className="border border-[var(--color-gold)]/35 bg-[var(--color-gold)]/10 p-4">
-              <p className="text-sm leading-relaxed text-white/70">
-                Bagikan link ini ke client setelah undangan sudah fix dan siap
-                publikasi. Client dapat import CSV, export CSV, mencari tamu,
-                copy link personal, dan menandai link yang sudah dikirim.
-              </p>
-              <div className="mt-4 border border-white/10 bg-black/20 p-4">
-                <p className="break-all text-sm text-white/80">
-                  {detail?.guest_management_url ||
-                    "Simpan detail order dulu agar link tersedia."}
-                </p>
+              <div className="mt-5 grid gap-3 text-sm md:grid-cols-4">
+                <div className="border border-white/10 p-3">
+                  <p className="text-[10px] uppercase tracking-[0.14em] text-white/40">
+                    Tamu
+                  </p>
+                  <p className="mt-2 text-lg text-white">
+                    {detail?.rsvp.total_invited ?? 0}
+                  </p>
+                </div>
+                <div className="border border-white/10 p-3">
+                  <p className="text-[10px] uppercase tracking-[0.14em] text-white/40">
+                    Hadir
+                  </p>
+                  <p className="mt-2 text-lg text-white">
+                    {detail?.rsvp.total_confirmed ?? 0}
+                  </p>
+                </div>
+                <div className="border border-white/10 p-3">
+                  <p className="text-[10px] uppercase tracking-[0.14em] text-white/40">
+                    Tidak Hadir
+                  </p>
+                  <p className="mt-2 text-lg text-white">
+                    {detail?.rsvp.total_declined ?? 0}
+                  </p>
+                </div>
+                <div className="border border-white/10 p-3">
+                  <p className="text-[10px] uppercase tracking-[0.14em] text-white/40">
+                    Response
+                  </p>
+                  <p className="mt-2 text-lg text-[var(--color-gold)]">
+                    {detail?.rsvp.response_rate ?? 0}%
+                  </p>
+                </div>
               </div>
-              <div className="mt-4 flex flex-wrap gap-3">
-                <button
-                  className={outlineButtonClassName}
-                  disabled={!detail?.guest_management_url}
-                  onClick={() => void copyGuestManagementUrl()}
-                  type="button"
-                >
-                  <Copy size={15} />
-                  Copy Link Form
-                </button>
-                <a
-                  className={cn(
-                    outlineButtonClassName,
-                    !detail?.guest_management_url &&
-                      "pointer-events-none opacity-50",
-                  )}
-                  href={detail?.guest_management_url || "#"}
-                  rel="noreferrer"
-                  target="_blank"
-                >
-                  <ExternalLink size={15} />
-                  Buka Form
-                </a>
-              </div>
-            </div>
-
-            <div className="mt-5 grid gap-3 text-sm md:grid-cols-4">
-              <div className="border border-white/10 p-3">
-                <p className="text-[10px] uppercase tracking-[0.14em] text-white/40">
-                  Tamu
-                </p>
-                <p className="mt-2 text-lg text-white">
-                  {detail?.rsvp.total_invited ?? 0}
-                </p>
-              </div>
-              <div className="border border-white/10 p-3">
-                <p className="text-[10px] uppercase tracking-[0.14em] text-white/40">
-                  Hadir
-                </p>
-                <p className="mt-2 text-lg text-white">
-                  {detail?.rsvp.total_confirmed ?? 0}
-                </p>
-              </div>
-              <div className="border border-white/10 p-3">
-                <p className="text-[10px] uppercase tracking-[0.14em] text-white/40">
-                  Tidak Hadir
-                </p>
-                <p className="mt-2 text-lg text-white">
-                  {detail?.rsvp.total_declined ?? 0}
-                </p>
-              </div>
-              <div className="border border-white/10 p-3">
-                <p className="text-[10px] uppercase tracking-[0.14em] text-white/40">
-                  Response
-                </p>
-                <p className="mt-2 text-lg text-[var(--color-gold)]">
-                  {detail?.rsvp.response_rate ?? 0}%
-                </p>
-              </div>
-            </div>
-          </Panel>
+            </Panel>
+          ) : null}
         </div>
 
         <aside className="space-y-6">
-          <Panel eyebrow="Komunikasi WA" title="Status customer.">
-            <div className="border border-white/12 bg-black/20 p-4">
-              <p className="text-[0.58rem] uppercase tracking-[0.16em] text-white/40">
-                Status komunikasi
-              </p>
-              <p className="mt-2 font-serif text-2xl text-white">
-                {communicationLabel}
-              </p>
-            </div>
-            <div className="mt-4 grid gap-3">
-              <button
-                className={outlineButtonClassName}
-                disabled={!detail?.preview_url}
-                onClick={() => void copyStaffMessage("preview")}
-                type="button"
-              >
-                <MessageCircle size={15} />
-                Preview Customer
-              </button>
-              <button
-                className={outlineButtonClassName}
-                disabled={!completionItems.some((item) => !item.done)}
-                onClick={() => void copyStaffMessage("data")}
-                type="button"
-              >
-                <MessageCircle size={15} />
-                Minta Data Kurang
-              </button>
-              <button
-                className={outlineButtonClassName}
-                onClick={() => void copyStaffMessage("revision")}
-                type="button"
-              >
-                <MessageCircle size={15} />
-                Update Revisi
-              </button>
-              <button
-                className={outlineButtonClassName}
-                disabled={!detail?.preview_url}
-                onClick={() => void copyStaffMessage("final")}
-                type="button"
-              >
-                <MessageCircle size={15} />
-                Publikasi Final
-              </button>
-            </div>
-          </Panel>
-
-          <Panel eyebrow="Checklist" title="Kelengkapan.">
-            <div className="space-y-3">
-              {completionItems.map((item) => (
-                <div
-                  className="flex items-center justify-between gap-3 border border-white/10 bg-black/20 p-3"
-                  key={item.label}
-                >
-                  <span className="text-sm text-white/70">{item.label}</span>
-                  {item.done ? (
-                    <CheckCircle2 className="text-emerald-200" size={16} />
-                  ) : (
-                    <AlertTriangle className="text-[#f4ddb0]" size={16} />
-                  )}
+          {canEditContent ? (
+            <>
+              <Panel eyebrow="Komunikasi WA" title="Status customer.">
+                <div className="border border-white/12 bg-black/20 p-4">
+                  <p className="text-[0.58rem] uppercase tracking-[0.16em] text-white/40">
+                    Status komunikasi
+                  </p>
+                  <p className="mt-2 font-serif text-2xl text-white">
+                    {communicationLabel}
+                  </p>
                 </div>
-              ))}
-            </div>
-          </Panel>
-
-          <Panel eyebrow="Link Undangan" title={lifecycleLabel}>
-            <p className="mb-4 text-sm leading-6 text-white/55">
-              {lifecycleDescription}
-            </p>
-            <div className="border border-white/12 bg-black/20 p-4">
-              <p className="break-all text-sm leading-6 text-white/70">
-                {detail?.preview_url ||
-                  "Pilih tema lalu simpan untuk membuat link preview."}
-              </p>
-            </div>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-              <button
-                className={outlineButtonClassName}
-                disabled={!detail?.preview_url}
-                onClick={() => void copyPreviewUrl()}
-                type="button"
-              >
-                <Copy size={15} />
-                Copy
-              </button>
-              <a
-                className={cn(
-                  outlineButtonClassName,
-                  !detail?.preview_url && "pointer-events-none opacity-45",
-                )}
-                href={detail?.preview_url || "#"}
-                rel="noreferrer"
-                target="_blank"
-              >
-                <ExternalLink size={15} />
-                Buka
-              </a>
-            </div>
-          </Panel>
-
-          <Panel eyebrow="Catatan Revisi" title="Timeline.">
-            <textarea
-              className="min-h-28 w-full border border-white/12 bg-black/20 p-3 text-sm text-white outline-none transition focus:border-[var(--color-gold)]"
-              onChange={(event) => setRevisionNote(event.target.value)}
-              placeholder="Tulis revisi atau final check..."
-              value={revisionNote}
-            />
-            <label className="mt-3 flex items-center gap-3 text-sm text-white/60">
-              <input
-                checked={finalCheck}
-                onChange={(event) => setFinalCheck(event.target.checked)}
-                type="checkbox"
-              />
-              Final Check
-            </label>
-            <button
-              className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-3 border border-white/15 px-4 text-xs font-semibold uppercase tracking-[0.14em] text-white/70 transition hover:border-[var(--color-gold)] hover:text-[var(--color-gold)] disabled:opacity-45"
-              disabled={savingRevision}
-              onClick={() => void addRevisionNote()}
-              type="button"
-            >
-              <Plus size={15} />
-              Tambah Catatan
-            </button>
-            <div className="mt-6 space-y-3">
-              {detail?.revisions.map((revision) => (
-                <article
-                  className="border border-white/10 bg-black/20 p-4"
-                  key={revision.id}
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-semibold text-white">
-                      {revision.label}
-                    </p>
-                    <p className="text-xs text-white/35">
-                      {new Date(revision.created_at).toLocaleDateString(
-                        "id-ID",
-                      )}
-                    </p>
-                  </div>
-                  <textarea
-                    className="mt-3 min-h-20 w-full border border-white/10 bg-black/20 p-3 text-sm text-white/70 outline-none transition focus:border-[var(--color-gold)]"
-                    onChange={(event) =>
-                      setRevisionEdits((current) => ({
-                        ...current,
-                        [revision.id]: event.target.value,
-                      }))
-                    }
-                    value={revisionEdits[revision.id] ?? ""}
-                  />
+                <div className="mt-4 grid gap-3">
                   <button
-                    className="mt-3 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-gold)]"
-                    disabled={savingRevision}
-                    onClick={() => void saveRevision(revision)}
+                    className={outlineButtonClassName}
+                    disabled={!detail?.preview_url}
+                    onClick={() => void copyStaffMessage("preview")}
                     type="button"
                   >
-                    Simpan revisi
+                    <MessageCircle size={15} />
+                    Preview Customer
                   </button>
-                </article>
-              ))}
-            </div>
-          </Panel>
+                  <button
+                    className={outlineButtonClassName}
+                    disabled={!completionItems.some((item) => !item.done)}
+                    onClick={() => void copyStaffMessage("data")}
+                    type="button"
+                  >
+                    <MessageCircle size={15} />
+                    Minta Data Kurang
+                  </button>
+                  <button
+                    className={outlineButtonClassName}
+                    onClick={() => void copyStaffMessage("revision")}
+                    type="button"
+                  >
+                    <MessageCircle size={15} />
+                    Update Revisi
+                  </button>
+                  <button
+                    className={outlineButtonClassName}
+                    disabled={!detail?.preview_url}
+                    onClick={() => void copyStaffMessage("final")}
+                    type="button"
+                  >
+                    <MessageCircle size={15} />
+                    Publikasi Final
+                  </button>
+                </div>
+              </Panel>
+
+              <Panel eyebrow="Checklist" title="Kelengkapan.">
+                <div className="space-y-3">
+                  {completionItems.map((item) => (
+                    <div
+                      className="flex items-center justify-between gap-3 border border-white/10 bg-black/20 p-3"
+                      key={item.label}
+                    >
+                      <span className="text-sm text-white/70">
+                        {item.label}
+                      </span>
+                      {item.done ? (
+                        <CheckCircle2 className="text-emerald-200" size={16} />
+                      ) : (
+                        <AlertTriangle className="text-[#f4ddb0]" size={16} />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </Panel>
+
+              <Panel eyebrow="Link Undangan" title={lifecycleLabel}>
+                <p className="mb-4 text-sm leading-6 text-white/55">
+                  {lifecycleDescription}
+                </p>
+                <div className="border border-white/12 bg-black/20 p-4">
+                  <p className="break-all text-sm leading-6 text-white/70">
+                    {detail?.preview_url ||
+                      "Pilih tema lalu simpan untuk membuat link preview."}
+                  </p>
+                </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                  <button
+                    className={outlineButtonClassName}
+                    disabled={!detail?.preview_url}
+                    onClick={() => void copyPreviewUrl()}
+                    type="button"
+                  >
+                    <Copy size={15} />
+                    Copy
+                  </button>
+                  <a
+                    className={cn(
+                      outlineButtonClassName,
+                      !detail?.preview_url && "pointer-events-none opacity-45",
+                    )}
+                    href={detail?.preview_url || "#"}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    <ExternalLink size={15} />
+                    Buka
+                  </a>
+                </div>
+              </Panel>
+
+              <Panel eyebrow="Catatan Revisi" title="Timeline.">
+                <textarea
+                  className="min-h-28 w-full border border-white/12 bg-black/20 p-3 text-sm text-white outline-none transition focus:border-[var(--color-gold)]"
+                  onChange={(event) => setRevisionNote(event.target.value)}
+                  placeholder="Tulis revisi atau final check..."
+                  value={revisionNote}
+                />
+                <label className="mt-3 flex items-center gap-3 text-sm text-white/60">
+                  <input
+                    checked={finalCheck}
+                    onChange={(event) => setFinalCheck(event.target.checked)}
+                    type="checkbox"
+                  />
+                  Final Check
+                </label>
+                <button
+                  className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-3 border border-white/15 px-4 text-xs font-semibold uppercase tracking-[0.14em] text-white/70 transition hover:border-[var(--color-gold)] hover:text-[var(--color-gold)] disabled:opacity-45"
+                  disabled={savingRevision}
+                  onClick={() => void addRevisionNote()}
+                  type="button"
+                >
+                  <Plus size={15} />
+                  Tambah Catatan
+                </button>
+                <div className="mt-6 space-y-3">
+                  {detail?.revisions.map((revision) => (
+                    <article
+                      className="border border-white/10 bg-black/20 p-4"
+                      key={revision.id}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-semibold text-white">
+                          {revision.label}
+                        </p>
+                        <p className="text-xs text-white/35">
+                          {new Date(revision.created_at).toLocaleDateString(
+                            "id-ID",
+                          )}
+                        </p>
+                      </div>
+                      <textarea
+                        className="mt-3 min-h-20 w-full border border-white/10 bg-black/20 p-3 text-sm text-white/70 outline-none transition focus:border-[var(--color-gold)]"
+                        onChange={(event) =>
+                          setRevisionEdits((current) => ({
+                            ...current,
+                            [revision.id]: event.target.value,
+                          }))
+                        }
+                        value={revisionEdits[revision.id] ?? ""}
+                      />
+                      <button
+                        className="mt-3 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-gold)]"
+                        disabled={savingRevision}
+                        onClick={() => void saveRevision(revision)}
+                        type="button"
+                      >
+                        Simpan revisi
+                      </button>
+                    </article>
+                  ))}
+                </div>
+              </Panel>
+            </>
+          ) : null}
         </aside>
       </section>
     </div>
@@ -2484,7 +2791,7 @@ function Notice({
   tone,
 }: {
   children: ReactNode;
-  tone: "ok" | "warn";
+  tone: "info" | "ok" | "warn";
 }) {
   return (
     <div
@@ -2492,7 +2799,9 @@ function Notice({
         "border p-4 text-sm leading-6",
         tone === "ok"
           ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-100"
-          : "border-[#d5ad55]/40 bg-[#d5ad55]/10 text-[#f4ddb0]",
+          : tone === "info"
+            ? "border-white/15 bg-white/[0.04] text-white/65"
+            : "border-[#d5ad55]/40 bg-[#d5ad55]/10 text-[#f4ddb0]",
       )}
     >
       {children}

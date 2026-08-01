@@ -6,6 +6,7 @@ import {
   Download,
   ExternalLink,
   FileSpreadsheet,
+  KeyRound,
   Search,
   Send,
   Upload,
@@ -14,6 +15,7 @@ import type { Route } from "next";
 import Link from "next/link";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 
+import { ClientPortalLogout } from "@/components/client-portal/client-portal-logout";
 import {
   NetworkAwarePreloader,
   NiskalaPreloader,
@@ -36,6 +38,7 @@ type GuestDeliveryDetail = {
   capabilities: {
     rsvp: boolean;
     guest_wishes: boolean;
+    read_only?: boolean;
   };
   rsvp: {
     total_invited: number;
@@ -59,6 +62,7 @@ type GuestDeliveryLink = {
   rsvp_status: string;
   attendance_count: number;
   delivery_url: string | null;
+  token_available: boolean;
   delivery_status: "sent" | "not_sent" | string;
   delivery_sent_at: string | null;
 };
@@ -131,7 +135,9 @@ const primaryButtonClassName =
   "inline-flex min-h-11 items-center justify-center gap-3 bg-[var(--color-gold)] px-4 text-xs font-semibold uppercase tracking-[0.14em] text-black transition hover:bg-[#f4ddb0] disabled:cursor-not-allowed disabled:opacity-45";
 
 function guestManagementUrl(token: string, path = ""): string {
-  return `/api/guest-management/${encodeURIComponent(token)}${path}`;
+  return token
+    ? `/api/guest-management/${encodeURIComponent(token)}${path}`
+    : `/api/client/portal${path}`;
 }
 
 const guestRequestTimeoutMs = 30_000;
@@ -144,8 +150,22 @@ async function guestRequest(
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), guestRequestTimeoutMs);
   try {
+    const csrfToken =
+      typeof window === "undefined"
+        ? ""
+        : window.sessionStorage.getItem("niskala-client-csrf") ?? "";
+    const headers = new Headers(init?.headers);
+    if (
+      csrfToken &&
+      init?.method &&
+      !["GET", "HEAD", "OPTIONS"].includes(init.method.toUpperCase())
+    ) {
+      headers.set("X-CSRFToken", csrfToken);
+    }
     return await fetch(guestManagementUrl(token, path), {
       ...init,
+      credentials: "same-origin",
+      headers,
       signal: controller.signal,
     });
   } catch (caught) {
@@ -275,10 +295,10 @@ function StatCard({ label, value }: { label: string; value: number | string }) {
 
 export function GuestDeliveryWorkspace({
   mode,
-  token,
+  token = "",
 }: {
   mode: GuestDeliveryMode;
-  token: string;
+  token?: string;
 }) {
   const [detail, setDetail] = useState<GuestDeliveryDetail | null>(null);
   const [guests, setGuests] = useState<GuestDeliveryLink[]>([]);
@@ -327,9 +347,19 @@ export function GuestDeliveryWorkspace({
     }
     return guests.filter((guest) => guest.display_name.toLowerCase().includes(normalized));
   }, [guests, query]);
-  const importHref = `/guest-delivery/${encodeURIComponent(token)}` as Route;
-  const listHref = `/guest-delivery/${encodeURIComponent(token)}/guests` as Route;
-  const wishesHref = `/guest-delivery/${encodeURIComponent(token)}/wishes` as Route;
+  const importHref = (
+    token ? `/guest-delivery/${encodeURIComponent(token)}` : "/client/portal"
+  ) as Route;
+  const listHref = (
+    token
+      ? `/guest-delivery/${encodeURIComponent(token)}/guests`
+      : "/client/portal/guests"
+  ) as Route;
+  const wishesHref = (
+    token
+      ? `/guest-delivery/${encodeURIComponent(token)}/wishes`
+      : "/client/portal/wishes"
+  ) as Route;
   const rsvpEnabled = detail?.capabilities.rsvp ?? false;
   const guestWishesEnabled = detail?.capabilities.guest_wishes ?? false;
 
@@ -368,6 +398,10 @@ export function GuestDeliveryWorkspace({
   }
 
   async function importCsv(dryRun: boolean) {
+    if (detail?.capabilities.read_only) {
+      setError("Masa aktif undangan telah berakhir. Portal hanya dapat dilihat dan diekspor.");
+      return;
+    }
     if (!file) {
       setError("Pilih atau tarik file CSV terlebih dahulu.");
       return;
@@ -400,6 +434,10 @@ export function GuestDeliveryWorkspace({
   }
 
   async function createGuest() {
+    if (detail?.capabilities.read_only) {
+      setError("Masa aktif undangan telah berakhir. Portal hanya dapat dilihat dan diekspor.");
+      return;
+    }
     if (!form.display_name.trim()) {
       setError("Nama tamu wajib diisi.");
       return;
@@ -438,6 +476,10 @@ export function GuestDeliveryWorkspace({
   }
 
   async function toggleSent(guest: GuestDeliveryLink) {
+    if (detail?.capabilities.read_only) {
+      setError("Masa aktif undangan telah berakhir. Portal hanya dapat dilihat dan diekspor.");
+      return;
+    }
     setBusy(true);
     setError("");
     setNotice("");
@@ -454,6 +496,35 @@ export function GuestDeliveryWorkspace({
       await loadWorkspace();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Status pengiriman gagal diperbarui.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function rotateGuestAccess(guest: GuestDeliveryLink) {
+    if (detail?.capabilities.read_only) {
+      setError("Masa aktif undangan telah berakhir. Portal hanya dapat dilihat dan diekspor.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const updated = await guestFetch<GuestDeliveryLink>(
+        token,
+        `/guest-links/${guest.id}/rotate`,
+        { method: "POST" },
+      );
+      setGuests((current) =>
+        current.map((item) => (item.id === updated.id ? updated : item)),
+      );
+      setNotice("Link tamu baru berhasil diterbitkan. Link sebelumnya telah dicabut.");
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Link tamu baru gagal diterbitkan.",
+      );
     } finally {
       setBusy(false);
     }
@@ -513,6 +584,7 @@ export function GuestDeliveryWorkspace({
               Ucapan Tamu
             </Link>
           ) : null}
+          {!token ? <ClientPortalLogout /> : null}
         </nav>
       </header>
 
@@ -796,6 +868,17 @@ export function GuestDeliveryWorkspace({
                     </td>
                     <td className="px-5 py-5">
                       <div className="flex flex-wrap gap-2">
+                        {!guest.token_available ? (
+                          <button
+                            className={outlineButtonClassName}
+                            disabled={busy || detail?.capabilities.read_only}
+                            onClick={() => void rotateGuestAccess(guest)}
+                            type="button"
+                          >
+                            <KeyRound size={14} />
+                            Terbitkan Ulang
+                          </button>
+                        ) : null}
                         <button
                           className={outlineButtonClassName}
                           disabled={!guest.delivery_url}

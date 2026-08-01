@@ -104,7 +104,12 @@ Default lokal:
 Frontend Vercel:
 
 - `NEXT_PUBLIC_SITE_URL`
-- `NEXT_PUBLIC_API_URL`
+- `API_URL` (server-only)
+- `NISKALA_PUBLIC_HOSTS`
+- `NISKALA_CLIENT_HOSTS`
+- `NISKALA_STAFF_HOSTS`
+- `NISKALA_BFF_SHARED_SECRET` (server-only, shared with Railway)
+- `CF_ACCESS_CLIENT_ID` dan `CF_ACCESS_CLIENT_SECRET` (server-only)
 - `NEXT_PUBLIC_DEFAULT_LOCALE`
 - `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME`
 - `NEXT_PUBLIC_SENTRY_DSN`
@@ -116,11 +121,32 @@ Backend Railway:
 - `DJANGO_ALLOWED_HOSTS`
 - `DJANGO_CSRF_TRUSTED_ORIGINS`
 - `DJANGO_CORS_ALLOWED_ORIGINS`
-- `DATABASE_URL`
+- `PUBLIC_SITE_URL`, `CLIENT_SITE_URL`, dan `STAFF_SITE_URL`
+- `PRODUCTION_EXPECTED_PUBLIC_ORIGIN`, `PRODUCTION_EXPECTED_CLIENT_ORIGIN`,
+  `PRODUCTION_EXPECTED_STAFF_ORIGIN`, dan `PRODUCTION_EXPECTED_API_HOST`
+- `PRODUCTION_EXPECTED_DATABASE_HOST`, `PRODUCTION_EXPECTED_DATABASE_DIRECT_HOST`,
+  `PRODUCTION_EXPECTED_DATABASE_NAME`, `PRODUCTION_EXPECTED_REDIS_HOST`, dan
+  `PRODUCTION_EXPECTED_CLOUDINARY_CLOUD_NAME`
+- `CAPABILITY_KEYS_JSON` dan `CAPABILITY_PRIMARY_KEY_ID`
+- `NISKALA_BFF_SHARED_SECRET` (server-only, shared with Vercel)
+- `DATABASE_URL` dan `DATABASE_DIRECT_URL`
 - `REDIS_URL`
 - Cloudinary/Sentry env sesuai kebutuhan production
 
-`NEXT_PUBLIC_API_URL` harus menunjuk ke domain API Railway dengan suffix `/api/v1`. `DJANGO_ALLOWED_HOSTS` berisi host backend, bukan domain frontend.
+`API_URL` harus menunjuk ke domain API Railway dengan suffix `/api/v1`.
+Jangan memakai prefix `NEXT_PUBLIC_` karena browser hanya berkomunikasi dengan
+API melalui BFF Next.js. `DJANGO_ALLOWED_HOSTS` berisi host backend, bukan domain
+frontend.
+
+Pada production, proses Next.js dan Django menolak startup jika origin secret
+`NISKALA_BFF_SHARED_SECRET` hilang, lemah, berupa placeholder, atau dipakai ulang
+sebagai Django/capability secret. Nilainya minimal 32 byte acak, harus sama di
+Vercel dan Railway, dan tidak boleh memakai prefix `NEXT_PUBLIC_`;
+`DJANGO_SECRET_KEY` sendiri minimal 50 byte acak. Django juga
+memastikan PostgreSQL, Redis, Cloudinary, Sentry, dan TTL sesi mengarah ke kontrak
+production. Next.js menolak startup jika credential Cloudflare
+tidak lengkap atau salah satu allowlist host kosong, wildcard, memakai domain
+default Vercel, atau tumpang tindih dengan trust zone lain.
 
 ## Area Aplikasi
 

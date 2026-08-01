@@ -7,25 +7,33 @@ from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 from rest_framework.generics import ListAPIView
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from common.mfa import (
     challenge_user,
+    claim_login_challenge,
     confirm_enrollment,
     consume_login_challenge,
     create_login_challenge,
     enrollment_payload,
     mfa_enrolled,
+    release_login_challenge,
     reset_mfa,
     verify_second_factor,
 )
 from common.models import AuditEvent
+from common.permissions import HasStaffRole, is_staff_user
 from common.serializers import StaffAuditEventSerializer, StaffSessionUserSerializer
 from orders.permissions import IsStaffRole
+from users.models import User
+from users.security import (
+    bind_staff_session,
+    revoke_all_staff_sessions,
+    sync_current_staff_session_version,
+)
 
-STAFF_ROLE = "staff"
 INVALID_STAFF_CREDENTIALS = "Kredensial staff tidak valid."
 INVALID_MFA_CODE = "Kode verifikasi tidak valid atau kedaluwarsa."
 
@@ -49,17 +57,12 @@ def _audit_auth(request, *, action: str, identifier: str, actor=None, reason: st
 
 
 def _has_staff_access(user) -> bool:
-    return bool(
-        user
-        and user.is_active
-        and user.is_staff
-        and (getattr(user, "is_superuser", False) or getattr(user, "role", "") == STAFF_ROLE)
-    )
+    return is_staff_user(user)
 
 
 def _complete_staff_login(request, user, *, identifier: str, method: str = "password") -> None:
     login(request, user, backend="django.contrib.auth.backends.ModelBackend")
-    request.session.set_expiry(settings.SESSION_COOKIE_AGE)
+    bind_staff_session(request, user)
     if method != "password":
         request.session["staff_mfa_verified_at"] = int(timezone.now().timestamp())
     _audit_auth(
@@ -72,7 +75,8 @@ def _complete_staff_login(request, user, *, identifier: str, method: str = "pass
 
 
 class StaffAuditEventListView(ListAPIView):
-    permission_classes = [IsStaffRole]
+    permission_classes = [IsStaffRole, HasStaffRole]
+    required_staff_roles = (User.StaffRole.OWNER,)
     serializer_class = StaffAuditEventSerializer
     pagination_class = None
 
@@ -184,12 +188,15 @@ class StaffMFALoginView(APIView):
     def post(self, request) -> Response:
         challenge = str(request.data.get("challenge") or "").strip()
         code = str(request.data.get("code") or "").strip()
-        user = challenge_user(challenge)
+        user = claim_login_challenge(challenge) if challenge else None
         if not challenge or not code or not _has_staff_access(user):
+            if user is not None:
+                release_login_challenge(challenge)
             return Response({"detail": INVALID_MFA_CODE}, status=400)
 
         method = verify_second_factor(user, code)
         if method is None:
+            release_login_challenge(challenge)
             _audit_auth(
                 request,
                 action="staff.mfa_failed",
@@ -214,6 +221,75 @@ class StaffMFALoginView(APIView):
                 actor=user,
             )
         return Response({"user": StaffSessionUserSerializer(user).data})
+
+
+@method_decorator(csrf_protect, name="dispatch")
+@method_decorator(ensure_csrf_cookie, name="dispatch")
+class StaffMFAFirstLoginEnrollView(APIView):
+    permission_classes = [AllowAny]
+    throttle_scope = "mfa"
+
+    def post(self, request) -> Response:
+        challenge = str(request.data.get("challenge") or "").strip()
+        user = challenge_user(challenge) if challenge else None
+        if not challenge or not _has_staff_access(user) or mfa_enrolled(user):
+            return Response({"detail": INVALID_MFA_CODE}, status=400)
+        payload = enrollment_payload(user)
+        _audit_auth(
+            request,
+            action="staff.mfa_first_login_enrollment_started",
+            identifier=user.get_username(),
+            actor=user,
+        )
+        return Response(payload)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class StaffMFAFirstLoginConfirmView(APIView):
+    permission_classes = [AllowAny]
+    throttle_scope = "mfa"
+
+    def post(self, request) -> Response:
+        challenge = str(request.data.get("challenge") or "").strip()
+        code = str(request.data.get("code") or "").strip()
+        user = claim_login_challenge(challenge) if challenge else None
+        if not challenge or not code or not _has_staff_access(user) or mfa_enrolled(user):
+            if user is not None:
+                release_login_challenge(challenge)
+            return Response({"detail": INVALID_MFA_CODE}, status=400)
+
+        recovery_codes = confirm_enrollment(user, code)
+        if recovery_codes is None:
+            release_login_challenge(challenge)
+            _audit_auth(
+                request,
+                action="staff.mfa_first_login_enrollment_failed",
+                identifier=user.get_username(),
+                actor=user,
+                reason="invalid_code",
+            )
+            return Response({"detail": INVALID_MFA_CODE}, status=400)
+
+        consume_login_challenge(challenge)
+        revoke_all_staff_sessions(user)
+        _complete_staff_login(
+            request,
+            user,
+            identifier=user.get_username(),
+            method="totp_enrollment",
+        )
+        _audit_auth(
+            request,
+            action="staff.mfa_first_login_enrolled",
+            identifier=user.get_username(),
+            actor=user,
+        )
+        return Response(
+            {
+                "user": StaffSessionUserSerializer(user).data,
+                "recovery_codes": recovery_codes,
+            }
+        )
 
 
 class StaffMFAEnrollView(APIView):
@@ -245,6 +321,8 @@ class StaffMFAConfirmView(APIView):
         recovery_codes = confirm_enrollment(request.user, code)
         if recovery_codes is None:
             return Response({"detail": INVALID_MFA_CODE}, status=400)
+        revoke_all_staff_sessions(request.user)
+        sync_current_staff_session_version(request, request.user)
         request.session["staff_mfa_verified_at"] = int(timezone.now().timestamp())
         _audit_auth(
             request,
@@ -262,8 +340,17 @@ class StaffMFAReauthView(APIView):
     def post(self, request) -> Response:
         password = str(request.data.get("password") or "")
         code = str(request.data.get("code") or "").strip()
+        if not request.user.check_password(password):
+            _audit_auth(
+                request,
+                action="staff.reauth_failed",
+                identifier=request.user.get_username(),
+                actor=request.user,
+                reason="invalid_credentials",
+            )
+            return Response({"detail": INVALID_STAFF_CREDENTIALS}, status=400)
         method = verify_second_factor(request.user, code)
-        if not request.user.check_password(password) or method is None:
+        if method is None:
             _audit_auth(
                 request,
                 action="staff.reauth_failed",
@@ -308,7 +395,7 @@ class StaffMFAResetView(APIView):
 
 
 class StaffLogoutView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsStaffRole]
 
     def post(self, request) -> Response:
         _audit_auth(

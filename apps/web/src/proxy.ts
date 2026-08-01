@@ -1,6 +1,15 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
+import {
+  isAllowedHostForZone,
+  normalizeHost,
+  previewFrameAncestors,
+  sensitiveRouteForRequest,
+  trustZoneForPath,
+  type SensitiveRoute,
+} from "@/lib/security/trust-zones";
+
 const staffGateCookie = "niskala_staff_gate";
 
 function deploymentHeaders(response: NextResponse) {
@@ -17,11 +26,13 @@ function deploymentHeaders(response: NextResponse) {
   return response;
 }
 
-function contentSecurityPolicy({ nonce }: { nonce?: string } = {}) {
-  const apiOrigin = origin(
-    process.env.NEXT_PUBLIC_API_URL,
-    "http://localhost:8000",
-  );
+function contentSecurityPolicy({
+  nonce,
+  sensitiveRoute,
+}: {
+  nonce?: string;
+  sensitiveRoute?: SensitiveRoute;
+} = {}) {
   const sentryOrigin = origin(process.env.NEXT_PUBLIC_SENTRY_DSN, "");
   const scripts = nonce
     ? [
@@ -36,13 +47,20 @@ function contentSecurityPolicy({ nonce }: { nonce?: string } = {}) {
         ...(process.env.NODE_ENV === "development" ? ["'unsafe-eval'"] : []),
       ];
 
+  const frameAncestors =
+    sensitiveRoute === "preview"
+      ? ["'self'", ...previewFrameAncestors()]
+      : sensitiveRoute
+        ? ["'none'"]
+        : ["'self'"];
+
   return [
     "default-src 'self'",
     "base-uri 'self'",
-    ["connect-src 'self'", apiOrigin, sentryOrigin].filter(Boolean).join(" "),
+    ["connect-src 'self'", sentryOrigin].filter(Boolean).join(" "),
     "font-src 'self' data:",
     "form-action 'self'",
-    "frame-ancestors 'self'",
+    `frame-ancestors ${frameAncestors.join(" ")}`,
     "frame-src 'self'",
     "img-src 'self' data: blob: https://res.cloudinary.com",
     "media-src 'self' https://res.cloudinary.com",
@@ -65,9 +83,46 @@ function origin(value: string | undefined, fallback: string) {
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const isAdminRoute = pathname.startsWith("/admin");
-  const nonce = isAdminRoute ? btoa(crypto.randomUUID()) : undefined;
-  const csp = contentSecurityPolicy({ nonce });
+  const host = normalizeHost(request.headers.get("host"));
+  const zone = trustZoneForPath(pathname);
+  let sensitiveRoute = sensitiveRouteForRequest(
+    pathname,
+    request.nextUrl.searchParams,
+  );
+  const isInvitation = /^\/(?:id|en)\/i\/[^/]+(?:\/|$)/.test(pathname);
+  if (
+    !sensitiveRoute &&
+    isInvitation &&
+    (request.cookies.has("__Host-niskala_guest") ||
+      request.cookies.has("niskala_guest"))
+  ) {
+    sensitiveRoute = "guest";
+  }
+  if (
+    !sensitiveRoute &&
+    isInvitation &&
+    (request.cookies.has("__Host-niskala_preview") ||
+      request.cookies.has("niskala_preview"))
+  ) {
+    sensitiveRoute = "preview";
+  }
+  const nonce =
+    sensitiveRoute && !pathname.startsWith("/api/")
+      ? crypto.randomUUID()
+      : undefined;
+  const csp = contentSecurityPolicy({ nonce, sensitiveRoute });
+
+  if (!host || !isAllowedHostForZone(host, zone)) {
+    const response = new NextResponse("Not Found", { status: 404 });
+    response.headers.set("Cache-Control", "private, no-store, max-age=0");
+    response.headers.set("Content-Security-Policy", csp);
+    response.headers.set("Referrer-Policy", "no-referrer");
+    response.headers.set("X-Content-Type-Options", "nosniff");
+    response.headers.set("X-Frame-Options", "DENY");
+    response.headers.set("X-Robots-Tag", "noindex, noarchive");
+    return deploymentHeaders(response);
+  }
+
   const isProtectedAdminRoute =
     pathname.startsWith("/admin") && pathname !== "/admin/login";
   const hasStaffGate = request.cookies.get(staffGateCookie)?.value === "1";
@@ -76,12 +131,14 @@ export function proxy(request: NextRequest) {
       new URL("/admin/login", request.url),
     );
     response.headers.set("Content-Security-Policy", csp);
+    applySensitiveHeaders(response, sensitiveRoute);
     return deploymentHeaders(response);
   }
 
   if (!nonce) {
     const response = NextResponse.next();
     response.headers.set("Content-Security-Policy", csp);
+    applySensitiveHeaders(response, sensitiveRoute);
     return deploymentHeaders(response);
   }
 
@@ -90,18 +147,32 @@ export function proxy(request: NextRequest) {
   requestHeaders.set("Content-Security-Policy", csp);
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set("Content-Security-Policy", csp);
+  applySensitiveHeaders(response, sensitiveRoute);
   return deploymentHeaders(response);
 }
 
+function applySensitiveHeaders(
+  response: NextResponse,
+  sensitiveRoute: SensitiveRoute,
+) {
+  response.headers.append("Vary", "Host");
+  if (sensitiveRoute === "preview") {
+    response.headers.delete("X-Frame-Options");
+  } else {
+    response.headers.set(
+      "X-Frame-Options",
+      sensitiveRoute ? "DENY" : "SAMEORIGIN",
+    );
+  }
+  if (!sensitiveRoute) {
+    return;
+  }
+  response.headers.set("Cache-Control", "private, no-store, max-age=0");
+  response.headers.set("Pragma", "no-cache");
+  response.headers.set("Referrer-Policy", "no-referrer");
+  response.headers.set("X-Robots-Tag", "noindex, noarchive");
+}
+
 export const config = {
-  matcher: [
-    {
-      source:
-        "/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)",
-      missing: [
-        { type: "header", key: "next-router-prefetch" },
-        { type: "header", key: "purpose", value: "prefetch" },
-      ],
-    },
-  ],
+  matcher: ["/(.*)"],
 };

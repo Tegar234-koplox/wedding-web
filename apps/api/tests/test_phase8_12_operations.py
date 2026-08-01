@@ -17,6 +17,7 @@ from leads.models import WhatsAppIntent
 from media_library.models import MediaAsset
 from orders.lifecycle import ensure_order_transition
 from orders.models import Order
+from orders.tasks import refresh_invitation_lifecycle_task
 from payments.models import PaymentInvoice, PaymentRecord, PaymentWebhookEvent
 from tests.factories import create_invitation, create_package, create_theme
 from tickets.models import Ticket
@@ -28,6 +29,7 @@ def create_user(*, username: str, email: str, role: str = "client", is_staff: bo
         email=email,
         password="password",
         role=role,
+        staff_role="owner" if role == "staff" else "viewer",
         is_staff=is_staff,
     )
 
@@ -98,6 +100,53 @@ def create_staff_order_fixture(
     return staff, order
 
 
+def capability_token_from_url(url: str) -> str:
+    return parse_qs(urlparse(url).fragment)["grant"][0]
+
+
+def establish_client_portal_session(client, invitation: Invitation) -> str:
+    issued = client.post(
+        reverse(
+            "admin-invitation-client-access",
+            kwargs={"public_slug": invitation.public_slug},
+        )
+    )
+    assert issued.status_code == 201
+    payload = issued.json()
+    client.logout()
+    redeemed = client.post(
+        reverse("client-access-bootstrap"),
+        {
+            "token": capability_token_from_url(payload["bootstrap_url"]),
+            "pin": payload["initial_pin"],
+        },
+        content_type="application/json",
+    )
+    assert redeemed.status_code == 200
+    csrf_token = redeemed.json()["csrf_token"]
+    changed = client.post(
+        reverse("client-access-pin"),
+        {
+            "current_pin": payload["initial_pin"],
+            "next_pin": "A-new-client-passphrase-2026",
+        },
+        content_type="application/json",
+        HTTP_X_CSRFTOKEN=csrf_token,
+    )
+    assert changed.status_code == 200
+    return csrf_token
+
+
+def establish_guest_session(client, delivery_url: str) -> str:
+    redeemed = client.post(
+        reverse("guest-access-redeem"),
+        {"token": capability_token_from_url(delivery_url)},
+        content_type="application/json",
+    )
+    assert redeemed.status_code == 200
+    return redeemed.json()["csrf_token"]
+
+
 @pytest.mark.django_db
 def test_staff_admin_endpoints_deny_anonymous_users(client):
     orders_response = client.get(reverse("admin-order-list"))
@@ -123,8 +172,8 @@ def test_staff_order_detail_returns_operational_payload_without_guest_rows(clien
     assert payload["media"][0]["role"] == InvitationMedia.Role.PHOTO
     assert payload["rsvp"]["total_invited"] == 2
     assert payload["rsvp"]["total_confirmed"] == 1
-    assert "/id/i/inv-staff-detail-001/wishes?access=" in payload["wishes_url"]
-    assert "/guest-delivery/" in payload["guest_management_url"]
+    assert payload["wishes_url"] == ""
+    assert payload["guest_management_url"] == ""
     assert payload["invitation"]["bank_accounts"][0]["bank"] == "BCA"
     content = response.content.decode()
     assert "Keluarga Budi" not in content
@@ -132,7 +181,7 @@ def test_staff_order_detail_returns_operational_payload_without_guest_rows(clien
 
 
 @pytest.mark.django_db
-def test_staff_can_update_order_payment_status_from_detail_endpoint(client):
+def test_staff_cannot_update_order_payment_status_from_detail_endpoint(client):
     staff, order = create_staff_order_fixture("staff-payment-001")
     client.force_login(staff)
 
@@ -142,10 +191,10 @@ def test_staff_can_update_order_payment_status_from_detail_endpoint(client):
         content_type="application/json",
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 400
     order.refresh_from_db()
-    assert order.payment_status == Order.PaymentStatus.DP
-    assert response.json()["order"]["payment_status_label"] == "DP"
+    assert order.payment_status == Order.PaymentStatus.UNPAID
+    assert "payment_status" in response.json()["error"]["details"]
 
 
 @pytest.mark.django_db
@@ -282,6 +331,8 @@ def test_staff_can_export_active_orders_csv(client):
     assert response.status_code == 200
     assert response["Content-Type"].startswith("text/csv")
     assert "order_id,client,email,phone,package,theme,total_amount" in body
+    assert "preview_url" not in body.splitlines()[0]
+    assert "/preview/" not in body
     assert order.reference in body
     assert "N999" not in body
 
@@ -311,6 +362,7 @@ def test_staff_can_update_manual_order_detail_payload(client):
     order = Order.objects.create(
         reference="manual-detail-001",
         client_name="Fahri",
+        status=Order.Status.CLIENT_REVIEW,
         theme=theme,
         package=package,
         total_amount="345000",
@@ -334,7 +386,6 @@ def test_staff_can_update_manual_order_detail_payload(client):
                 "parallax_plan": True,
             },
             "custom_status": Order.CustomStatus.APPROVED,
-            "payment_status": Order.PaymentStatus.PAID,
             "status": Order.Status.REVISION,
             "ceremony": {
                 "starts_at": "2026-09-12T09:00:00+07:00",
@@ -395,7 +446,7 @@ def test_staff_can_update_manual_order_detail_payload(client):
     assert order.custom_checklist["motion_brief"] is True
     assert order.theme == updated_theme
     assert order.package == updated_package
-    assert order.payment_status == Order.PaymentStatus.PAID
+    assert order.payment_status == Order.PaymentStatus.UNPAID
     assert order.invitation is not None
     assert order.invitation.content["couple"]["partnerOne"] == "Reno"
     assert order.invitation.content["couple"]["partnerTwo"] == "Erisa"
@@ -411,8 +462,10 @@ def test_staff_can_update_manual_order_detail_payload(client):
     assert response.json()["invitation"]["timeline"]["middle"][0]["number"] == "04"
     assert response.json()["order"]["custom_status"] == Order.CustomStatus.APPROVED
     assert response.json()["order"]["custom_checklist"]["overlay_assets"] is True
-    assert response.json()["preview_url"].startswith("http://testserver/id/i/")
-    assert "preview=" in response.json()["preview_url"]
+    assert response.json()["preview_url"].startswith(
+        "http://localhost:3000/preview/access#grant=ng1."
+    )
+    assert "?" not in response.json()["preview_url"]
     assert AuditEvent.objects.filter(
         action="order.theme_changed",
         resource_reference=order.reference,
@@ -785,6 +838,7 @@ def test_staff_publishing_order_turns_preview_link_into_public_link(client):
     order = Order.objects.create(
         reference="N011",
         client_name="Fahri",
+        status=Order.Status.APPROVED,
         theme=theme,
         package=package,
         invitation=invitation,
@@ -805,7 +859,9 @@ def test_staff_publishing_order_turns_preview_link_into_public_link(client):
     assert order.invitation.status == Invitation.Status.PUBLISHED
     assert order.invitation.approval_status == Invitation.ApprovalStatus.PUBLISHED
     assert order.invitation.expires_at == order.invitation.published_at + timedelta(days=180)
-    assert response.json()["preview_url"] == "https://wedding.example/id/i/n011"
+    assert response.json()["preview_url"] == (
+        f"http://localhost:3000/id/i/{order.invitation.public_access_id}"
+    )
     assert "preview=" not in response.json()["preview_url"]
 
 
@@ -934,8 +990,73 @@ def test_order_status_transition_rejects_invalid_skip():
 
 
 @pytest.mark.django_db
-def test_billing_lifecycle_refresh_marks_expiring_and_expired(client, settings):
-    settings.BILLING_CRON_SECRET = "cron-secret"
+def test_generic_order_patch_enforces_transition_and_reserves_verification(client):
+    staff = create_user(
+        username="status-guard-owner",
+        email="status-guard-owner@example.com",
+        role="staff",
+        is_staff=True,
+    )
+    order = Order.objects.create(
+        reference="ord-status-guard",
+        client_name="Status Guard",
+        status=Order.Status.PENDING,
+        assigned_staff=staff,
+    )
+    client.force_login(staff)
+
+    invalid_skip = client.patch(
+        reverse("admin-order-detail", kwargs={"reference": order.reference}),
+        {"status": Order.Status.COMPLETED},
+        content_type="application/json",
+    )
+    generic_verify = client.patch(
+        reverse("admin-order-detail", kwargs={"reference": order.reference}),
+        {"status": Order.Status.VERIFIED},
+        content_type="application/json",
+    )
+    dedicated_verify = client.post(
+        reverse("admin-order-confirm", kwargs={"reference": order.reference}),
+        {"reason": "Manual payment record reviewed."},
+        content_type="application/json",
+    )
+
+    assert invalid_skip.status_code == 400
+    assert generic_verify.status_code == 400
+    assert dedicated_verify.status_code == 200
+    order.refresh_from_db()
+    assert order.status == Order.Status.VERIFIED
+
+
+@pytest.mark.django_db
+def test_owner_can_cancel_order_only_through_a_valid_transition(client):
+    staff = create_user(
+        username="cancel-owner",
+        email="cancel-owner@example.com",
+        role="staff",
+        is_staff=True,
+    )
+    order = Order.objects.create(
+        reference="ord-cancel-owner",
+        client_name="Cancellation",
+        status=Order.Status.CONSULTING,
+        assigned_staff=staff,
+    )
+    client.force_login(staff)
+
+    response = client.patch(
+        reverse("admin-order-detail", kwargs={"reference": order.reference}),
+        {"status": Order.Status.CANCELLED},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200
+    order.refresh_from_db()
+    assert order.status == Order.Status.CANCELLED
+
+
+@pytest.mark.django_db
+def test_internal_lifecycle_refresh_marks_expiring_and_expired(client, settings):
     settings.BILLING_EXPIRY_WARNING_DAYS = 14
     theme = create_theme()
     expiring = create_invitation(theme=theme, status="active", public_slug="expiring-soon")
@@ -945,16 +1066,17 @@ def test_billing_lifecycle_refresh_marks_expiring_and_expired(client, settings):
     expired.expires_at = timezone.now() - timedelta(hours=1)
     expired.save(update_fields=["expires_at", "updated_at"])
 
-    forbidden = client.post(reverse("billing-lifecycle-refresh"))
-    response = client.post(
-        reverse("billing-lifecycle-refresh"),
-        HTTP_X_CRON_SECRET="cron-secret",
-    )
+    result = refresh_invitation_lifecycle_task.run()
+    http_response = client.post("/api/v1/billing/lifecycle/refresh")
 
     expiring.refresh_from_db()
     expired.refresh_from_db()
-    assert forbidden.status_code == 403
-    assert response.status_code == 200
+    assert result == {
+        "expiring_soon": 1,
+        "expired": 1,
+        "anonymized_guests": 0,
+    }
+    assert http_response.status_code == 404
     assert expiring.status == "expiring_soon"
     assert expired.status == "expired"
 
@@ -969,7 +1091,12 @@ def test_staff_updates_order_status_and_assignment(client):
         is_staff=True,
     )
     theme = create_theme()
-    order = Order.objects.create(reference="ord-edit", client_name="Alya", theme=theme)
+    order = Order.objects.create(
+        reference="ord-edit",
+        client_name="Alya",
+        status=Order.Status.CONFIRMED,
+        theme=theme,
+    )
     client.force_login(staff)
 
     response = client.patch(
@@ -1150,14 +1277,14 @@ def test_public_rsvp_requires_personal_token_and_records_event(client):
 
 
 @pytest.mark.django_db
-def test_public_guest_rsvp_create_is_write_only(client):
+def test_anonymous_public_guest_rsvp_endpoint_is_closed(client):
     theme = create_theme()
     invitation = create_invitation(theme=theme, public_slug="public-write-rsvp")
     invitation.package = create_package(code="signature")
     invitation.save(update_fields=["package", "updated_at"])
 
     response = client.post(
-        reverse("invitation-public-rsvp-create", kwargs={"public_slug": invitation.public_slug}),
+        f"/api/v1/invitations/{invitation.public_slug}/public-rsvp",
         {
             "name": "Tamu Publik",
             "contact": "guest@example.com",
@@ -1168,11 +1295,8 @@ def test_public_guest_rsvp_create_is_write_only(client):
         content_type="application/json",
     )
 
-    assert response.status_code == 201
-    assert response.json() == {"status": Guest.RSVPStatus.ACCEPTED}
-    assert Guest.objects.filter(invitation=invitation, display_name="Tamu Publik").exists()
-    assert "guest@example.com" not in response.content.decode()
-    assert str(invitation.guests.latest("created_at").id) not in response.content.decode()
+    assert response.status_code == 404
+    assert not Guest.objects.filter(invitation=invitation, display_name="Tamu Publik").exists()
 
 
 @pytest.mark.django_db
@@ -1200,27 +1324,32 @@ def test_staff_creates_guest_delivery_link_and_guest_uses_it_for_rsvp(client):
     payload = response.json()
     assert payload["display_name"] == "Syarif"
     assert payload["token_available"] is True
-    assert payload["delivery_url"].startswith("https://wedding.example/id/i/delivery-link?guest=")
-    token = payload["delivery_url"].split("guest=", 1)[1]
+    assert payload["delivery_url"].startswith("http://localhost:3000/g#grant=ng1.")
 
     client.logout()
+    csrf_token = establish_guest_session(client, payload["delivery_url"])
     invitation_response = client.get(
-        reverse("invitation-detail", kwargs={"public_slug": invitation.public_slug}),
-        {"guest": token},
+        reverse(
+            "invitation-detail",
+            kwargs={"public_slug": invitation.public_access_id},
+        ),
     )
     assert invitation_response.status_code == 200
     assert invitation_response.json()["guest"] == {"displayName": "Syarif"}
     assert "syarif@example.com" not in invitation_response.content.decode()
 
     rsvp_response = client.post(
-        reverse("invitation-rsvp", kwargs={"public_slug": invitation.public_slug}),
+        reverse(
+            "invitation-rsvp",
+            kwargs={"public_slug": invitation.public_access_id},
+        ),
         {
-            "token": token,
             "rsvp_status": Guest.RSVPStatus.ACCEPTED,
             "attendance_count": 2,
             "wishes": "Selamat!",
         },
         content_type="application/json",
+        HTTP_X_CSRFTOKEN=csrf_token,
     )
 
     assert rsvp_response.status_code == 200
@@ -1254,8 +1383,8 @@ def test_staff_guest_delivery_link_for_draft_includes_preview_token(client):
 
     assert response.status_code == 201
     delivery_url = response.json()["delivery_url"]
-    assert "guest=" in delivery_url
-    assert "preview=" in delivery_url
+    assert delivery_url.startswith("http://localhost:3000/g#grant=ng1.")
+    assert urlparse(delivery_url).query == ""
 
 
 @pytest.mark.django_db
@@ -1284,28 +1413,29 @@ def test_draft_guest_delivery_link_accepts_rsvp_with_preview_token(client):
     )
 
     assert response.status_code == 201
-    query = parse_qs(urlparse(response.json()["delivery_url"]).query)
-    guest_token = query["guest"][0]
-    preview_token = query["preview"][0]
-
     client.logout()
+    csrf_token = establish_guest_session(client, response.json()["delivery_url"])
     preview_response = client.get(
-        reverse("invitation-preview-detail", kwargs={"public_slug": invitation.public_slug}),
-        {"guest": guest_token, "token": preview_token},
+        reverse(
+            "invitation-detail",
+            kwargs={"public_slug": invitation.public_access_id},
+        ),
     )
     assert preview_response.status_code == 200
     assert preview_response.json()["guest"] == {"displayName": "Syarif"}
 
     rsvp_response = client.post(
-        reverse("invitation-rsvp", kwargs={"public_slug": invitation.public_slug}),
+        reverse(
+            "invitation-rsvp",
+            kwargs={"public_slug": invitation.public_access_id},
+        ),
         {
-            "token": guest_token,
-            "preview": preview_token,
             "rsvp_status": Guest.RSVPStatus.ACCEPTED,
             "attendance_count": 1,
             "wishes": "Selamat memulai lembaran baru",
         },
         content_type="application/json",
+        HTTP_X_CSRFTOKEN=csrf_token,
     )
 
     assert rsvp_response.status_code == 200
@@ -1403,7 +1533,8 @@ def test_staff_exports_guest_delivery_links_as_csv(client):
     assert response["Content-Type"] == "text/csv"
     content = response.content.decode()
     assert "Syarif" in content
-    assert "https://wedding.example/id/i/delivery-export?guest=delivery-token-1" in content
+    assert "http://localhost:3000/g#grant=ng1." in content
+    assert "delivery-token-1" not in content
 
 
 @pytest.mark.django_db
@@ -1413,15 +1544,10 @@ def test_essential_guest_management_disables_rsvp_and_wishes(client):
         package_code="essential",
     )
     client.force_login(staff)
-    order_detail = client.get(
-        reverse("admin-order-detail", kwargs={"reference": order.reference}),
-        HTTP_ORIGIN="https://wedding.example",
-    )
-    token = order_detail.json()["guest_management_url"].rsplit("/", 1)[-1]
-    client.logout()
+    establish_client_portal_session(client, order.invitation)
 
-    detail = client.get(reverse("guest-management-detail", kwargs={"token": token}))
-    wishes = client.get(reverse("guest-management-wishes", kwargs={"token": token}))
+    detail = client.get(reverse("client-portal-detail"))
+    wishes = client.get(reverse("client-portal-wishes"))
     public_wishes = client.get(
         reverse(
             "invitation-wishes",
@@ -1442,14 +1568,11 @@ def test_essential_guest_management_disables_rsvp_and_wishes(client):
         content_type="application/json",
     )
 
-    assert order_detail.status_code == 200
-    assert order_detail.json()["wishes_url"] == ""
     assert detail.status_code == 200
     assert detail.json()["invitation"]["package_code"] == "essential"
-    assert detail.json()["capabilities"] == {
-        "rsvp": False,
-        "guest_wishes": False,
-    }
+    assert detail.json()["capabilities"]["rsvp"] is False
+    assert detail.json()["capabilities"]["guest_wishes"] is False
+    assert detail.json()["capabilities"]["read_only"] is False
     assert wishes.status_code == 404
     assert public_wishes.status_code == 404
     assert rsvp.status_code == 404
@@ -1459,22 +1582,16 @@ def test_essential_guest_management_disables_rsvp_and_wishes(client):
 def test_guest_management_link_allows_client_import_and_delivery_tracking(client):
     staff, order = create_staff_order_fixture("guest-management-001")
     client.force_login(staff)
-    detail_response = client.get(
-        reverse("admin-order-detail", kwargs={"reference": order.reference}),
-        HTTP_ORIGIN="https://wedding.example",
-    )
-    token = detail_response.json()["guest_management_url"].rsplit("/", 1)[-1]
-    client.logout()
+    csrf_token = establish_client_portal_session(client, order.invitation)
 
-    detail = client.get(reverse("guest-management-detail", kwargs={"token": token}))
+    detail = client.get(reverse("client-portal-detail"))
     assert detail.status_code == 200
     assert detail.json()["invitation"]["public_slug"] == order.invitation.public_slug
-    assert detail.json()["capabilities"] == {
-        "rsvp": True,
-        "guest_wishes": True,
-    }
+    assert detail.json()["capabilities"]["rsvp"] is True
+    assert detail.json()["capabilities"]["guest_wishes"] is True
+    assert detail.json()["capabilities"]["read_only"] is False
 
-    wishes_response = client.get(reverse("guest-management-wishes", kwargs={"token": token}))
+    wishes_response = client.get(reverse("client-portal-wishes"))
     assert wishes_response.status_code == 200
     assert wishes_response.json()["couple_name"] == "Alya & Raka"
 
@@ -1484,9 +1601,9 @@ def test_guest_management_link_allows_client_import_and_delivery_tracking(client
         content_type="text/csv",
     )
     preview = client.post(
-        f"{reverse('guest-management-guest-link-import', kwargs={'token': token})}?dry_run=true",
+        f"{reverse('client-portal-guest-link-import')}?dry_run=true",
         {"file": upload},
-        HTTP_ORIGIN="https://wedding.example",
+        HTTP_X_CSRFTOKEN=csrf_token,
     )
     assert preview.status_code == 200
     assert preview.json()["summary"]["valid_rows"] == 1
@@ -1498,19 +1615,19 @@ def test_guest_management_link_allows_client_import_and_delivery_tracking(client
         content_type="text/csv",
     )
     commit = client.post(
-        reverse("guest-management-guest-link-import", kwargs={"token": token}),
+        reverse("client-portal-guest-link-import"),
         {"file": upload},
-        HTTP_ORIGIN="https://wedding.example",
+        HTTP_X_CSRFTOKEN=csrf_token,
     )
     assert commit.status_code == 200
     guest = Guest.objects.get(display_name="Syarif")
-    assert guest.metadata["delivery_token"]
+    assert "delivery_token" not in guest.metadata
     assert AuditEvent.objects.filter(action="guest.delivery_links_imported_by_client").exists()
 
     delivery = client.patch(
         reverse(
-            "guest-management-guest-link-delivery",
-            kwargs={"token": token, "guest_id": guest.id},
+            "client-portal-guest-link-delivery",
+            kwargs={"guest_id": guest.id},
         ),
         {"sent": True},
         content_type="application/json",
@@ -1619,11 +1736,8 @@ def test_staff_imports_guest_links_and_deduplicates_by_phone(client):
     assert syarif.phone == "+628123456789"
     assert syarif.party_size == 2
     assert syarif.metadata["import_group"] == "Teman"
-    assert "delivery_token" in syarif.metadata
-    assert (
-        "https://wedding.example/id/i/delivery-import-commit?guest="
-        in payload["rows"][0]["delivery_url"]
-    )
+    assert "delivery_token" not in syarif.metadata
+    assert payload["rows"][0]["delivery_url"].startswith("http://localhost:3000/g#grant=ng1.")
     assert AuditEvent.objects.filter(action="guest.delivery_links_imported").exists()
 
     syarif.rsvp_status = Guest.RSVPStatus.ACCEPTED
@@ -1749,8 +1863,7 @@ def test_staff_sets_existing_backsound_asset(client):
 
 
 @pytest.mark.django_db
-def test_midtrans_webhook_is_idempotent_and_updates_invoice(client):
-    staff = create_user(username="staff", email="staff@example.com", role="staff", is_staff=True)
+def test_midtrans_webhook_endpoint_is_disabled(client):
     theme = create_theme()
     order = Order.objects.create(reference="ord-paid", client_name="Alya", theme=theme)
     invoice = PaymentInvoice.objects.create(
@@ -1765,16 +1878,28 @@ def test_midtrans_webhook_is_idempotent_and_updates_invoice(client):
         "transaction_id": "midtrans-001",
     }
 
-    first = client.post(reverse("midtrans-webhook"), payload, content_type="application/json")
-    second = client.post(reverse("midtrans-webhook"), payload, content_type="application/json")
+    response = client.post(
+        "/api/v1/payments/midtrans/webhook",
+        payload,
+        content_type="application/json",
+    )
 
     invoice.refresh_from_db()
-    assert first.status_code == 200
-    assert second.json()["status"] == "ignored"
-    assert invoice.status == PaymentInvoice.Status.PAID
-    assert PaymentWebhookEvent.objects.count() == 1
-    assert AuditEvent.objects.filter(action="payment.webhook_processed").exists()
-    assert staff.role == "staff"
+    assert response.status_code == 404
+    assert invoice.status == PaymentInvoice.Status.PENDING
+    assert PaymentWebhookEvent.objects.count() == 0
+    assert not AuditEvent.objects.filter(action="payment.webhook_processed").exists()
+
+
+@pytest.mark.django_db
+def test_automated_payment_invoice_endpoint_is_disabled(client):
+    response = client.post(
+        "/api/v1/payments/invoices",
+        {},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 404
 
 
 @pytest.mark.django_db

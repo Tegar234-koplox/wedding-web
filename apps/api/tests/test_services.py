@@ -39,7 +39,7 @@ def test_whatsapp_redirect_validates_context_and_tracks_intent(client):
     WHATSAPP_BUSINESS_NUMBER="6281997452212",
     WHATSAPP_MESSAGE_TEMPLATE_ID="Halo dari Niskala.",
 )
-def test_whatsapp_redirect_is_rate_limited(client):
+def test_whatsapp_redirect_does_not_share_an_ip_bucket_across_bff_traffic(client):
     responses = [
         client.get(
             reverse("whatsapp-redirect"),
@@ -49,8 +49,7 @@ def test_whatsapp_redirect_is_rate_limited(client):
         for _ in range(21)
     ]
 
-    assert all(response.status_code == 302 for response in responses[:20])
-    assert responses[20].status_code == 429
+    assert all(response.status_code == 302 for response in responses)
 
 
 @pytest.mark.django_db
@@ -110,6 +109,8 @@ def test_upload_signature_requires_staff(client):
         username="staff",
         email="staff@example.com",
         password="safe-test-password",
+        role=User.Role.STAFF,
+        staff_role=User.StaffRole.EDITOR,
         is_staff=True,
     )
     client.force_login(user)
@@ -132,6 +133,8 @@ def test_upload_signature_does_not_expose_configuration_exception(client):
         username="upload-staff",
         email="upload-staff@example.com",
         password="safe-test-password",
+        role=User.Role.STAFF,
+        staff_role=User.StaffRole.EDITOR,
         is_staff=True,
     )
     client.force_login(user)

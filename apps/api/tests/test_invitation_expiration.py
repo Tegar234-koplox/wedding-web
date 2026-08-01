@@ -10,6 +10,7 @@ from django.utils import timezone
 from invitations.expiration import publication_expires_at, publication_lifetime_days
 from invitations.models import Guest, Invitation
 from invitations.preview import preview_token_for
+from orders.lifecycle import refresh_invitation_lifecycle
 from orders.models import Order
 from tests.factories import create_invitation, create_package, create_theme
 
@@ -20,6 +21,7 @@ def create_staff_user():
         email="expiration-editor@example.com",
         password="password",
         role="staff",
+        staff_role="owner",
         is_staff=True,
     )
 
@@ -85,7 +87,7 @@ def test_staff_publication_sets_signature_expiry(client):
 
 
 @pytest.mark.django_db
-def test_expired_invitation_is_not_public_but_preview_remains_available(client):
+def test_expired_invitation_is_not_public_and_preview_grants_are_rejected(client):
     invitation = create_invitation(
         theme=create_theme(slug="expired-public"),
         public_slug="expired-public",
@@ -107,7 +109,7 @@ def test_expired_invitation_is_not_public_but_preview_remains_available(client):
 
     assert public_response.status_code == 404
     assert weather_response.status_code == 404
-    assert preview_response.status_code == 200
+    assert preview_response.status_code == 404
 
 
 @pytest.mark.django_db
@@ -153,10 +155,7 @@ def test_published_theme_sample_does_not_expire(client):
 
 
 @pytest.mark.django_db
-def test_lifecycle_refresh_marks_published_customer_expired_but_preserves_sample(
-    client,
-    settings,
-):
+def test_lifecycle_refresh_marks_published_customer_expired_but_preserves_sample():
     customer = create_invitation(
         theme=create_theme(slug="lifecycle-customer"),
         public_slug="lifecycle-customer",
@@ -172,19 +171,41 @@ def test_lifecycle_refresh_marks_published_customer_expired_but_preserves_sample
     customer.save(update_fields=["expires_at", "updated_at"])
     sample.expires_at = expired_at
     sample.save(update_fields=["expires_at", "updated_at"])
-    settings.BILLING_CRON_SECRET = "test-cron-secret"
-
-    response = client.post(
-        reverse("billing-lifecycle-refresh"),
-        HTTP_X_CRON_SECRET="test-cron-secret",
-    )
+    result = refresh_invitation_lifecycle()
 
     customer.refresh_from_db()
     sample.refresh_from_db()
-    assert response.status_code == 200
-    assert response.json()["expired"] == 1
+    assert result["expired"] == 1
     assert customer.status == Invitation.Status.EXPIRED
     assert sample.status == Invitation.Status.PUBLISHED
+
+
+@pytest.mark.django_db
+def test_lifecycle_anonymizes_archived_invitation_after_retention_grace():
+    invitation = create_invitation(
+        theme=create_theme(slug="retention-archived"),
+        status=Invitation.Status.ARCHIVED,
+        public_slug="retention-archived",
+        is_sample=False,
+    )
+    invitation.expires_at = None
+    invitation.archived_at = timezone.now() - timedelta(days=31)
+    invitation.save(update_fields=["expires_at", "archived_at", "updated_at"])
+    guest = invitation.guests.get()
+    guest.email = "guest@example.test"
+    guest.phone = "+628123456789"
+    guest.wishes = "Data yang harus dihapus."
+    guest.save(update_fields=["email", "phone", "wishes", "updated_at"])
+
+    result = refresh_invitation_lifecycle()
+
+    guest.refresh_from_db()
+    assert result["anonymized_guests"] == 1
+    assert guest.display_name == "Anonymized guest"
+    assert guest.email == ""
+    assert guest.phone == ""
+    assert guest.wishes == ""
+    assert guest.anonymized_at is not None
 
 
 @pytest.mark.django_db
@@ -206,9 +227,7 @@ def test_migration_backfills_existing_customer_and_clears_sample_expiry():
     sample.expires_at = timezone.now() + timedelta(days=1)
     sample.save(update_fields=["expires_at", "updated_at"])
 
-    migration = importlib.import_module(
-        "invitations.migrations.0011_backfill_publication_expiry"
-    )
+    migration = importlib.import_module("invitations.migrations.0011_backfill_publication_expiry")
     migration.backfill_publication_expiry(apps, None)
 
     customer.refresh_from_db()

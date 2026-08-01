@@ -6,22 +6,22 @@ from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_sche
 from rest_framework.exceptions import ValidationError as APIValidationError
 from rest_framework.generics import ListAPIView
 from rest_framework.permissions import AllowAny
-from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from analytics.models import AnalyticsEvent
 from common.exceptions import ServiceUnavailable
+from common.permissions import HasStaffRole
 from leads.models import WhatsAppIntent
 from leads.serializers import StaffWhatsAppIntentSerializer
 from leads.services import whatsapp_redirect_url
 from orders.permissions import IsStaffRole
+from users.models import User
 
 logger = logging.getLogger("wedding.api")
 
 
 class WhatsAppRedirectView(APIView):
     permission_classes = [AllowAny]
-    throttle_classes = [ScopedRateThrottle]
     throttle_scope = "conversion"
 
     @extend_schema(
@@ -75,7 +75,11 @@ class WhatsAppRedirectView(APIView):
 
 
 class StaffWhatsAppIntentListView(ListAPIView):
-    permission_classes = [IsStaffRole]
+    permission_classes = [IsStaffRole, HasStaffRole]
+    required_staff_roles = (
+        User.StaffRole.OWNER,
+        User.StaffRole.SUPPORT,
+    )
     serializer_class = StaffWhatsAppIntentSerializer
     pagination_class = None
 

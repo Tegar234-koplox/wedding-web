@@ -1,7 +1,6 @@
 from django.urls import path
 
 from orders.views import (
-    BillingLifecycleRefreshView,
     StaffArchiveWeddingView,
     StaffClientLifecycleListView,
     StaffConfirmOrderView,
@@ -62,10 +61,5 @@ urlpatterns = [
         "admin/weddings/<slug:public_slug>/archive",
         StaffArchiveWeddingView.as_view(),
         name="admin-wedding-archive",
-    ),
-    path(
-        "billing/lifecycle/refresh",
-        BillingLifecycleRefreshView.as_view(),
-        name="billing-lifecycle-refresh",
     ),
 ]

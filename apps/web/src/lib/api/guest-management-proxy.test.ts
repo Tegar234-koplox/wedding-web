@@ -1,10 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
-vi.mock("@/lib/env", () => ({
-  env: {
-    NEXT_PUBLIC_API_URL: "https://api.example.test/api/v1",
-    NEXT_PUBLIC_SITE_URL: "https://staging.example.test",
+vi.mock("@/lib/server-env", () => ({
+  serverEnv: {
+    API_URL: "https://api.example.test/api/v1",
   },
 }));
 
@@ -85,6 +84,8 @@ describe("proxyGuestManagementRequest", () => {
           Authorization: "browser-credential-must-not-be-forwarded",
           "Content-Type": "application/json",
           Cookie: "browser-cookie-must-not-be-forwarded",
+          Origin: "https://staging.example.test",
+          "Sec-Fetch-Site": "same-origin",
         },
         method: "PATCH",
       },
@@ -114,7 +115,11 @@ describe("proxyGuestManagementRequest", () => {
       "https://staging.example.test/api/guest-management/token/guest-links/import?dry_run=true",
       {
         body: "--vitest-boundary\r\nCSV payload\r\n--vitest-boundary--",
-        headers: { "Content-Type": "multipart/form-data; boundary=vitest-boundary" },
+        headers: {
+          "Content-Type": "multipart/form-data; boundary=vitest-boundary",
+          Origin: "https://staging.example.test",
+          "Sec-Fetch-Site": "same-origin",
+        },
         method: "POST",
       },
     );

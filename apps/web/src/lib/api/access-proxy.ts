@@ -1,9 +1,13 @@
 import "server-only";
 
 import { getCloudflareAccessHeaders } from "@/lib/api/cloudflare-access";
-import { env } from "@/lib/env";
+import {
+  readBoundedRequestBody,
+  validateUnsafeRequestOrigin,
+} from "@/lib/api/proxy-security";
 
 const UPSTREAM_TIMEOUT_MS = 30_000;
+const DEFAULT_MAX_BODY_BYTES = 16 * 1024;
 const RESPONSE_HEADER_ALLOWLIST = [
   "content-disposition",
   "content-type",
@@ -17,7 +21,13 @@ export async function proxyAccessRequest(
   request: Request,
   upstreamUrl: URL,
   serviceName: string,
+  { maxBodyBytes = DEFAULT_MAX_BODY_BYTES }: { maxBodyBytes?: number } = {},
 ): Promise<Response> {
+  const originRejection = validateUnsafeRequestOrigin(request);
+  if (originRejection) {
+    return originRejection;
+  }
+
   const accessHeaders = getCloudflareAccessHeaders();
   if (!accessHeaders) {
     return proxyError(`${serviceName} is not configured.`, 503);
@@ -25,7 +35,7 @@ export async function proxyAccessRequest(
 
   const headers = new Headers({
     Accept: request.headers.get("accept") ?? "application/json",
-    Origin: new URL(env.NEXT_PUBLIC_SITE_URL).origin,
+    Origin: new URL(request.url).origin,
     ...accessHeaders,
   });
   const contentType = request.headers.get("content-type");
@@ -33,11 +43,15 @@ export async function proxyAccessRequest(
     headers.set("Content-Type", contentType);
   }
 
-  const hasBody = !["GET", "HEAD"].includes(request.method);
+  const bodyResult = await readBoundedRequestBody(request, maxBodyBytes);
+  if (bodyResult.rejection) {
+    return bodyResult.rejection;
+  }
+
   let response: Response;
   try {
     response = await fetch(upstreamUrl, {
-      body: hasBody ? await request.arrayBuffer() : undefined,
+      body: bodyResult.body,
       cache: "no-store",
       headers,
       method: request.method,
