@@ -27,7 +27,7 @@ function configureProductionHosts() {
 
 describe("frontend trust-zone proxy", () => {
   it("keeps application and API routes protected without intercepting static media", () => {
-    const matcher = new RegExp(`^${config.matcher[0].source}$`);
+    const matcher = new RegExp(`^${config.matcher[0]!.source}$`);
 
     expect(matcher.test("/id/preview/elegant-classic")).toBe(true);
     expect(matcher.test("/api/staff/auth/me")).toBe(true);
