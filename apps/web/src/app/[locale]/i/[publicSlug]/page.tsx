@@ -3,6 +3,7 @@ import {
   type InvitationEnvelope,
 } from "@wedding/invitation-themes";
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 
 import { PublicRSVPForm } from "@/components/invitations/public-rsvp-form";
@@ -19,13 +20,35 @@ type PublicInvitationPageProps = {
   searchParams?: Promise<{ guest?: string; preview?: string }>;
 };
 
+async function invitationAccessCookieHeader(): Promise<string> {
+  const store = await cookies();
+  return [
+    "__Host-niskala_guest",
+    "niskala_guest",
+    "__Host-niskala_client",
+    "niskala_client",
+    "__Host-niskala_preview",
+    "niskala_preview",
+  ]
+    .flatMap((name) => {
+      const value = store.get(name)?.value;
+      return value ? [`${name}=${value}`] : [];
+    })
+    .join("; ");
+}
+
 export async function generateMetadata({
   params,
   searchParams,
 }: PublicInvitationPageProps): Promise<Metadata> {
   const { publicSlug } = await params;
   const query = await searchParams;
-  const invitation = await fetchPublicInvitation(publicSlug, query?.preview, query?.guest);
+  const invitation = await fetchPublicInvitation(
+    publicSlug,
+    query?.preview,
+    query?.guest,
+    await invitationAccessCookieHeader(),
+  );
   if (!invitation) {
     return {};
   }
@@ -44,13 +67,19 @@ export default async function PublicInvitationPage({
 }: PublicInvitationPageProps) {
   const { locale, publicSlug } = await params;
   const query = await searchParams;
+  const accessCookie = await invitationAccessCookieHeader();
   if (!isLocale(locale)) {
     notFound();
   }
 
   const [invitation, weather] = await Promise.all([
-    fetchPublicInvitation(publicSlug, query?.preview, query?.guest),
-    fetchInvitationWeather(publicSlug, query?.preview),
+    fetchPublicInvitation(
+      publicSlug,
+      query?.preview,
+      query?.guest,
+      accessCookie,
+    ),
+    fetchInvitationWeather(publicSlug, query?.preview, accessCookie),
   ]);
   if (!invitation) {
     notFound();
@@ -78,8 +107,10 @@ export default async function PublicInvitationPage({
           <PublicRSVPForm
             embedded
             initialToken={query?.guest}
-            previewToken={query?.preview}
             publicSlug={publicSlug}
+            sessionAccess={/(?:^|;\s*)(?:__Host-)?niskala_guest=/.test(
+              accessCookie,
+            )}
           />
         ) : undefined
       }

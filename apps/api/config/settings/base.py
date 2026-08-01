@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import json
 import os
 from datetime import timedelta
 from pathlib import Path
 
 import dj_database_url
 import sentry_sdk
+
+from common.sentry import before_breadcrumb, before_send
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 
@@ -38,6 +41,13 @@ def env_int(name: str, default: int) -> int:
     return int(env(name, str(default)))
 
 
+def env_json(name: str, default: str) -> object:
+    try:
+        return json.loads(env(name, default))
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"Environment variable {name} must contain valid JSON") from exc
+
+
 SECRET_KEY = env("DJANGO_SECRET_KEY", "unsafe-local-development-key")
 DEBUG = False
 DEPLOYMENT_ENVIRONMENT = (
@@ -46,8 +56,35 @@ DEPLOYMENT_ENVIRONMENT = (
 DEPLOYMENT_RELEASE = (
     env("DEPLOYMENT_RELEASE", env("RAILWAY_GIT_COMMIT_SHA", "local")).strip() or "local"
 )
+NISKALA_BFF_SHARED_SECRET = env("NISKALA_BFF_SHARED_SECRET", "").strip()
 SENTRY_ENVIRONMENT = env("SENTRY_ENVIRONMENT", DEPLOYMENT_ENVIRONMENT)
 ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1")
+PUBLIC_SITE_URL = env("PUBLIC_SITE_URL", "http://localhost:3000").rstrip("/")
+CLIENT_SITE_URL = env("CLIENT_SITE_URL", PUBLIC_SITE_URL).rstrip("/")
+STAFF_SITE_URL = env("STAFF_SITE_URL", CLIENT_SITE_URL).rstrip("/")
+PRODUCTION_EXPECTED_PUBLIC_ORIGIN = env("PRODUCTION_EXPECTED_PUBLIC_ORIGIN", "").rstrip("/")
+PRODUCTION_EXPECTED_CLIENT_ORIGIN = env("PRODUCTION_EXPECTED_CLIENT_ORIGIN", "").rstrip("/")
+PRODUCTION_EXPECTED_STAFF_ORIGIN = env("PRODUCTION_EXPECTED_STAFF_ORIGIN", "").rstrip("/")
+PRODUCTION_EXPECTED_API_HOST = env("PRODUCTION_EXPECTED_API_HOST", "").strip().lower()
+PRODUCTION_EXPECTED_DATABASE_HOST = env("PRODUCTION_EXPECTED_DATABASE_HOST", "").strip().lower()
+PRODUCTION_EXPECTED_DATABASE_DIRECT_HOST = (
+    env("PRODUCTION_EXPECTED_DATABASE_DIRECT_HOST", "").strip().lower()
+)
+PRODUCTION_EXPECTED_DATABASE_NAME = env("PRODUCTION_EXPECTED_DATABASE_NAME", "").strip()
+PRODUCTION_EXPECTED_REDIS_HOST = env("PRODUCTION_EXPECTED_REDIS_HOST", "").strip().lower()
+PRODUCTION_EXPECTED_CLOUDINARY_CLOUD_NAME = env(
+    "PRODUCTION_EXPECTED_CLOUDINARY_CLOUD_NAME", ""
+).strip()
+CAPABILITY_KEYS = env_json(
+    "CAPABILITY_KEYS_JSON",
+    '{"local":"local-development-capability-key-change-me-32-bytes"}',
+)
+CAPABILITY_PRIMARY_KEY_ID = env("CAPABILITY_PRIMARY_KEY_ID", "local")
+LEGACY_INVITATION_LINKS_ENABLED = env_bool("LEGACY_INVITATION_LINKS_ENABLED", False)
+LEGACY_INVITATION_LINK_CUTOFF = env("LEGACY_INVITATION_LINK_CUTOFF", "")
+CLIENT_ACCESS_COOKIE_NAME = env("CLIENT_ACCESS_COOKIE_NAME", "niskala_client")
+GUEST_ACCESS_COOKIE_NAME = env("GUEST_ACCESS_COOKIE_NAME", "niskala_guest")
+PREVIEW_ACCESS_COOKIE_NAME = env("PREVIEW_ACCESS_COOKIE_NAME", "niskala_preview")
 
 INSTALLED_APPS = [
     "django.contrib.auth",
@@ -78,6 +115,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "common.middleware.BFFOriginAuthenticationMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
@@ -85,6 +123,7 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django_otp.middleware.OTPMiddleware",
+    "common.middleware.StaffSessionSecurityMiddleware",
     "common.middleware.DatabaseAccessContextMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "common.middleware.RequestIdMiddleware",
@@ -120,6 +159,7 @@ DATABASES = {
         conn_health_checks=True,
     )
 }
+DATABASE_DIRECT_URL = env("DATABASE_DIRECT_URL", "")
 
 CACHES = {
     "default": {
@@ -132,7 +172,6 @@ CACHES = {
 }
 
 BILLING_EXPIRY_WARNING_DAYS = env_int("BILLING_EXPIRY_WARNING_DAYS", 14)
-BILLING_CRON_SECRET = env("BILLING_CRON_SECRET", "")
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
@@ -142,6 +181,13 @@ AUTH_PASSWORD_VALIDATORS = [
     },
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+]
+
+PASSWORD_HASHERS = [
+    "django.contrib.auth.hashers.Argon2PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher",
+    "django.contrib.auth.hashers.ScryptPasswordHasher",
 ]
 
 AUTH_USER_MODEL = "users.User"
@@ -159,6 +205,15 @@ AXES_HTTP_RESPONSE_CODE = 429
 STAFF_MFA_REQUIRED = env_bool("STAFF_MFA_REQUIRED", False)
 STAFF_MFA_CHALLENGE_TTL_SECONDS = env_int("STAFF_MFA_CHALLENGE_TTL_SECONDS", 300)
 STAFF_MFA_REAUTH_TTL_SECONDS = env_int("STAFF_MFA_REAUTH_TTL_SECONDS", 1_800)
+STAFF_SESSION_ABSOLUTE_TTL_SECONDS = env_int(
+    "STAFF_SESSION_ABSOLUTE_TTL_SECONDS",
+    28_800,
+)
+STAFF_SESSION_IDLE_TTL_SECONDS = env_int("STAFF_SESSION_IDLE_TTL_SECONDS", 1_800)
+STAFF_SESSION_TOUCH_INTERVAL_SECONDS = env_int(
+    "STAFF_SESSION_TOUCH_INTERVAL_SECONDS",
+    60,
+)
 
 LANGUAGE_CODE = "id"
 LANGUAGES = [("id", "Bahasa Indonesia"), ("en", "English")]
@@ -196,8 +251,7 @@ REST_FRAMEWORK = {
         "rest_framework.permissions.IsAuthenticated",
     ],
     "DEFAULT_THROTTLE_CLASSES": [
-        "rest_framework.throttling.AnonRateThrottle",
-        "rest_framework.throttling.UserRateThrottle",
+        "common.throttles.AuthenticatedUserRateThrottle",
         "common.throttles.NiskalaScopedRateThrottle",
     ],
     "DEFAULT_RENDERER_CLASSES": [
@@ -206,10 +260,11 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "EXCEPTION_HANDLER": "common.exceptions.api_exception_handler",
     "DEFAULT_THROTTLE_RATES": {
-        "anon": "120/minute",
         "user": "300/minute",
-        "conversion": "20/minute",
+        "conversion": "20/min",
         "csrf": "30/min",
+        "client_access": "5/15min",
+        "grant_redeem": "20/min",
         "guest_import": "5/min",
         "login": "5/5min",
         "mfa": "10/5min",
@@ -235,10 +290,14 @@ CELERY_TASK_TIME_LIMIT = 60
 CELERY_TASK_SOFT_TIME_LIMIT = 50
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_BEAT_SCHEDULE = {
+    "refresh-invitation-lifecycle": {
+        "task": "orders.tasks.refresh_invitation_lifecycle",
+        "schedule": 3_600,
+    },
     "refresh-upcoming-wedding-weather": {
         "task": "weather.tasks.schedule_upcoming_weather_refreshes",
         "schedule": 21_600,
-    }
+    },
 }
 
 OPEN_METEO_API_BASE_URL = env("OPEN_METEO_API_BASE_URL", "https://api.open-meteo.com")
@@ -253,15 +312,15 @@ CLOUDINARY_CLOUD_NAME = env("CLOUDINARY_CLOUD_NAME", "")
 CLOUDINARY_API_KEY = env("CLOUDINARY_API_KEY", "")
 CLOUDINARY_API_SECRET = env("CLOUDINARY_API_SECRET", "")
 
-MIDTRANS_SERVER_KEY = env("MIDTRANS_SERVER_KEY", "")
-MIDTRANS_CLIENT_KEY = env("MIDTRANS_CLIENT_KEY", "")
-MIDTRANS_IS_PRODUCTION = env_bool("MIDTRANS_IS_PRODUCTION", False)
-
 SENTRY_DSN = env("SENTRY_DSN", "")
 if SENTRY_DSN:
     sentry_sdk.init(
+        before_breadcrumb=before_breadcrumb,
+        before_send=before_send,
+        before_send_transaction=before_send,
         dsn=SENTRY_DSN,
         environment=SENTRY_ENVIRONMENT,
+        include_local_variables=False,
         release=env("SENTRY_RELEASE", ""),
         send_default_pii=False,
         traces_sample_rate=env_float("SENTRY_TRACES_SAMPLE_RATE", 0.05),
@@ -291,7 +350,7 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True
-SESSION_COOKIE_AGE = env_int("DJANGO_SESSION_COOKIE_AGE", 43_200)
+SESSION_COOKIE_AGE = env_int("DJANGO_SESSION_COOKIE_AGE", 28_800)
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 SESSION_SAVE_EVERY_REQUEST = False
 SESSION_COOKIE_SAMESITE = env("DJANGO_SESSION_COOKIE_SAMESITE", "Lax")

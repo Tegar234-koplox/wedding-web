@@ -1,6 +1,5 @@
 from django.db import migrations
 
-
 REMOVED_FEATURE_KEYS = {
     "essential": {"gallery-8", "revisions-3"},
     "signature": {"gallery-plus-3", "revisions-5"},

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from dataclasses import dataclass, field
 from urllib.error import HTTPError, URLError
@@ -117,17 +118,26 @@ def main() -> int:
     parser.add_argument("--expected-release")
     parser.add_argument("--cf-access-client-id")
     parser.add_argument("--cf-access-client-secret")
+    parser.add_argument(
+        "--bff-shared-secret",
+        default=os.environ.get("NISKALA_BFF_SHARED_SECRET"),
+    )
     args = parser.parse_args()
 
     if bool(args.cf_access_client_id) != bool(args.cf_access_client_secret):
         parser.error("both Cloudflare Access credentials must be provided together")
 
-    access_headers = {}
+    site_access_headers = {}
     if args.cf_access_client_id:
-        access_headers = {
+        site_access_headers = {
             "CF-Access-Client-Id": args.cf_access_client_id,
             "CF-Access-Client-Secret": args.cf_access_client_secret,
         }
+    api_access_headers = dict(site_access_headers)
+    if args.bff_shared_secret:
+        if len(args.bff_shared_secret.encode("utf-8")) < 32:
+            parser.error("the BFF shared secret must contain at least 32 bytes")
+        api_access_headers["X-Niskala-BFF-Secret"] = args.bff_shared_secret
 
     site_origin = normalized_origin(args.site_url)
     api_origin = normalized_origin(args.api_url)
@@ -184,7 +194,12 @@ def main() -> int:
 
     failed = False
     for check in checks:
-        passed, message = run_check(check, args.timeout, access_headers)
+        request_headers = (
+            api_access_headers
+            if urlparse(check.url).netloc == urlparse(api_origin).netloc
+            else site_access_headers
+        )
+        passed, message = run_check(check, args.timeout, request_headers)
         print(("PASS" if passed else "FAIL") + f"  {message}")
         failed = failed or not passed
 

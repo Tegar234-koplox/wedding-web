@@ -6,7 +6,11 @@ import {
   mediaSlotCountFor,
 } from "@/invitations/media-plan";
 
-import { galleryPayloadFor, gallerySlotsFromMedia } from "./admin-order-detail";
+import {
+  galleryPayloadFor,
+  gallerySlotsFromMedia,
+  orderPatchPayloadForRole,
+} from "./admin-order-detail";
 
 describe("staff media plan", () => {
   it.each([
@@ -101,5 +105,79 @@ describe("staff media plan", () => {
     expect(slots[0]).toContain("section-2.jpg");
     expect(slots[1]).toBe("");
     expect(slots[33]).toContain("section-12.jpg");
+  });
+});
+
+describe("staff order PATCH RBAC", () => {
+  const unrestrictedPayload = {
+    ceremony: { venue_name: "Venue" },
+    client_email: "client@example.test",
+    client_name: "Reno & Erisa",
+    client_phone: "+628123456789",
+    currency: "IDR",
+    event_date: "2026-12-12",
+    media_urls: { photo: "https://res.cloudinary.com/demo/photo.jpg" },
+    notes: "Hubungi via WhatsApp",
+    payment_status: "paid",
+    status: "in_design",
+    theme_slug: "floral-romantic",
+    total_amount: "249000.00",
+  };
+
+  it("never submits derived payment_status, including for owner", () => {
+    const payload = orderPatchPayloadForRole("owner", unrestrictedPayload);
+
+    expect(payload).not.toHaveProperty("payment_status");
+    expect(payload).toMatchObject({
+      client_email: "client@example.test",
+      status: "in_design",
+      total_amount: "249000.00",
+    });
+  });
+
+  it("limits editor payload to content fields and safe workflow targets", () => {
+    expect(
+      orderPatchPayloadForRole("editor", unrestrictedPayload),
+    ).toEqual({
+      ceremony: { venue_name: "Venue" },
+      client_name: "Reno & Erisa",
+      event_date: "2026-12-12",
+      media_urls: {
+        photo: "https://res.cloudinary.com/demo/photo.jpg",
+      },
+      notes: "Hubungi via WhatsApp",
+      status: "in_design",
+      theme_slug: "floral-romantic",
+    });
+    expect(
+      orderPatchPayloadForRole("editor", {
+        ...unrestrictedPayload,
+        status: "published",
+      }),
+    ).not.toHaveProperty("status");
+  });
+
+  it("limits support payload to client contact fields", () => {
+    expect(
+      orderPatchPayloadForRole("support", unrestrictedPayload),
+    ).toEqual({
+      client_email: "client@example.test",
+      client_name: "Reno & Erisa",
+      client_phone: "+628123456789",
+      event_date: "2026-12-12",
+      notes: "Hubungi via WhatsApp",
+    });
+  });
+
+  it("keeps finance generic fields minimal and viewer read-only", () => {
+    expect(
+      orderPatchPayloadForRole("finance", unrestrictedPayload),
+    ).toEqual({
+      currency: "IDR",
+      total_amount: "249000.00",
+    });
+    expect(orderPatchPayloadForRole("viewer", unrestrictedPayload)).toEqual(
+      {},
+    );
   });
 });

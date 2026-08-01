@@ -4,18 +4,24 @@ from django.core.exceptions import ImproperlyConfigured, ValidationError
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError as APIValidationError
-from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from common.exceptions import ServiceUnavailable
+from common.permissions import HasStaffRole
 from media_library.services import create_upload_signature
+from orders.permissions import IsStaffRole
+from users.models import User
 
 logger = logging.getLogger("wedding.api")
 
 
 class UploadSignatureView(APIView):
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsStaffRole, HasStaffRole]
+    required_staff_roles = (
+        User.StaffRole.OWNER,
+        User.StaffRole.EDITOR,
+    )
 
     @extend_schema(
         request=inline_serializer(

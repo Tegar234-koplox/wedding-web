@@ -14,7 +14,7 @@ import {
   type PublicInvitationWishes,
 } from "@/lib/api/contracts";
 import { getCloudflareAccessHeaders } from "@/lib/api/cloudflare-access";
-import { env } from "@/lib/env";
+import { serverEnv } from "@/lib/server-env";
 import type { Locale } from "@/lib/locales";
 
 const PUBLIC_API_RETRY_DELAY_MS = 250;
@@ -58,16 +58,21 @@ function waitBeforeRetry(): Promise<void> {
 
 async function apiFetch(
   path: string,
-  options: { noStore?: boolean; timeoutMs?: number } = {},
+  options: {
+    cookieHeader?: string;
+    noStore?: boolean;
+    timeoutMs?: number;
+  } = {},
 ): Promise<unknown> {
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
-      const response = await fetch(`${env.NEXT_PUBLIC_API_URL}${path}`, {
+      const response = await fetch(`${serverEnv.API_URL}${path}`, {
         ...(options.noStore
           ? { cache: "no-store" as const }
           : { next: { revalidate: 300 } }),
         headers: {
           Accept: "application/json",
+          ...(options.cookieHeader ? { Cookie: options.cookieHeader } : {}),
           ...cloudflareAccessHeaders(),
         },
         redirect: "manual",
@@ -98,6 +103,7 @@ export async function fetchPublicInvitation(
   publicSlug: string,
   previewToken?: string,
   guestToken?: string,
+  cookieHeader?: string,
 ): Promise<PublicInvitation | null> {
   try {
     const query = new URLSearchParams();
@@ -117,6 +123,7 @@ export async function fetchPublicInvitation(
         // request the current payload so a newly saved cover is visible at once.
         noStore: true,
         timeoutMs: PUBLIC_INVITATION_TIMEOUT_MS,
+        cookieHeader,
       }),
     );
   } catch (error) {
@@ -136,7 +143,7 @@ export async function fetchInvitationWishes(
   }
   try {
     const response = await fetch(
-      `${env.NEXT_PUBLIC_API_URL}/invitations/${publicSlug}/wishes?access=${encodeURIComponent(
+      `${serverEnv.API_URL}/invitations/${publicSlug}/wishes?access=${encodeURIComponent(
         accessToken,
       )}`,
       {
@@ -161,6 +168,7 @@ export async function fetchInvitationWishes(
 export async function fetchInvitationWeather(
   publicSlug: string,
   previewToken?: string,
+  cookieHeader?: string,
 ): Promise<InvitationWeather | null> {
   try {
     const query = new URLSearchParams();
@@ -170,6 +178,8 @@ export async function fetchInvitationWeather(
     const suffix = query.size ? `?${query.toString()}` : "";
     return invitationWeatherSchema.parse(
       await apiFetch(`/invitations/${publicSlug}/weather${suffix}`, {
+        cookieHeader,
+        noStore: Boolean(cookieHeader || previewToken),
         timeoutMs: 8_000,
       }),
     );

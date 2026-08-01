@@ -26,6 +26,7 @@ def _staff_order_with_photo(reference: str):
         email=f"{reference}@staff.test",
         password="password",
         role="staff",
+        staff_role="owner",
         is_staff=True,
     )
     theme = create_theme()

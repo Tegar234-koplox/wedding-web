@@ -44,12 +44,20 @@ Set these in the staging project only:
 ```text
 DEPLOYMENT_ENVIRONMENT=staging
 NEXT_PUBLIC_SITE_URL=https://staging.niskalastudio.site
-NEXT_PUBLIC_API_URL=https://api-staging.niskalastudio.site/api/v1
+API_URL=https://api-staging.niskalastudio.site/api/v1
+NISKALA_PUBLIC_HOSTS=staging.niskalastudio.site
+NISKALA_CLIENT_HOSTS=client-staging.niskalastudio.site
+NISKALA_STAFF_HOSTS=staff-staging.niskalastudio.site
+NISKALA_API_HOSTS=api-staging.niskalastudio.site
+NISKALA_BFF_SHARED_SECRET=<staging-only-random-origin-secret>
+CF_ACCESS_CLIENT_ID=<staging-service-token-client-id>
+CF_ACCESS_CLIENT_SECRET=<encrypted-staging-service-token-secret>
 SENTRY_ENVIRONMENT=staging
 ```
 
 `X-Niskala-Release` uses `VERCEL_GIT_COMMIT_SHA` automatically. Do not place a
-Cloudflare Access service-token secret in Vercel or any `NEXT_PUBLIC_*` value.
+Cloudflare Access service-token secret in any `NEXT_PUBLIC_*` value. Store the
+pair only as encrypted server-side Vercel environment variables.
 
 ## 3. Railway staging variables
 
@@ -61,13 +69,18 @@ DEPLOYMENT_ENVIRONMENT=staging
 DEPLOYMENT_RELEASE=<deployed staging commit SHA, or use Railway RAILWAY_GIT_COMMIT_SHA>
 SENTRY_ENVIRONMENT=staging
 DJANGO_ALLOWED_HOSTS=api-staging.niskalastudio.site,healthcheck.railway.app
-DJANGO_CORS_ALLOWED_ORIGINS=https://staging.niskalastudio.site
-DJANGO_CSRF_TRUSTED_ORIGINS=https://staging.niskalastudio.site
+DJANGO_CORS_ALLOWED_ORIGINS=https://staging.niskalastudio.site,https://client-staging.niskalastudio.site,https://staff-staging.niskalastudio.site
+DJANGO_CSRF_TRUSTED_ORIGINS=https://staging.niskalastudio.site,https://client-staging.niskalastudio.site,https://staff-staging.niskalastudio.site
+PUBLIC_SITE_URL=https://staging.niskalastudio.site
+CLIENT_SITE_URL=https://client-staging.niskalastudio.site
+STAFF_SITE_URL=https://staff-staging.niskalastudio.site
+NISKALA_BFF_SHARED_SECRET=<same-staging-only-origin-secret-as-vercel>
 DJANGO_SESSION_COOKIE_DOMAIN=
 DJANGO_CSRF_COOKIE_DOMAIN=
-MIDTRANS_IS_PRODUCTION=false
 
 STAGING_EXPECTED_FRONTEND_ORIGIN=https://staging.niskalastudio.site
+STAGING_EXPECTED_CLIENT_ORIGIN=https://client-staging.niskalastudio.site
+STAGING_EXPECTED_STAFF_ORIGIN=https://staff-staging.niskalastudio.site
 STAGING_EXPECTED_API_HOST=api-staging.niskalastudio.site
 STAGING_EXPECTED_DATABASE_HOST=<pooled staging database host>
 STAGING_EXPECTED_DATABASE_DIRECT_HOST=<direct staging database host>
@@ -77,8 +90,10 @@ STAGING_EXPECTED_CLOUDINARY_CLOUD_NAME=<staging Cloudinary cloud name>
 ```
 
 The API refuses startup when any expected staging resource does not match the
-effective Django configuration. The guard compares identifiers, never secret
-values. Release commands temporarily use `DATABASE_DIRECT_URL`; their process
+effective Django configuration or when the staging BFF origin secret is absent,
+weak, or a placeholder. The resource guard compares identifiers, never secret
+values. Keep the BFF value server-only and identical in the staging Vercel and
+Railway projects. Release commands temporarily use `DATABASE_DIRECT_URL`; their process
 is marked as direct-database mode so the effective connection is checked against
 `STAGING_EXPECTED_DATABASE_DIRECT_HOST` while normal API traffic continues to
 be checked against `STAGING_EXPECTED_DATABASE_HOST`.
@@ -88,7 +103,6 @@ Set synthetic-demo secrets only on Railway staging:
 ```text
 STAGING_DEMO_STAFF_PASSWORD=<unique staging-only password>
 STAGING_DEMO_MFA_KEY=<40 hexadecimal characters / 20 bytes>
-STAGING_DEMO_GUEST_TOKEN=<random staging-only guest token>
 ```
 
 Configure WhatsApp/email destinations as internal test destinations. Never use
@@ -140,9 +154,9 @@ Create GitHub Environment `staging`, enable required reviewer approval, and add:
 ```text
 STAGING_FRONTEND_URL=https://staging.niskalastudio.site
 STAGING_API_URL=https://api-staging.niskalastudio.site
-STAGING_DEMO_GUEST_TOKEN=<same staging guest token>
 CF_ACCESS_CLIENT_ID=<service token client id>
 CF_ACCESS_CLIENT_SECRET=<service token secret>
+NISKALA_BFF_SHARED_SECRET=<same-staging-origin-secret>
 ```
 
 The `Staging security and load assurance` workflow checks out `staging`, rejects

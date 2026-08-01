@@ -5,9 +5,11 @@ Gunakan checklist ini setelah deploy backend Railway dan frontend Vercel. Jalank
 ## 1. Backend readiness
 
 - Buka `/health/live`; hasil harus `{"status":"ok"}`.
-- Buka `/api/v1/`; hasil harus menampilkan nama dan versi API.
-- Buka `/api/v1/auth/csrf`; hasil harus memiliki `csrfToken`.
-- Cek Railway logs untuk 5xx baru setelah tiga endpoint di atas dibuka.
+- Akses langsung `/api/v1/` tanpa header BFF harus menghasilkan 404 generik;
+  ini menandakan origin tidak dapat dilewati langsung dari browser.
+- Jalankan `infra/deployment/smoke_test.py` dengan credential server-side untuk
+  memeriksa API root/CSRF tanpa membocorkan secret ke browser.
+- Cek Railway logs untuk 5xx baru setelah pemeriksaan di atas.
 
 ## 2. Staff session
 

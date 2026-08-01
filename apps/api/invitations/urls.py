@@ -1,5 +1,18 @@
 from django.urls import path
 
+from invitations.access_views import (
+    ClientAccessMeView,
+    ClientBootstrapRedeemView,
+    ClientLoginView,
+    ClientLogoutView,
+    ClientPinChangeView,
+    GuestAccessMeView,
+    GuestAccessRedeemView,
+    GuestLogoutView,
+    PreviewAccessRedeemView,
+    PreviewLogoutView,
+    StaffClientAccessIssueView,
+)
 from invitations.views import (
     GuestManagementDetailView,
     GuestManagementGuestDeliveryStatusView,
@@ -7,15 +20,16 @@ from invitations.views import (
     GuestManagementGuestLinkImportTemplateView,
     GuestManagementGuestLinkImportView,
     GuestManagementGuestLinkListCreateView,
+    GuestManagementGuestLinkRotateView,
     GuestManagementWishesView,
     InvitationDetailView,
     InvitationPreviewDetailView,
     InvitationRSVPView,
     InvitationWeatherView,
-    PublicGuestRSVPCreateView,
     PublicInvitationWishesView,
     StaffGuestAnonymizeView,
     StaffGuestArchiveView,
+    StaffGuestLinkRotateView,
     StaffInvitationGuestLinkExportView,
     StaffInvitationGuestLinkImportTemplateView,
     StaffInvitationGuestLinkImportView,
@@ -27,6 +41,32 @@ from invitations.views import (
 )
 
 urlpatterns = [
+    path(
+        "access/client/bootstrap",
+        ClientBootstrapRedeemView.as_view(),
+        name="client-access-bootstrap",
+    ),
+    path(
+        "access/client/login/<uuid:grant_id>",
+        ClientLoginView.as_view(),
+        name="client-access-login",
+    ),
+    path("access/client/me", ClientAccessMeView.as_view(), name="client-access-me"),
+    path("access/client/pin", ClientPinChangeView.as_view(), name="client-access-pin"),
+    path("access/client/logout", ClientLogoutView.as_view(), name="client-access-logout"),
+    path("access/guest/redeem", GuestAccessRedeemView.as_view(), name="guest-access-redeem"),
+    path("access/guest/me", GuestAccessMeView.as_view(), name="guest-access-me"),
+    path("access/guest/logout", GuestLogoutView.as_view(), name="guest-access-logout"),
+    path(
+        "access/preview/redeem",
+        PreviewAccessRedeemView.as_view(),
+        name="preview-access-redeem",
+    ),
+    path(
+        "access/preview/logout",
+        PreviewLogoutView.as_view(),
+        name="preview-access-logout",
+    ),
     path(
         "invitations/<slug:public_slug>",
         InvitationDetailView.as_view(),
@@ -46,11 +86,6 @@ urlpatterns = [
         "invitations/<slug:public_slug>/rsvp",
         InvitationRSVPView.as_view(),
         name="invitation-rsvp",
-    ),
-    path(
-        "invitations/<slug:public_slug>/public-rsvp",
-        PublicGuestRSVPCreateView.as_view(),
-        name="invitation-public-rsvp-create",
     ),
     path(
         "invitations/<slug:public_slug>/wishes",
@@ -93,6 +128,47 @@ urlpatterns = [
         name="guest-management-guest-link-delivery",
     ),
     path(
+        "guest-management/<str:token>/guest-links/<uuid:guest_id>/rotate",
+        GuestManagementGuestLinkRotateView.as_view(),
+        name="guest-management-guest-link-rotate",
+    ),
+    path("client/portal", GuestManagementDetailView.as_view(), name="client-portal-detail"),
+    path(
+        "client/portal/wishes",
+        GuestManagementWishesView.as_view(),
+        name="client-portal-wishes",
+    ),
+    path(
+        "client/portal/guest-links",
+        GuestManagementGuestLinkListCreateView.as_view(),
+        name="client-portal-guest-link-list",
+    ),
+    path(
+        "client/portal/guest-links/export",
+        GuestManagementGuestLinkExportView.as_view(),
+        name="client-portal-guest-link-export",
+    ),
+    path(
+        "client/portal/guest-links/import-template",
+        GuestManagementGuestLinkImportTemplateView.as_view(),
+        name="client-portal-guest-link-import-template",
+    ),
+    path(
+        "client/portal/guest-links/import",
+        GuestManagementGuestLinkImportView.as_view(),
+        name="client-portal-guest-link-import",
+    ),
+    path(
+        "client/portal/guest-links/<uuid:guest_id>/delivery",
+        GuestManagementGuestDeliveryStatusView.as_view(),
+        name="client-portal-guest-link-delivery",
+    ),
+    path(
+        "client/portal/guest-links/<uuid:guest_id>/rotate",
+        GuestManagementGuestLinkRotateView.as_view(),
+        name="client-portal-guest-link-rotate",
+    ),
+    path(
         "admin/invitations",
         StaffInvitationOperationListView.as_view(),
         name="admin-invitation-list",
@@ -101,6 +177,11 @@ urlpatterns = [
         "admin/invitations/<slug:public_slug>/publish",
         StaffInvitationPublishView.as_view(),
         name="admin-invitation-publish",
+    ),
+    path(
+        "admin/invitations/<slug:public_slug>/client-access",
+        StaffClientAccessIssueView.as_view(),
+        name="admin-invitation-client-access",
     ),
     path(
         "admin/invitations/<slug:public_slug>/guests",
@@ -136,6 +217,11 @@ urlpatterns = [
         "admin/guests/<uuid:guest_id>/archive",
         StaffGuestArchiveView.as_view(),
         name="admin-guest-archive",
+    ),
+    path(
+        "admin/guests/<uuid:guest_id>/rotate-link",
+        StaffGuestLinkRotateView.as_view(),
+        name="admin-guest-link-rotate",
     ),
     path(
         "admin/guests/<uuid:guest_id>/anonymize",

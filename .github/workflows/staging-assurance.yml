@@ -18,6 +18,7 @@ jobs:
       STAGING_API_URL: ${{ secrets.STAGING_API_URL }}
       CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
       CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+      NISKALA_BFF_SHARED_SECRET: ${{ secrets.NISKALA_BFF_SHARED_SECRET }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -56,6 +57,7 @@ jobs:
       STAGING_API_URL: ${{ secrets.STAGING_API_URL }}
       CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
       CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+      NISKALA_BFF_SHARED_SECRET: ${{ secrets.NISKALA_BFF_SHARED_SECRET }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -70,7 +72,7 @@ jobs:
         run: |
           docker run --rm -v "$PWD:/zap/wrk/:rw" -t ghcr.io/zaproxy/zaproxy:stable \
             zap-baseline.py -t "$STAGING_API_URL" -m 3 \
-            -z "-config replacer.full_list(0).description=cf-id -config replacer.full_list(0).enabled=true -config replacer.full_list(0).matchtype=REQ_HEADER -config replacer.full_list(0).matchstr=CF-Access-Client-Id -config replacer.full_list(0).replacement=$CF_ACCESS_CLIENT_ID -config replacer.full_list(1).description=cf-secret -config replacer.full_list(1).enabled=true -config replacer.full_list(1).matchtype=REQ_HEADER -config replacer.full_list(1).matchstr=CF-Access-Client-Secret -config replacer.full_list(1).replacement=$CF_ACCESS_CLIENT_SECRET" \
+            -z "-config replacer.full_list(0).description=cf-id -config replacer.full_list(0).enabled=true -config replacer.full_list(0).matchtype=REQ_HEADER -config replacer.full_list(0).matchstr=CF-Access-Client-Id -config replacer.full_list(0).replacement=$CF_ACCESS_CLIENT_ID -config replacer.full_list(1).description=cf-secret -config replacer.full_list(1).enabled=true -config replacer.full_list(1).matchtype=REQ_HEADER -config replacer.full_list(1).matchstr=CF-Access-Client-Secret -config replacer.full_list(1).replacement=$CF_ACCESS_CLIENT_SECRET -config replacer.full_list(2).description=bff-secret -config replacer.full_list(2).enabled=true -config replacer.full_list(2).matchtype=REQ_HEADER -config replacer.full_list(2).matchstr=X-Niskala-BFF-Secret -config replacer.full_list(2).replacement=$NISKALA_BFF_SHARED_SECRET" \
             -J zap-api.json -r zap-api.html
       - name: Upload ZAP reports
         if: always()
@@ -93,7 +95,6 @@ jobs:
       K6_FRONTEND_URL: ${{ secrets.STAGING_FRONTEND_URL }}
       K6_API_URL: ${{ secrets.STAGING_API_URL }}
       K6_PUBLIC_SLUG: staging-isolation-demo
-      K6_GUEST_TOKEN: ${{ secrets.STAGING_DEMO_GUEST_TOKEN }}
       K6_CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
       K6_CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
     steps:

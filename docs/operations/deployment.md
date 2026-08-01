@@ -20,7 +20,8 @@ comments, or shared chat.
 ## 2. Neon PostgreSQL
 
 1. Create the production project in a region close to Railway.
-2. Create a production database and restricted application role.
+2. For release v1, use the currently tested Neon runtime owner role. Do not switch
+   to a restricted non-owner role during this release.
 3. Copy the pooled connection string to `DATABASE_URL`.
 4. Copy the direct connection string to `DATABASE_DIRECT_URL`.
 5. Keep `DATABASE_DISABLE_SERVER_SIDE_CURSORS=true` for transaction-pooled connections.
@@ -30,6 +31,15 @@ comments, or shared chat.
 Runtime requests use the pooled URL. Railway's pre-deploy migration command uses
 `config.release`, which temporarily replaces `DATABASE_URL` with the direct URL
 before Django starts.
+
+The existing row-level-security migration is preparatory defense only: it enables
+RLS but does not force it for the table owner, and the current public, capability,
+and background-task paths have not been integration-tested under a restricted
+runtime role. Therefore RLS is not an active production guarantee in release v1.
+A separate database-hardening release must create a dedicated non-owner runtime
+role, complete policies and request/task context for every access path, test them
+against PostgreSQL, then enable `FORCE ROW LEVEL SECURITY`. Changing the runtime
+role earlier can cause an outage without providing a verified isolation boundary.
 
 ## 3. Railway
 
@@ -63,17 +73,38 @@ Set these values in Railway's secret store:
 
 ```text
 DJANGO_SETTINGS_MODULE=config.settings.production
+DEPLOYMENT_ENVIRONMENT=production
 DJANGO_SECRET_KEY=<long-random-value>
-DJANGO_ALLOWED_HOSTS=<railway-host>,healthcheck.railway.app,api.<domain>
-DJANGO_CORS_ALLOWED_ORIGINS=https://<vercel-host>,https://<domain>
-DJANGO_CSRF_TRUSTED_ORIGINS=https://<vercel-host>,https://<domain>
+DJANGO_ALLOWED_HOSTS=api.<domain>,healthcheck.railway.app
+DJANGO_CORS_ALLOWED_ORIGINS=https://<domain>,https://client.<domain>,https://staff.<domain>
+DJANGO_CSRF_TRUSTED_ORIGINS=https://<domain>,https://client.<domain>,https://staff.<domain>
 DJANGO_SECURE_SSL_REDIRECT=true
 DJANGO_API_DOCS_ENABLED=false
 DJANGO_MAX_REQUEST_BYTES=2097152
-DJANGO_SESSION_COOKIE_AGE=43200
-STAFF_MFA_REQUIRED=false
+DJANGO_SESSION_COOKIE_AGE=28800
+STAFF_MFA_REQUIRED=true
 STAFF_MFA_CHALLENGE_TTL_SECONDS=300
 STAFF_MFA_REAUTH_TTL_SECONDS=1800
+STAFF_SESSION_ABSOLUTE_TTL_SECONDS=28800
+STAFF_SESSION_IDLE_TTL_SECONDS=1800
+STAFF_SESSION_TOUCH_INTERVAL_SECONDS=60
+PUBLIC_SITE_URL=https://<domain>
+CLIENT_SITE_URL=https://client.<domain>
+STAFF_SITE_URL=https://staff.<domain>
+PRODUCTION_EXPECTED_PUBLIC_ORIGIN=https://<domain>
+PRODUCTION_EXPECTED_CLIENT_ORIGIN=https://client.<domain>
+PRODUCTION_EXPECTED_STAFF_ORIGIN=https://staff.<domain>
+PRODUCTION_EXPECTED_API_HOST=api.<domain>
+PRODUCTION_EXPECTED_DATABASE_HOST=<neon-pooled-host>
+PRODUCTION_EXPECTED_DATABASE_DIRECT_HOST=<neon-direct-host>
+PRODUCTION_EXPECTED_DATABASE_NAME=<production-database-name>
+PRODUCTION_EXPECTED_REDIS_HOST=<railway-redis-host>
+PRODUCTION_EXPECTED_CLOUDINARY_CLOUD_NAME=<production-cloudinary-cloud-name>
+CAPABILITY_KEYS_JSON={"prod-2026-01":"<at-least-32-random-bytes>"}
+CAPABILITY_PRIMARY_KEY_ID=prod-2026-01
+NISKALA_BFF_SHARED_SECRET=<at-least-32-random-ascii-bytes>
+LEGACY_INVITATION_LINKS_ENABLED=false
+LEGACY_INVITATION_LINK_CUTOFF=
 DATABASE_URL=<neon-pooled-url>
 DATABASE_DIRECT_URL=<neon-direct-url>
 DATABASE_DISABLE_SERVER_SIDE_CURSORS=true
@@ -98,9 +129,41 @@ GUNICORN_THREADS=2
 GUNICORN_TIMEOUT_SECONDS=60
 ```
 
-Keep `STAFF_MFA_REQUIRED=false` for the first hardened deployment. Enroll and
-verify every active account using [`staff-mfa.md`](staff-mfa.md), then switch it
-to `true`. Enabling enforcement before enrollment locks those staff accounts out.
+Production refuses to boot unless MFA enforcement, explicit site origins,
+production-only PostgreSQL/Redis/Cloudinary resources, bounded staff-session
+TTLs, Sentry, the capability keyring, and distinct strong signing secrets are
+configured. `DJANGO_SECRET_KEY` must contain at least 50 random ASCII bytes;
+BFF and capability secrets require at least 32. All require sufficient character
+diversity, no placeholder text, and no reuse across Django, BFF origin
+authentication, or capability keys. Before deploying this release, enroll and
+verify at least one active owner using the currently running release as described in
+[`staff-mfa.md`](staff-mfa.md). Readiness remains `503` until at least one active
+owner has confirmed TOTP. Other staff can complete the first-login MFA enrollment
+flow after the hardened release is available.
+
+The expected-origin variables are independent deployment guards. They must match
+the three site URLs exactly, and `DJANGO_ALLOWED_HOSTS` may contain only the
+expected API host plus Railway's health-check host. This prevents a mistyped
+deployment variable from sending a capability fragment to an unrelated domain.
+
+Migration `users.0005_staff_security_foundation` conservatively backfills every
+existing active Django staff account to `owner`. Before provisioning non-owner
+accounts or claiming least privilege is active, export an inventory of active
+staff, downgrade each person to the required finance/editor/support/viewer role,
+disable stale accounts, increment/revoke their staff session versions, and verify
+each role with the dashboard smoke matrix. Keep at least one reviewed owner with
+confirmed MFA and recovery access.
+
+Generate capability-key material locally with a cryptographically secure secret
+generator and store it only in Railway. To rotate, add the new key beside the
+old key, change `CAPABILITY_PRIMARY_KEY_ID`, deploy, then reissue client and guest
+links. Removing an old key invalidates every remaining grant or session that
+depends on it, so remove it only after those links have been rotated or deliberate
+revocation is acceptable.
+
+Legacy slug/query-token links are an explicit migration bridge. Their cutoff may
+not be more than 14 days in the future. Disable
+`LEGACY_INVITATION_LINKS_ENABLED` after the transition window.
 
 Cloudinary and WhatsApp values are required for their respective media/CTA
 features, but an empty integration value must not prevent the API from booting.
@@ -156,7 +219,14 @@ The Sentry auth token is a build secret and must never use a `NEXT_PUBLIC_` pref
 
 ```text
 NEXT_PUBLIC_SITE_URL=https://<domain>
-NEXT_PUBLIC_API_URL=https://api.<domain>/api/v1
+API_URL=https://api.<domain>/api/v1
+NISKALA_PUBLIC_HOSTS=<domain>,www.<domain>
+NISKALA_CLIENT_HOSTS=client.<domain>
+NISKALA_STAFF_HOSTS=staff.<domain>
+NISKALA_API_HOSTS=api.<domain>
+NISKALA_BFF_SHARED_SECRET=<same-value-as-railway>
+CF_ACCESS_CLIENT_ID=<service-token-client-id>
+CF_ACCESS_CLIENT_SECRET=<encrypted-service-token-secret>
 NEXT_PUBLIC_DEFAULT_LOCALE=id
 NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=<cloud-name>
 NEXT_PUBLIC_WHATSAPP_NUMBER=<digits-only>
@@ -169,6 +239,16 @@ SENTRY_AUTH_TOKEN=<source-map-upload-token>
 SENTRY_TRACES_SAMPLE_RATE=0.05
 ```
 
+All four host lists, both Cloudflare service credentials, and the server-only
+BFF secret are mandatory in production. Next.js validates them during Node
+runtime startup. `NISKALA_BFF_SHARED_SECRET` must match Railway exactly and must
+never be exposed through `NEXT_PUBLIC_*`. Host lists must
+be explicit DNS names, disjoint between zones, and must not contain wildcards,
+ports, or `*.vercel.app`. `NEXT_PUBLIC_SITE_URL` and `API_URL` must use HTTPS;
+the site URL host must belong to `NISKALA_PUBLIC_HOSTS`, and the API URL host
+must belong to the disjoint `NISKALA_API_HOSTS` allowlist. The API URL must
+end in `/api/v1`.
+
 Preview deployments should use a non-production API or a deliberately
 read-only production API policy. Do not place production backend secrets in
 Vercel.
@@ -178,6 +258,8 @@ Vercel.
 Recommended routing:
 
 - `https://<domain>` and `https://www.<domain>` → Vercel
+- `https://client.<domain>` -> Vercel client trust zone
+- `https://staff.<domain>` -> Vercel staff trust zone behind Cloudflare Access
 - `https://api.<domain>` -> Cloudflare Tunnel -> Railway private web service
 
 Follow [`cloudflare-api.md`](cloudflare-api.md). Do not remove Railway public
@@ -187,7 +269,8 @@ WAF cannot be bypassed.
 
 After DNS and certificates are active:
 
-1. update `NEXT_PUBLIC_SITE_URL` and `NEXT_PUBLIC_API_URL`;
+1. update `NEXT_PUBLIC_SITE_URL`, server-only `API_URL`, and the four
+   `NISKALA_*_HOSTS` allowlists;
 2. update Django allowed hosts, CORS origins, and CSRF trusted origins;
 3. redeploy Railway and Vercel;
 4. verify that no HTTP origin remains in production variables.
@@ -195,19 +278,27 @@ After DNS and certificates are active:
 ## 8. Release order
 
 1. Provision Neon, Redis, Cloudinary, and Sentry.
-2. Deploy Railway web; its pre-deploy command applies migrations.
-3. Confirm `/health/live` and `/health/ready`.
-4. Deploy the Celery worker.
-5. Deploy exactly one Celery Beat replica.
-6. Deploy Vercel with the final API origin.
-7. Attach domains and update origin allowlists.
-8. Run the smoke workflow or local command:
+2. Enroll staff MFA and verify at least one active owner TOTP device.
+3. Configure the three site origins, host allowlists, Cloudflare service token,
+   capability keyring, and matching BFF origin secret in Vercel and Railway.
+4. Deploy Railway web; its pre-deploy command applies migrations.
+5. Confirm `/health/live` and `/health/ready`.
+6. Deploy the Celery worker.
+7. Deploy exactly one Celery Beat replica.
+8. Deploy Vercel with the final API origin.
+9. Attach domains and update origin allowlists.
+10. Run the smoke workflow or local command:
 
 ```powershell
 python infra/deployment/smoke_test.py `
   --site-url https://<domain> `
   --api-url https://api.<domain>
 ```
+
+Run that command from a process where server-only
+`NISKALA_BFF_SHARED_SECRET` is set. The smoke runner sends it only to the API
+origin, never to the frontend origin. Store the same value as an encrypted
+GitHub Actions secret for the deployment smoke workflow.
 
 The GitHub Actions workflow `Deployment smoke test` exposes the same checks
 through manual dispatch.

@@ -15,7 +15,30 @@ required_environment = (
     "REDIS_URL",
     "CELERY_BROKER_URL",
     "CELERY_RESULT_BACKEND",
+    "CAPABILITY_KEYS_JSON",
+    "CAPABILITY_PRIMARY_KEY_ID",
+    "NISKALA_BFF_SHARED_SECRET",
+    "PUBLIC_SITE_URL",
+    "CLIENT_SITE_URL",
+    "STAFF_SITE_URL",
 )
+if DEPLOYMENT_ENVIRONMENT == "production":  # noqa: F405
+    required_environment += (
+        "PRODUCTION_EXPECTED_PUBLIC_ORIGIN",
+        "PRODUCTION_EXPECTED_CLIENT_ORIGIN",
+        "PRODUCTION_EXPECTED_STAFF_ORIGIN",
+        "PRODUCTION_EXPECTED_API_HOST",
+        "PRODUCTION_EXPECTED_DATABASE_HOST",
+        "PRODUCTION_EXPECTED_DATABASE_DIRECT_HOST",
+        "PRODUCTION_EXPECTED_DATABASE_NAME",
+        "PRODUCTION_EXPECTED_REDIS_HOST",
+        "PRODUCTION_EXPECTED_CLOUDINARY_CLOUD_NAME",
+        "CLOUDINARY_CLOUD_NAME",
+        "CLOUDINARY_API_KEY",
+        "CLOUDINARY_API_SECRET",
+        "SENTRY_DSN",
+        "SENTRY_ENVIRONMENT",
+    )
 missing_environment = [name for name in required_environment if not os.environ.get(name)]  # noqa: F405
 if missing_environment:
     raise RuntimeError(
@@ -37,6 +60,13 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SECURE_REDIRECT_EXEMPT = [r"^health/(live|ready)$"]
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_NAME = "__Host-niskala_staff"
+CSRF_COOKIE_NAME = "__Host-niskala_csrf"
+SESSION_COOKIE_SAMESITE = "Strict"
+CSRF_COOKIE_SAMESITE = "Strict"
+CLIENT_ACCESS_COOKIE_NAME = "__Host-niskala_client"
+GUEST_ACCESS_COOKIE_NAME = "__Host-niskala_guest"
+PREVIEW_ACCESS_COOKIE_NAME = "__Host-niskala_preview"
 SECURE_HSTS_SECONDS = 31_536_000
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True

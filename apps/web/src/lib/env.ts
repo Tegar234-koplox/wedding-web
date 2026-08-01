@@ -6,7 +6,6 @@ function emptyToUndefined(value: string | undefined): string | undefined {
 
 const publicEnvSchema = z.object({
   NEXT_PUBLIC_SITE_URL: z.url().default("http://localhost:3000"),
-  NEXT_PUBLIC_API_URL: z.url().default("http://localhost:8000/api/v1"),
   NEXT_PUBLIC_DEFAULT_LOCALE: z.enum(["id", "en"]).default("id"),
   NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: z.string().optional(),
   NEXT_PUBLIC_SENTRY_DSN: z.string().optional(),
@@ -23,7 +22,6 @@ const publicEnvSchema = z.object({
 
 export const env = publicEnvSchema.parse({
   NEXT_PUBLIC_SITE_URL: emptyToUndefined(process.env.NEXT_PUBLIC_SITE_URL),
-  NEXT_PUBLIC_API_URL: emptyToUndefined(process.env.NEXT_PUBLIC_API_URL),
   NEXT_PUBLIC_DEFAULT_LOCALE: emptyToUndefined(
     process.env.NEXT_PUBLIC_DEFAULT_LOCALE,
   ),

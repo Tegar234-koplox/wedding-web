@@ -1,19 +1,21 @@
-from urllib.parse import urlencode
-
+from django.conf import settings
+from django.utils import timezone
 from rest_framework import serializers
 
 from catalog.models import Package, Theme
 from common.models import AuditEvent
 from common.notifications import enqueue_client_notification
+from common.permissions import effective_staff_role, is_staff_user
+from invitations.access import grant_token
 from invitations.capabilities import invitation_supports_guest_wishes
 from invitations.models import (
+    AccessGrant,
     Guest,
     Invitation,
     InvitationMedia,
     InvitationRevision,
     WeddingEvent,
 )
-from invitations.preview import guest_management_token_for, preview_token_for, wishes_token_for
 from leads.models import WhatsAppIntent
 from orders.models import Order
 from payments.serializers import PaymentRecordSerializer
@@ -40,6 +42,14 @@ PAYMENT_STATUS_LABELS = {
     Order.PaymentStatus.DP: "DP",
     Order.PaymentStatus.PAID: "Lunas",
 }
+
+
+def _serializer_staff_role(context: dict) -> str:
+    request = context.get("request")
+    user = getattr(request, "user", None)
+    if not is_staff_user(user):
+        return User.StaffRole.VIEWER
+    return effective_staff_role(user)
 
 
 def sync_invitation_selection(
@@ -172,6 +182,7 @@ class OrderSerializer(serializers.ModelSerializer[Order]):
         ]
         read_only_fields = [
             "id",
+            "payment_status",
             "payment_valid_total",
             "payment_pending_total",
             "payment_outstanding",
@@ -179,6 +190,72 @@ class OrderSerializer(serializers.ModelSerializer[Order]):
             "created_at",
             "updated_at",
         ]
+
+    def to_representation(self, instance: Order):
+        data = super().to_representation(instance)
+        role = _serializer_staff_role(self.context)
+        if role == User.StaffRole.OWNER:
+            return data
+
+        common_identity = {
+            "id",
+            "reference",
+            "status",
+            "assigned_staff_username",
+            "event_date",
+            "created_at",
+            "updated_at",
+        }
+        allowed_fields = {
+            User.StaffRole.FINANCE: common_identity
+            | {
+                "client_name",
+                "payment_status",
+                "total_amount",
+                "currency",
+                "payment_method",
+                "proof_url",
+                "payment_valid_total",
+                "payment_pending_total",
+                "payment_outstanding",
+                "verified_at",
+                "rejection_reason",
+            },
+            User.StaffRole.EDITOR: common_identity
+            | {
+                "theme_slug",
+                "package_code",
+                "invitation_slug",
+                "client_name",
+                "notes",
+                "custom_status",
+                "custom_brief",
+                "custom_approval_notes",
+                "custom_checklist",
+            },
+            User.StaffRole.SUPPORT: common_identity
+            | {
+                "theme_slug",
+                "package_code",
+                "invitation_slug",
+                "whatsapp_intent_id",
+                "client_user_email",
+                "client_name",
+                "client_email",
+                "client_phone",
+                "notes",
+                "custom_status",
+            },
+            User.StaffRole.VIEWER: common_identity
+            | {
+                "theme_slug",
+                "package_code",
+                "invitation_slug",
+                "custom_status",
+            },
+        }
+        permitted = allowed_fields.get(role, common_identity)
+        return {key: value for key, value in data.items() if key in permitted}
 
     def create(self, validated_data):
         order = super().create(validated_data)
@@ -199,6 +276,8 @@ class OrderSerializer(serializers.ModelSerializer[Order]):
 
     def update(self, instance, validated_data):
         old_status = instance.status
+        old_total_amount = instance.total_amount
+        old_currency = instance.currency
         sync_all = "invitation" in validated_data
         order = super().update(instance, validated_data)
         sync_invitation_selection(
@@ -208,12 +287,23 @@ class OrderSerializer(serializers.ModelSerializer[Order]):
             sync_theme=sync_all or "theme" in validated_data,
         )
         action = "order.status_changed" if old_status != order.status else "order.updated"
+        audit_metadata = {"old_status": old_status, "status": order.status}
+        if old_total_amount != order.total_amount:
+            audit_metadata["total_amount"] = {
+                "from": str(old_total_amount),
+                "to": str(order.total_amount),
+            }
+        if old_currency != order.currency:
+            audit_metadata["currency"] = {
+                "from": old_currency,
+                "to": order.currency,
+            }
         AuditEvent.objects.create(
             actor=self.context["request"].user,
             action=action,
             resource_type="order",
             resource_reference=order.reference,
-            metadata={"old_status": old_status, "status": order.status},
+            metadata=audit_metadata,
         )
         enqueue_client_notification(
             recipient=order.client_user,
@@ -249,7 +339,7 @@ class StaffOrderDetailSerializer(serializers.Serializer):
         )
 
         if invitation is None:
-            return {
+            payload = {
                 "order": base_order,
                 "invitation": None,
                 "events": [],
@@ -262,26 +352,79 @@ class StaffOrderDetailSerializer(serializers.Serializer):
                 "guest_management_url": "",
                 "revisions": [],
             }
+        else:
+            payload = {
+                "order": base_order,
+                "invitation": self._invitation_payload(invitation),
+                "events": [self._event_payload(event) for event in invitation.events.all()],
+                "media": [self._media_payload(media) for media in invitation.media.all()],
+                "rsvp": self._rsvp_payload(invitation),
+                "payments": PaymentRecordSerializer(
+                    order.manual_payments.all(),
+                    many=True,
+                ).data,
+                "payment_summary": self._payment_summary(order),
+                "preview_url": self._preview_url(invitation, request),
+                "wishes_url": (
+                    self._wishes_url(invitation, request)
+                    if invitation_supports_guest_wishes(invitation)
+                    else ""
+                ),
+                "guest_management_url": self._guest_management_url(invitation, request),
+                "revisions": [
+                    self._revision_payload(revision) for revision in invitation.revisions.all()
+                ],
+            }
+        return self._limit_payload_for_role(payload)
 
-        return {
-            "order": base_order,
-            "invitation": self._invitation_payload(invitation),
-            "events": [self._event_payload(event) for event in invitation.events.all()],
-            "media": [self._media_payload(media) for media in invitation.media.all()],
-            "rsvp": self._rsvp_payload(invitation),
-            "payments": PaymentRecordSerializer(order.manual_payments.all(), many=True).data,
-            "payment_summary": self._payment_summary(order),
-            "preview_url": self._preview_url(invitation, request),
-            "wishes_url": (
-                self._wishes_url(invitation, request)
-                if invitation_supports_guest_wishes(invitation)
-                else ""
-            ),
-            "guest_management_url": self._guest_management_url(invitation, request),
-            "revisions": [
-                self._revision_payload(revision) for revision in invitation.revisions.all()
-            ],
-        }
+    def _limit_payload_for_role(self, payload: dict) -> dict:
+        role = _serializer_staff_role(self.context)
+        if role == User.StaffRole.OWNER:
+            return payload
+
+        invitation = payload.get("invitation")
+        minimal_invitation = None
+        if isinstance(invitation, dict):
+            minimal_invitation = {
+                key: invitation.get(key)
+                for key in [
+                    "id",
+                    "public_slug",
+                    "status",
+                    "approval_status",
+                    "default_locale",
+                    "theme_slug",
+                    "package_code",
+                    "renderer_key",
+                ]
+            }
+
+        if role == User.StaffRole.EDITOR:
+            payload["payments"] = []
+            payload["payment_summary"] = {}
+            payload["rsvp"] = self._empty_rsvp()
+            payload["wishes_url"] = ""
+            payload["guest_management_url"] = ""
+            return payload
+
+        payload["invitation"] = minimal_invitation
+        payload["events"] = []
+        payload["media"] = []
+        payload["revisions"] = []
+        payload["preview_url"] = ""
+
+        if role == User.StaffRole.SUPPORT:
+            payload["payments"] = []
+            payload["payment_summary"] = {}
+            return payload
+
+        payload["rsvp"] = self._empty_rsvp()
+        payload["wishes_url"] = ""
+        payload["guest_management_url"] = ""
+        if role == User.StaffRole.VIEWER:
+            payload["payments"] = []
+            payload["payment_summary"] = {}
+        return payload
 
     def _invitation_payload(self, invitation: Invitation) -> dict:
         content = invitation.content if isinstance(invitation.content, dict) else {}
@@ -392,36 +535,56 @@ class StaffOrderDetailSerializer(serializers.Serializer):
         }
 
     def _preview_url(self, invitation: Invitation, request) -> str:
-        path = f"/{invitation.default_locale}/i/{invitation.public_slug}"
-        preview_path = (
-            path
-            if invitation.status == Invitation.Status.PUBLISHED
-            else f"{path}?{urlencode({'preview': preview_token_for(invitation)})}"
+        origin = str(getattr(settings, "PUBLIC_SITE_URL", "")).rstrip("/")
+        path = f"/{invitation.default_locale}/i/{invitation.public_access_id}"
+        preview_grant = (
+            AccessGrant.objects.filter(
+                invitation=invitation,
+                purpose=AccessGrant.Purpose.CLIENT_PREVIEW,
+                revoked_at__isnull=True,
+                expires_at__gt=timezone.now(),
+            )
+            .order_by("-created_at")
+            .first()
         )
-        if request is None:
-            return preview_path
-        origin = request.headers.get("Origin", "").rstrip("/")
+        if invitation.status == Invitation.Status.PUBLISHED:
+            preview_path = path
+        elif preview_grant is not None:
+            preview_path = f"/preview/access#grant={grant_token(preview_grant)}"
+        else:
+            return ""
         if origin:
             return f"{origin}{preview_path}"
+        if request is None:
+            return preview_path
         return request.build_absolute_uri(preview_path)
 
     def _wishes_url(self, invitation: Invitation, request) -> str:
-        path = f"/{invitation.default_locale}/i/{invitation.public_slug}/wishes"
-        wishes_path = f"{path}?{urlencode({'access': wishes_token_for(invitation)})}"
-        if request is None:
-            return wishes_path
-        origin = request.headers.get("Origin", "").rstrip("/")
-        if origin:
-            return f"{origin}{wishes_path}"
-        return request.build_absolute_uri(wishes_path)
+        return self._guest_management_url(invitation, request)
 
     def _guest_management_url(self, invitation: Invitation, request) -> str:
-        path = f"/guest-delivery/{guest_management_token_for(invitation)}"
-        if request is None:
-            return path
-        origin = request.headers.get("Origin", "").rstrip("/")
+        grant = (
+            AccessGrant.objects.filter(
+                invitation=invitation,
+                purpose=AccessGrant.Purpose.CLIENT_PORTAL,
+                revoked_at__isnull=True,
+                expires_at__gt=timezone.now(),
+            )
+            .order_by("-created_at")
+            .first()
+        )
+        if grant is None:
+            return ""
+        path = (
+            f"/client/login/{grant.id}"
+            if grant.redeemed_at
+            else f"/client/access#grant={grant_token(grant)}"
+        )
+        origin = str(getattr(settings, "CLIENT_SITE_URL", "")).rstrip("/")
         if origin:
             return f"{origin}{path}"
+        if request is None:
+            return path
         return request.build_absolute_uri(path)
 
     def _revision_payload(self, revision: InvitationRevision) -> dict:

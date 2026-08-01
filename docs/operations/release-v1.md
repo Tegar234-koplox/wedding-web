@@ -6,9 +6,11 @@
 - Backend Ruff, Django checks, migration dry-run, and full pytest pass.
 - Frontend lint, typecheck, tests, and production build pass.
 - Staging uses separate PostgreSQL, Redis, Cloudinary, and credentials.
-- Cloudflare canonical API, WAF, explicit CORS/CSRF, and production-off Swagger are verified.
+- Cloudflare canonical API, WAF, service credentials, exact host/origin guards,
+  BFF shared secret, explicit CORS/CSRF, and production-off Swagger are verified.
 - Database backup exists and a restore rehearsal has succeeded.
-- Staff MFA rollout is complete before paid production scale.
+- At least one reviewed owner has confirmed MFA before the hardened deployment;
+  every active staff account completes MFA before production use.
 - Playwright smoke and representative visual regression pass on the release commit.
 - The latest staging ZAP and k6 workflows pass against isolated demo data.
 - Restore rehearsal in [`backup-restore.md`](backup-restore.md) is evidenced.
@@ -24,7 +26,10 @@
 6. Run automated deployment smoke.
 7. Run the manual staging matrix in `production-smoke-test.md`.
 8. Observe Sentry, JSON logs, 5xx, 401/403/429, and latency for 30 minutes.
-9. Promote production and tag `v1.0.0` only after the same checks pass.
+9. Start the 24-hour soft-launch observation window without accepting real paid
+   orders; monitor errors, authentication failures, access denials, and queues.
+10. Accept real orders and tag `v1.0.0` only after the observation window and
+    final approval pass.
 
 ## Rollback trigger
 

@@ -14,8 +14,10 @@ from django.utils import timezone
 from django_otp.plugins.otp_totp.models import TOTPDevice
 
 from users.models import StaffMFARecoveryCode
+from users.security import revoke_all_staff_sessions
 
 CHALLENGE_PREFIX = "staff-mfa-challenge"
+CHALLENGE_LOCK_PREFIX = "staff-mfa-challenge-lock"
 
 
 def mfa_enrolled(user) -> bool:
@@ -26,7 +28,10 @@ def create_login_challenge(user) -> str:
     token = secrets.token_urlsafe(32)
     cache.set(
         f"{CHALLENGE_PREFIX}:{token}",
-        {"user_id": str(user.pk)},
+        {
+            "user_id": str(user.pk),
+            "session_version": user.staff_session_version,
+        },
         timeout=settings.STAFF_MFA_CHALLENGE_TTL_SECONDS,
     )
     return token
@@ -36,29 +41,62 @@ def challenge_user(token: str):
     payload = cache.get(f"{CHALLENGE_PREFIX}:{token}")
     if not isinstance(payload, dict) or not payload.get("user_id"):
         return None
-    return get_user_model().objects.filter(pk=payload["user_id"]).first()
+    return (
+        get_user_model()
+        .objects.filter(
+            pk=payload["user_id"],
+            staff_session_version=payload.get("session_version"),
+        )
+        .first()
+    )
+
+
+def claim_login_challenge(token: str):
+    user = challenge_user(token)
+    if user is None:
+        return None
+    claimed = cache.add(
+        f"{CHALLENGE_LOCK_PREFIX}:{token}",
+        "claimed",
+        timeout=settings.STAFF_MFA_CHALLENGE_TTL_SECONDS,
+    )
+    return user if claimed else None
+
+
+def release_login_challenge(token: str) -> None:
+    cache.delete(f"{CHALLENGE_LOCK_PREFIX}:{token}")
 
 
 def consume_login_challenge(token: str) -> None:
     cache.delete(f"{CHALLENGE_PREFIX}:{token}")
+    cache.delete(f"{CHALLENGE_LOCK_PREFIX}:{token}")
 
 
+@transaction.atomic
 def verify_second_factor(user, code: str) -> str | None:
     normalized = code.strip().replace(" ", "")
-    device = TOTPDevice.objects.filter(user=user, confirmed=True).order_by("id").first()
+    device = (
+        TOTPDevice.objects.select_for_update()
+        .filter(user=user, confirmed=True)
+        .order_by("id")
+        .first()
+    )
     if device is not None and normalized.isdigit() and device.verify_token(normalized):
         return "totp"
 
-    recovery_code = (
-        StaffMFARecoveryCode.objects.filter(user=user, used_at__isnull=True)
+    recovery_codes = (
+        StaffMFARecoveryCode.objects.select_for_update()
+        .filter(user=user, used_at__isnull=True)
         .order_by("created_at")
-        .all()
     )
-    for item in recovery_code:
+    for item in recovery_codes:
         if check_password(normalized, item.code_hash):
-            item.used_at = timezone.now()
-            item.save(update_fields=["used_at"])
-            return "recovery_code"
+            consumed = StaffMFARecoveryCode.objects.filter(
+                pk=item.pk,
+                used_at__isnull=True,
+            ).update(used_at=timezone.now())
+            if consumed == 1:
+                return "recovery_code"
     return None
 
 
@@ -98,3 +136,4 @@ def confirm_enrollment(user, code: str) -> list[str] | None:
 def reset_mfa(user) -> None:
     TOTPDevice.objects.filter(user=user).delete()
     StaffMFARecoveryCode.objects.filter(user=user).delete()
+    revoke_all_staff_sessions(user)

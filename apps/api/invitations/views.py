@@ -3,14 +3,15 @@ import hashlib
 import io
 import re
 from datetime import timedelta
-from urllib.parse import urlencode, urlparse
+from urllib.parse import urlparse
+from uuid import UUID
 
-from django.contrib.auth.hashers import check_password, make_password
+from django.conf import settings
+from django.contrib.auth.hashers import make_password
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import connection, transaction
 from django.http import Http404, HttpResponse
 from django.utils import timezone
-from django.utils.crypto import constant_time_compare, get_random_string
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
@@ -24,16 +25,40 @@ from rest_framework.views import APIView
 from analytics.models import AnalyticsEvent
 from common.models import AuditEvent
 from common.notifications import enqueue_client_notification
-from common.permissions import require_recent_staff_mfa
+from common.permissions import (
+    HasStaffRole,
+    filter_invitations_for_staff,
+    require_recent_staff_mfa,
+    require_staff_order_access,
+    require_staff_roles,
+)
+from invitations.access import (
+    AccessDenied,
+    access_from_request,
+    align_invitation_access_expiry,
+    ensure_guest_grant,
+    grant_token,
+    legacy_guest_for_token,
+    legacy_link_allowed,
+    revoke_preview_grants,
+    validate_grant_token,
+)
 from invitations.capabilities import (
     invitation_supports_guest_wishes,
     invitation_supports_rsvp,
 )
 from invitations.expiration import publication_expires_at
-from invitations.models import Guest, Invitation, InvitationMedia
+from invitations.models import (
+    AccessGrant,
+    AccessSession,
+    ClientPortalCredential,
+    Guest,
+    GuestRSVPHistory,
+    Invitation,
+    InvitationMedia,
+)
 from invitations.preview import (
     guest_management_token_payload,
-    preview_token_for,
     preview_token_is_valid,
     wishes_token_is_valid,
 )
@@ -42,7 +67,6 @@ from invitations.serializers import (
     BacksoundAssetSerializer,
     GuestAggregateSerializer,
     InvitationBacksoundSerializer,
-    PublicGuestRSVPCreateSerializer,
     PublicInvitationSerializer,
     PublicInvitationWishesSerializer,
     PublicRSVPSerializer,
@@ -55,6 +79,7 @@ from media_library.models import MediaAsset
 from media_library.services import ALLOWED_AUDIO_FORMATS, public_audio_payload
 from orders.models import Order
 from orders.permissions import IsStaffRole
+from users.models import User
 from weather.services import weather_for_invitation
 
 
@@ -67,6 +92,44 @@ class CSVRenderer(BaseRenderer):
         return data
 
 
+def _public_reference_filter(public_reference: str) -> dict[str, object]:
+    try:
+        return {"public_access_id": UUID(str(public_reference))}
+    except (TypeError, ValueError):
+        return {"public_slug": public_reference}
+
+
+def _public_invitation_for_reference(public_reference: str) -> Invitation | None:
+    queryset = public_invitations()
+    invitation = queryset.filter(**_public_reference_filter(public_reference)).first()
+    if invitation is None:
+        return None
+    if str(public_reference) == invitation.public_slug and not (
+        invitation.is_sample or legacy_link_allowed()
+    ):
+        return None
+    return invitation
+
+
+def _any_invitation_for_reference(public_reference: str) -> Invitation | None:
+    invitation = (
+        Invitation.objects.filter(
+            **_public_reference_filter(public_reference),
+            archived_at__isnull=True,
+        )
+        .select_related("theme", "package")
+        .prefetch_related("events__location", "media__asset", "theme__media__asset", "guests")
+        .first()
+    )
+    if invitation is None:
+        return None
+    if str(public_reference) == invitation.public_slug and not (
+        invitation.is_sample or legacy_link_allowed()
+    ):
+        return None
+    return invitation
+
+
 class InvitationDetailView(RetrieveAPIView):
     permission_classes = [AllowAny]
     serializer_class = PublicInvitationSerializer
@@ -75,19 +138,42 @@ class InvitationDetailView(RetrieveAPIView):
     def get_queryset(self):
         return public_invitations()
 
+    def get_object(self):
+        public_reference = self.kwargs["public_slug"]
+        invitation = _public_invitation_for_reference(public_reference)
+        if invitation is None:
+            candidate = _any_invitation_for_reference(public_reference)
+            if candidate is not None and _preview_access_allowed(
+                self.request,
+                candidate,
+                "",
+            ):
+                invitation = candidate
+            guest_access = access_from_request(
+                self.request,
+                kind=AccessSession.Kind.GUEST,
+            )
+            if (
+                invitation is None
+                and guest_access is not None
+                and candidate is not None
+                and guest_access.invitation.id == candidate.id
+                and guest_access.guest is not None
+                and "invitation:read" in guest_access.session.scopes
+            ):
+                invitation = candidate
+        if invitation is None:
+            raise Http404
+        return invitation
+
 
 class InvitationPreviewDetailView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request, public_slug: str) -> Response:
-        invitation = (
-            Invitation.objects.filter(public_slug=public_slug, archived_at__isnull=True)
-            .select_related("theme", "package")
-            .prefetch_related("events__location", "media__asset", "theme__media__asset")
-            .first()
-        )
+        invitation = _any_invitation_for_reference(public_slug)
         token = request.query_params.get("token", "")
-        if invitation is None or not preview_token_is_valid(invitation, token):
+        if invitation is None or not _preview_access_allowed(request, invitation, token):
             raise Http404
         return Response(PublicInvitationSerializer(invitation, context={"request": request}).data)
 
@@ -115,33 +201,57 @@ class InvitationWeatherView(APIView):
     def get(self, request, public_slug: str) -> Response:
         token = request.query_params.get("token") or request.query_params.get("preview")
         if token:
-            invitation = (
-                Invitation.objects.filter(public_slug=public_slug, archived_at__isnull=True)
-                .select_related("theme", "package")
-                .prefetch_related("events__location", "media__asset", "theme__media__asset")
-                .first()
-            )
-            if invitation is None or not preview_token_is_valid(invitation, token):
+            invitation = _any_invitation_for_reference(public_slug)
+            if invitation is None or not _preview_access_allowed(request, invitation, token):
                 raise Http404
             return Response(weather_for_invitation(invitation))
 
-        invitation = public_invitations().filter(public_slug=public_slug).first()
+        invitation = _any_invitation_for_reference(public_slug)
+        if invitation is not None and _preview_access_allowed(request, invitation, ""):
+            return Response(weather_for_invitation(invitation))
+
+        invitation = _public_invitation_for_reference(public_slug)
         if invitation is None:
             raise Http404
         return Response(weather_for_invitation(invitation))
 
 
-def _guest_matches_token(guest: Guest, token: str) -> bool:
-    stored = guest.access_token_hash
-    if stored.startswith(("pbkdf2_", "argon2", "bcrypt", "md5$")):
-        return check_password(token, stored)
-    return constant_time_compare(stored, token)
+def _preview_access_allowed(request, invitation: Invitation, token: str) -> bool:
+    now = timezone.now()
+    if invitation.expires_at and invitation.expires_at <= now and not invitation.is_sample:
+        return False
+    preview_access = access_from_request(request, kind=AccessSession.Kind.PREVIEW)
+    if (
+        preview_access is not None
+        and preview_access.invitation.id == invitation.id
+        and "preview:read" in preview_access.session.scopes
+    ):
+        return True
+    client_access = access_from_request(request, kind=AccessSession.Kind.CLIENT)
+    if (
+        client_access is not None
+        and client_access.invitation.id == invitation.id
+        and "preview:read" in client_access.session.scopes
+    ):
+        return True
+    if not token or not legacy_link_allowed():
+        return False
+    try:
+        grant = validate_grant_token(
+            token,
+            purposes=[AccessGrant.Purpose.CLIENT_PREVIEW],
+        )
+    except AccessDenied:
+        return bool(preview_token_is_valid(invitation, token))
+    return grant.invitation_id == invitation.id
 
 
 def _rsvp_retention_date(invitation: Invitation):
+    if invitation.expires_at:
+        return invitation.expires_at + timedelta(days=30)
     latest_event = invitation.events.order_by("-starts_at").first()
     base = latest_event.starts_at if latest_event else timezone.now()
-    return base + timedelta(days=365)
+    return base + timedelta(days=30)
 
 
 def _guest_aggregate_rows(invitation: Invitation | None = None) -> list[dict[str, object]]:
@@ -176,18 +286,17 @@ def _guest_aggregate_rows(invitation: Invitation | None = None) -> list[dict[str
 
 
 def _guest_delivery_url(invitation: Invitation, token: str, request) -> str:
-    query = {"guest": token}
-    if invitation.status != Invitation.Status.PUBLISHED:
-        query["preview"] = preview_token_for(invitation)
-    path = f"/{invitation.default_locale}/i/{invitation.public_slug}?{urlencode(query)}"
-    origin = request.headers.get("Origin", "").rstrip("/")
+    path = f"/g#grant={token}"
+    origin = str(getattr(settings, "PUBLIC_SITE_URL", "")).rstrip("/")
     if origin:
         return f"{origin}{path}"
     return request.build_absolute_uri(path)
 
 
 def _guest_delivery_payload(invitation: Invitation, guest: Guest, request) -> dict[str, object]:
-    token = str(guest.metadata.get("delivery_token", "")).strip()
+    grant = ensure_guest_grant(guest, actor=request.user if request.user.is_authenticated else None)
+    token_available = grant.redeemed_at is None
+    token = grant_token(grant) if token_available else ""
     delivery_sent_at = guest.metadata.get("delivery_sent_at")
     return {
         "id": guest.id,
@@ -201,7 +310,7 @@ def _guest_delivery_payload(invitation: Invitation, guest: Guest, request) -> di
         "delivery_url": _guest_delivery_url(invitation, token, request) if token else None,
         "delivery_status": "sent" if delivery_sent_at else "not_sent",
         "delivery_sent_at": delivery_sent_at,
-        "token_available": bool(token),
+        "token_available": token_available,
         "created_at": guest.created_at,
     }
 
@@ -214,11 +323,13 @@ def _guest_delivery_queryset(invitation: Invitation):
 
 
 def _guest_management_invitation(token: str) -> Invitation | None:
+    if not legacy_link_allowed():
+        return None
     payload = guest_management_token_payload(token)
     if payload is None:
         return None
     invitation_id, public_slug = payload
-    return (
+    invitation = (
         Invitation.objects.filter(
             id=invitation_id,
             public_slug=public_slug,
@@ -228,6 +339,73 @@ def _guest_management_invitation(token: str) -> Invitation | None:
         .prefetch_related("guests")
         .first()
     )
+    if invitation is None:
+        return None
+    if invitation.expires_at and timezone.now() >= invitation.expires_at + timedelta(days=30):
+        return None
+    return invitation
+
+
+def _guest_management_invitation_for_request(request, token: str = "") -> Invitation | None:
+    client_access = access_from_request(request, kind=AccessSession.Kind.CLIENT)
+    if client_access is not None:
+        credential_ready = ClientPortalCredential.objects.filter(
+            invitation=client_access.invitation,
+            must_change_pin=False,
+        ).exists()
+        if "guests:read" not in client_access.session.scopes or not credential_ready:
+            return None
+        return (
+            Invitation.objects.filter(
+                id=client_access.invitation.id,
+                archived_at__isnull=True,
+            )
+            .select_related("theme", "package", "order")
+            .prefetch_related("guests")
+            .first()
+        )
+    return _guest_management_invitation(token)
+
+
+def _enforce_client_access_scope(request, invitation: Invitation, scope: str) -> None:
+    client_access = access_from_request(request, kind=AccessSession.Kind.CLIENT)
+    if client_access is None:
+        return
+    credential_ready = ClientPortalCredential.objects.filter(
+        invitation=client_access.invitation,
+        must_change_pin=False,
+    ).exists()
+    if (
+        client_access.invitation.id != invitation.id
+        or scope not in client_access.session.scopes
+        or not credential_ready
+    ):
+        raise Http404
+
+
+def _enforce_client_access_mutation(request, invitation: Invitation) -> None:
+    client_access = access_from_request(request, kind=AccessSession.Kind.CLIENT)
+    if client_access is None:
+        if _invitation_access_is_read_only(invitation):
+            raise Http404
+        return
+    if (
+        client_access.invitation.id != invitation.id
+        or client_access.is_read_only
+        or "guests:write" not in client_access.session.scopes
+        or not ClientPortalCredential.objects.filter(
+            invitation=client_access.invitation,
+            must_change_pin=False,
+        ).exists()
+    ):
+        raise Http404
+    from invitations.access_views import _enforce_csrf
+
+    _enforce_csrf(request)
+
+
+def _invitation_access_is_read_only(invitation: Invitation) -> bool:
+    return bool(invitation.expires_at and timezone.now() >= invitation.expires_at)
 
 
 def _guest_management_detail_payload(
@@ -237,7 +415,7 @@ def _guest_management_detail_payload(
     content = invitation.content if isinstance(invitation.content, dict) else {}
     sent_count = sum(1 for guest in guests if guest.metadata.get("delivery_sent_at"))
     return {
-        "token": token,
+        "token": "",
         "invitation": {
             "public_slug": invitation.public_slug,
             "default_locale": invitation.default_locale,
@@ -252,6 +430,7 @@ def _guest_management_detail_payload(
         "capabilities": {
             "rsvp": invitation_supports_rsvp(invitation),
             "guest_wishes": invitation_supports_guest_wishes(invitation),
+            "read_only": _invitation_access_is_read_only(invitation),
         },
         "rsvp": _guest_aggregate_rows(invitation)[0]
         if _guest_aggregate_rows(invitation)
@@ -305,28 +484,20 @@ def _invitation_wishes_payload(invitation: Invitation) -> dict[str, object]:
 
 
 def _rsvp_invitation_for_request(request, public_slug: str) -> Invitation | None:
-    invitation = public_invitations().filter(public_slug=public_slug).first()
+    invitation = _public_invitation_for_reference(public_slug)
     if invitation is not None:
         return invitation
-
-    preview_token = (
-        request.data.get("preview")
-        or request.data.get("preview_token")
-        or request.query_params.get("preview")
-        or ""
-    )
-    if not preview_token:
-        return None
-
-    invitation = (
-        Invitation.objects.filter(public_slug=public_slug, archived_at__isnull=True)
-        .select_related("theme", "package")
-        .prefetch_related("events__location", "guests")
-        .first()
-    )
-    if invitation is None or not preview_token_is_valid(invitation, preview_token):
-        return None
-    return invitation
+    guest_access = access_from_request(request, kind=AccessSession.Kind.GUEST)
+    candidate = _any_invitation_for_reference(public_slug)
+    if (
+        guest_access is not None
+        and candidate is not None
+        and guest_access.invitation.id == candidate.id
+        and guest_access.guest is not None
+        and "rsvp:write" in guest_access.session.scopes
+    ):
+        return candidate
+    return None
 
 
 def _invitation_couple_name(invitation: Invitation) -> str:
@@ -343,11 +514,8 @@ def _invitation_couple_name(invitation: Invitation) -> str:
     return str(partner_one or partner_two or invitation.public_slug)
 
 
-def _generate_guest_delivery_token() -> str:
-    while True:
-        token = get_random_string(40)
-        if not Guest.objects.filter(access_token_hash=token).exists():
-            return token
+def _generate_unusable_guest_access_hash() -> str:
+    return make_password(None)
 
 
 GUEST_IMPORT_TEMPLATE_HEADERS = ["name", "phone", "email", "party_size", "group", "note"]
@@ -417,19 +585,9 @@ def _normalize_import_name(value: object) -> str:
     return re.sub(r"\s+", " ", _normalize_import_text(value))
 
 
-def _guest_token_for_delivery(guest: Guest) -> str:
-    token = str(guest.metadata.get("delivery_token", "")).strip()
-    if token:
-        return token
-    token = _generate_guest_delivery_token()
-    guest.access_token_hash = token
-    guest.metadata = {
-        **guest.metadata,
-        "delivery_token": token,
-        "source": guest.metadata.get("source") or "staff_dashboard",
-    }
-    guest.save(update_fields=["access_token_hash", "metadata", "updated_at"])
-    return token
+def _guest_token_for_delivery(guest: Guest) -> str | None:
+    grant = ensure_guest_grant(guest)
+    return grant_token(grant) if grant.redeemed_at is None else None
 
 
 def _guest_import_field(row: dict[str, str], *names: str) -> str:
@@ -587,16 +745,12 @@ def _guest_import_payload(
 
             if commit:
                 metadata = {
-                    "delivery_token": "",
                     "source": "staff_dashboard_csv_import",
                     "import_group": row["group"],
                     "import_note": row["note"],
                     "imported_at": timezone.now().isoformat(),
                 }
                 if matched_guest:
-                    metadata["delivery_token"] = str(
-                        matched_guest.metadata.get("delivery_token", "")
-                    ).strip()
                     matched_guest.display_name = name
                     matched_guest.email = email
                     matched_guest.phone = phone
@@ -613,20 +767,23 @@ def _guest_import_payload(
                         ]
                     )
                     token = _guest_token_for_delivery(matched_guest)
-                    delivery_url = _guest_delivery_url(invitation, token, request)
+                    delivery_url = (
+                        _guest_delivery_url(invitation, token, request) if token else None
+                    )
                 else:
-                    token = _generate_guest_delivery_token()
-                    metadata["delivery_token"] = token
                     matched_guest = Guest.objects.create(
                         invitation=invitation,
-                        access_token_hash=token,
+                        access_token_hash=_generate_unusable_guest_access_hash(),
                         display_name=name,
                         email=email,
                         phone=phone,
                         party_size=int(row["party_size"]),
                         metadata=metadata,
                     )
-                    delivery_url = _guest_delivery_url(invitation, token, request)
+                    token = _guest_token_for_delivery(matched_guest)
+                    delivery_url = (
+                        _guest_delivery_url(invitation, token, request) if token else None
+                    )
 
                     lookup_maps["name"][_normalize_import_name(name).lower()] = matched_guest
                     if phone:
@@ -634,8 +791,20 @@ def _guest_import_payload(
                     if email:
                         lookup_maps["email"][email] = matched_guest
             elif matched_guest:
-                token = str(matched_guest.metadata.get("delivery_token", "")).strip()
-                delivery_url = _guest_delivery_url(invitation, token, request) if token else None
+                active_grant = (
+                    matched_guest.access_grants.filter(
+                        purpose=AccessGrant.Purpose.GUEST_INVITATION,
+                        revoked_at__isnull=True,
+                        expires_at__gt=timezone.now(),
+                    )
+                    .order_by("-created_at")
+                    .first()
+                )
+                delivery_url = (
+                    _guest_delivery_url(invitation, grant_token(active_grant), request)
+                    if active_grant and active_grant.redeemed_at is None
+                    else None
+                )
 
         result_rows.append(
             {
@@ -853,11 +1022,22 @@ class InvitationRSVPView(APIView):
             raise Http404
         serializer = PublicRSVPSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        token = serializer.validated_data["token"]
-        guest = next(
-            (item for item in invitation.guests.all() if _guest_matches_token(item, token)),
-            None,
-        )
+        guest_access = access_from_request(request, kind=AccessSession.Kind.GUEST)
+        grant = None
+        if (
+            guest_access is not None
+            and guest_access.invitation.id == invitation.id
+            and guest_access.guest is not None
+            and "rsvp:write" in guest_access.session.scopes
+        ):
+            from invitations.access_views import _enforce_csrf
+
+            _enforce_csrf(request)
+            guest = guest_access.guest
+            grant = guest_access.session.grant
+        else:
+            token = serializer.validated_data.get("token", "")
+            guest = legacy_guest_for_token(invitation, token)
         if guest is None or guest.archived_at is not None or guest.anonymized_at is not None:
             from rest_framework.exceptions import PermissionDenied
 
@@ -874,6 +1054,8 @@ class InvitationRSVPView(APIView):
                 }
             )
 
+        previous_status = guest.rsvp_status
+        previous_attendance_count = guest.attendance_count
         guest.rsvp_status = serializer.validated_data["rsvp_status"]
         guest.attendance_count = attendance_count
         guest.wishes = serializer.validated_data.get("wishes", "")
@@ -888,6 +1070,15 @@ class InvitationRSVPView(APIView):
                 "retention_expires_at",
                 "updated_at",
             ]
+        )
+        GuestRSVPHistory.objects.create(
+            guest=guest,
+            grant=grant,
+            previous_status=previous_status,
+            next_status=guest.rsvp_status,
+            previous_attendance_count=previous_attendance_count,
+            next_attendance_count=guest.attendance_count,
+            source="guest_session" if grant else "legacy_guest_token",
         )
         AnalyticsEvent.objects.create(
             event_type=AnalyticsEvent.EventType.RSVP_SUBMITTED,
@@ -905,59 +1096,39 @@ class InvitationRSVPView(APIView):
         )
 
 
-class PublicGuestRSVPCreateView(APIView):
-    permission_classes = [AllowAny]
-    throttle_scope = "rsvp"
-
-    def post(self, request, public_slug: str) -> Response:
-        invitation = public_invitations().filter(public_slug=public_slug).first()
-        if invitation is None or not invitation_supports_rsvp(invitation):
-            raise Http404
-        serializer = PublicGuestRSVPCreateSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        contact = serializer.validated_data.get("contact", "")
-        guest = Guest.objects.create(
-            invitation=invitation,
-            access_token_hash=make_password(get_random_string(40)),
-            display_name=serializer.validated_data["name"],
-            email=contact if "@" in contact else "",
-            phone="" if "@" in contact else contact,
-            party_size=max(serializer.validated_data["attendance_count"], 1),
-            rsvp_status=serializer.validated_data["rsvp_status"],
-            attendance_count=serializer.validated_data["attendance_count"],
-            wishes=serializer.validated_data.get("message", ""),
-            responded_at=timezone.now(),
-            retention_expires_at=_rsvp_retention_date(invitation),
-        )
-        AnalyticsEvent.objects.create(
-            event_type=AnalyticsEvent.EventType.RSVP_SUBMITTED,
-            resource_type="invitation",
-            resource_reference=invitation.public_slug,
-            invitation=invitation,
-            locale=invitation.default_locale,
-        )
-        return Response({"status": guest.rsvp_status}, status=201)
-
-
 class PublicInvitationWishesView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request, public_slug: str) -> Response:
-        invitation = (
-            Invitation.objects.filter(public_slug=public_slug, archived_at__isnull=True)
-            .select_related("theme", "package")
-            .prefetch_related("guests")
-            .first()
-        )
+        invitation = _any_invitation_for_reference(public_slug)
         access_token = request.query_params.get("access", "")
+        client_access = access_from_request(request, kind=AccessSession.Kind.CLIENT)
+        has_client_access = bool(
+            invitation is not None
+            and client_access is not None
+            and client_access.invitation.id == invitation.id
+            and "wishes:read" in client_access.session.scopes
+        )
         if (
             invitation is None
             or not invitation_supports_guest_wishes(invitation)
-            or not wishes_token_is_valid(invitation, access_token)
+            or (
+                not has_client_access
+                and not (legacy_link_allowed() and wishes_token_is_valid(invitation, access_token))
+            )
         ):
             raise Http404
 
         return Response(_invitation_wishes_payload(invitation))
+
+
+def _staff_invitation_or_404(request, public_slug: str) -> Invitation:
+    queryset = Invitation.objects.select_related("order").filter(public_slug=public_slug)
+    invitation = filter_invitations_for_staff(queryset, request.user).first()
+    if invitation is None:
+        raise Http404
+    require_staff_order_access(request, invitation)
+    return invitation
 
 
 class StaffInvitationOperationListView(ListAPIView):
@@ -982,17 +1153,19 @@ class StaffInvitationOperationListView(ListAPIView):
                 status=Invitation.Status.PUBLISHED,
                 approval_status=Invitation.ApprovalStatus.PUBLISHED,
             )
-        return queryset
+        return filter_invitations_for_staff(queryset, self.request.user)
 
 
 class StaffInvitationPublishView(APIView):
-    permission_classes = [IsStaffRole]
+    permission_classes = [IsStaffRole, HasStaffRole]
+    required_staff_roles = (
+        User.StaffRole.OWNER,
+        User.StaffRole.EDITOR,
+    )
 
     def post(self, request, public_slug: str) -> Response:
         require_recent_staff_mfa(request)
-        invitation = Invitation.objects.filter(public_slug=public_slug).first()
-        if invitation is None:
-            raise Http404
+        invitation = _staff_invitation_or_404(request, public_slug)
         if (
             invitation.status == Invitation.Status.PUBLISHED
             and invitation.approval_status == Invitation.ApprovalStatus.PUBLISHED
@@ -1020,6 +1193,8 @@ class StaffInvitationPublishView(APIView):
                 "updated_at",
             ]
         )
+        align_invitation_access_expiry(invitation)
+        revoke_preview_grants(invitation)
         _transition_order_status(
             invitation=invitation,
             status=Order.Status.PUBLISHED,
@@ -1045,9 +1220,7 @@ class StaffInvitationGuestListCreateView(APIView):
     permission_classes = [IsStaffRole]
 
     def get(self, request, public_slug: str) -> Response:
-        invitation = Invitation.objects.filter(public_slug=public_slug).first()
-        if invitation is None:
-            raise Http404
+        invitation = _staff_invitation_or_404(request, public_slug)
         aggregate = _guest_aggregate_rows(invitation)
         if not aggregate:
             aggregate = [
@@ -1068,32 +1241,32 @@ class StaffInvitationGuestListCreateView(APIView):
 
 
 class StaffInvitationGuestLinkListCreateView(APIView):
-    permission_classes = [IsStaffRole]
+    permission_classes = [IsStaffRole, HasStaffRole]
+    required_staff_roles = (
+        User.StaffRole.OWNER,
+        User.StaffRole.SUPPORT,
+    )
 
     def get(self, request, public_slug: str) -> Response:
-        invitation = Invitation.objects.filter(public_slug=public_slug).first()
-        if invitation is None:
-            raise Http404
+        invitation = _staff_invitation_or_404(request, public_slug)
         guests = _guest_delivery_queryset(invitation)
         payload = [_guest_delivery_payload(invitation, guest, request) for guest in guests]
         return Response(StaffGuestLinkSerializer(payload, many=True).data)
 
     def post(self, request, public_slug: str) -> Response:
-        invitation = Invitation.objects.filter(public_slug=public_slug).first()
-        if invitation is None:
-            raise Http404
+        invitation = _staff_invitation_or_404(request, public_slug)
         serializer = StaffGuestLinkCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        token = _generate_guest_delivery_token()
         guest = Guest.objects.create(
             invitation=invitation,
-            access_token_hash=token,
+            access_token_hash=_generate_unusable_guest_access_hash(),
             display_name=serializer.validated_data["display_name"],
             email=serializer.validated_data.get("email", ""),
             phone=serializer.validated_data.get("phone", ""),
             party_size=serializer.validated_data["party_size"],
-            metadata={"delivery_token": token, "source": "staff_dashboard"},
+            metadata={"source": "staff_dashboard"},
         )
+        ensure_guest_grant(guest, actor=request.user)
         AuditEvent.objects.create(
             actor=request.user,
             action="guest.delivery_link_created",
@@ -1109,13 +1282,15 @@ class StaffInvitationGuestLinkListCreateView(APIView):
 
 
 class StaffInvitationGuestLinkImportTemplateView(APIView):
-    permission_classes = [IsStaffRole]
+    permission_classes = [IsStaffRole, HasStaffRole]
+    required_staff_roles = (
+        User.StaffRole.OWNER,
+        User.StaffRole.SUPPORT,
+    )
     renderer_classes = [CSVRenderer, JSONRenderer]
 
     def get(self, request, public_slug: str) -> HttpResponse:
-        invitation = Invitation.objects.filter(public_slug=public_slug).first()
-        if invitation is None:
-            raise Http404
+        invitation = _staff_invitation_or_404(request, public_slug)
         response = HttpResponse(content_type="text/csv; charset=utf-8")
         response["Content-Disposition"] = (
             f'attachment; filename="{invitation.public_slug}-guest-import-template.csv"'
@@ -1127,14 +1302,16 @@ class StaffInvitationGuestLinkImportTemplateView(APIView):
 
 
 class StaffInvitationGuestLinkImportView(APIView):
-    permission_classes = [IsStaffRole]
+    permission_classes = [IsStaffRole, HasStaffRole]
+    required_staff_roles = (
+        User.StaffRole.OWNER,
+        User.StaffRole.SUPPORT,
+    )
     parser_classes = [MultiPartParser, FormParser]
     throttle_scope = "guest_import"
 
     def post(self, request, public_slug: str) -> Response:
-        invitation = Invitation.objects.filter(public_slug=public_slug).first()
-        if invitation is None:
-            raise Http404
+        invitation = _staff_invitation_or_404(request, public_slug)
         uploaded_file = request.FILES.get("file")
         if uploaded_file is None:
             raise ValidationError({"file": "Upload file CSV wajib disertakan."})
@@ -1152,6 +1329,7 @@ class StaffInvitationGuestLinkImportView(APIView):
             )
             return Response(StaffGuestLinkImportSerializer(payload).data)
 
+        require_recent_staff_mfa(request)
         with transaction.atomic():
             payload = _guest_import_payload(
                 invitation=invitation,
@@ -1177,13 +1355,16 @@ class StaffInvitationGuestLinkImportView(APIView):
 
 
 class StaffInvitationGuestLinkExportView(APIView):
-    permission_classes = [IsStaffRole]
+    permission_classes = [IsStaffRole, HasStaffRole]
+    required_staff_roles = (
+        User.StaffRole.OWNER,
+        User.StaffRole.SUPPORT,
+    )
     renderer_classes = [CSVRenderer, JSONRenderer]
 
     def get(self, request, public_slug: str) -> HttpResponse:
-        invitation = Invitation.objects.filter(public_slug=public_slug).first()
-        if invitation is None:
-            raise Http404
+        require_recent_staff_mfa(request)
+        invitation = _staff_invitation_or_404(request, public_slug)
         response = HttpResponse(content_type="text/csv")
         response["Content-Disposition"] = (
             f'attachment; filename="{invitation.public_slug}-guest-links.csv"'
@@ -1219,8 +1400,8 @@ class StaffInvitationGuestLinkExportView(APIView):
 class GuestManagementDetailView(APIView):
     permission_classes = [AllowAny]
 
-    def get(self, request, token: str) -> Response:
-        invitation = _guest_management_invitation(token)
+    def get(self, request, token: str = "") -> Response:
+        invitation = _guest_management_invitation_for_request(request, token)
         if invitation is None:
             raise Http404
         return Response(_guest_management_detail_payload(invitation, token, request))
@@ -1229,18 +1410,19 @@ class GuestManagementDetailView(APIView):
 class GuestManagementWishesView(APIView):
     permission_classes = [AllowAny]
 
-    def get(self, request, token: str) -> Response:
-        invitation = _guest_management_invitation(token)
+    def get(self, request, token: str = "") -> Response:
+        invitation = _guest_management_invitation_for_request(request, token)
         if invitation is None or not invitation_supports_guest_wishes(invitation):
             raise Http404
+        _enforce_client_access_scope(request, invitation, "wishes:read")
         return Response(_invitation_wishes_payload(invitation))
 
 
 class GuestManagementGuestLinkListCreateView(APIView):
     permission_classes = [AllowAny]
 
-    def get(self, request, token: str) -> Response:
-        invitation = _guest_management_invitation(token)
+    def get(self, request, token: str = "") -> Response:
+        invitation = _guest_management_invitation_for_request(request, token)
         if invitation is None:
             raise Http404
         guests = _guest_delivery_queryset(invitation)
@@ -1250,22 +1432,23 @@ class GuestManagementGuestLinkListCreateView(APIView):
         payload = [_guest_delivery_payload(invitation, guest, request) for guest in guests]
         return Response(StaffGuestLinkSerializer(payload, many=True).data)
 
-    def post(self, request, token: str) -> Response:
-        invitation = _guest_management_invitation(token)
+    def post(self, request, token: str = "") -> Response:
+        invitation = _guest_management_invitation_for_request(request, token)
         if invitation is None:
             raise Http404
+        _enforce_client_access_mutation(request, invitation)
         serializer = StaffGuestLinkCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        guest_token = _generate_guest_delivery_token()
         guest = Guest.objects.create(
             invitation=invitation,
-            access_token_hash=guest_token,
+            access_token_hash=_generate_unusable_guest_access_hash(),
             display_name=serializer.validated_data["display_name"],
             email=serializer.validated_data.get("email", ""),
             phone=serializer.validated_data.get("phone", ""),
             party_size=serializer.validated_data["party_size"],
-            metadata={"delivery_token": guest_token, "source": "client_guest_management"},
+            metadata={"source": "client_guest_management"},
         )
+        ensure_guest_grant(guest)
         AuditEvent.objects.create(
             actor=None,
             action="guest.delivery_link_created_by_client",
@@ -1284,8 +1467,8 @@ class GuestManagementGuestLinkImportTemplateView(APIView):
     permission_classes = [AllowAny]
     renderer_classes = [CSVRenderer, JSONRenderer]
 
-    def get(self, request, token: str) -> HttpResponse:
-        invitation = _guest_management_invitation(token)
+    def get(self, request, token: str = "") -> HttpResponse:
+        invitation = _guest_management_invitation_for_request(request, token)
         if invitation is None:
             raise Http404
         response = HttpResponse(content_type="text/csv; charset=utf-8")
@@ -1306,10 +1489,11 @@ class GuestManagementGuestLinkImportView(APIView):
     parser_classes = [MultiPartParser, FormParser]
     throttle_scope = "guest_import"
 
-    def post(self, request, token: str) -> Response:
-        invitation = _guest_management_invitation(token)
+    def post(self, request, token: str = "") -> Response:
+        invitation = _guest_management_invitation_for_request(request, token)
         if invitation is None:
             raise Http404
+        _enforce_client_access_mutation(request, invitation)
         uploaded_file = request.FILES.get("file")
         if uploaded_file is None:
             raise ValidationError({"file": "Pilih file CSV daftar tamu terlebih dahulu."})
@@ -1355,10 +1539,11 @@ class GuestManagementGuestLinkExportView(APIView):
     permission_classes = [AllowAny]
     renderer_classes = [CSVRenderer, JSONRenderer]
 
-    def get(self, request, token: str) -> HttpResponse:
-        invitation = _guest_management_invitation(token)
+    def get(self, request, token: str = "") -> HttpResponse:
+        invitation = _guest_management_invitation_for_request(request, token)
         if invitation is None:
             raise Http404
+        _enforce_client_access_scope(request, invitation, "guests:export")
         response = HttpResponse(content_type="text/csv")
         response["Content-Disposition"] = (
             f'attachment; filename="{invitation.public_slug}-daftar-link-tamu.csv"'
@@ -1396,10 +1581,11 @@ class GuestManagementGuestLinkExportView(APIView):
 class GuestManagementGuestDeliveryStatusView(APIView):
     permission_classes = [AllowAny]
 
-    def patch(self, request, token: str, guest_id) -> Response:
-        invitation = _guest_management_invitation(token)
+    def patch(self, request, guest_id, token: str = "") -> Response:
+        invitation = _guest_management_invitation_for_request(request, token)
         if invitation is None:
             raise Http404
+        _enforce_client_access_mutation(request, invitation)
         guest = _guest_delivery_queryset(invitation).filter(id=guest_id).first()
         if guest is None:
             raise Http404
@@ -1429,19 +1615,82 @@ class GuestManagementGuestDeliveryStatusView(APIView):
         )
 
 
+class GuestManagementGuestLinkRotateView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request, guest_id, token: str = "") -> Response:
+        invitation = _guest_management_invitation_for_request(request, token)
+        if invitation is None:
+            raise Http404
+        _enforce_client_access_mutation(request, invitation)
+        guest = _guest_delivery_queryset(invitation).filter(id=guest_id).first()
+        if guest is None:
+            raise Http404
+        grant = ensure_guest_grant(
+            guest,
+            actor=request.user if request.user.is_authenticated else None,
+            rotate=True,
+        )
+        AuditEvent.objects.create(
+            actor=request.user if request.user.is_authenticated else None,
+            action="guest.access_rotated",
+            resource_type="invitation",
+            resource_reference=invitation.public_slug,
+            metadata={"guest_id": str(guest.id), "grant_id": str(grant.id)},
+        )
+        return Response(
+            StaffGuestLinkSerializer(_guest_delivery_payload(invitation, guest, request)).data
+        )
+
+
+class StaffGuestLinkRotateView(APIView):
+    permission_classes = [IsStaffRole, HasStaffRole]
+    required_staff_roles = (
+        User.StaffRole.OWNER,
+        User.StaffRole.SUPPORT,
+    )
+
+    def post(self, request, guest_id) -> Response:
+        require_recent_staff_mfa(request)
+        guest = (
+            Guest.objects.filter(
+                id=guest_id,
+                archived_at__isnull=True,
+                anonymized_at__isnull=True,
+            )
+            .select_related("invitation")
+            .first()
+        )
+        if guest is None:
+            raise Http404
+        require_staff_order_access(request, guest.invitation)
+        grant = ensure_guest_grant(guest, actor=request.user, rotate=True)
+        AuditEvent.objects.create(
+            actor=request.user,
+            action="guest.access_rotated",
+            resource_type="invitation",
+            resource_reference=guest.invitation.public_slug,
+            metadata={"guest_id": str(guest.id), "grant_id": str(grant.id)},
+        )
+        return Response(
+            StaffGuestLinkSerializer(_guest_delivery_payload(guest.invitation, guest, request)).data
+        )
+
+
 class StaffInvitationMusicView(APIView):
     permission_classes = [IsStaffRole]
 
     def get(self, request, public_slug: str) -> Response:
-        invitation = Invitation.objects.filter(public_slug=public_slug).first()
-        if invitation is None:
-            raise Http404
+        invitation = _staff_invitation_or_404(request, public_slug)
         return Response(_backsound_response(invitation))
 
     def patch(self, request, public_slug: str) -> Response:
-        invitation = Invitation.objects.filter(public_slug=public_slug).first()
-        if invitation is None:
-            raise Http404
+        require_staff_roles(
+            request,
+            User.StaffRole.OWNER,
+            User.StaffRole.EDITOR,
+        )
+        invitation = _staff_invitation_or_404(request, public_slug)
         asset = _asset_from_music_payload(request.data)
         return Response(
             _set_invitation_backsound(

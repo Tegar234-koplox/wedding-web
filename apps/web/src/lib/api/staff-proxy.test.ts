@@ -1,10 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
-vi.mock("@/lib/env", () => ({
-  env: {
-    NEXT_PUBLIC_API_URL: "https://api.example.test/api/v1",
-    NEXT_PUBLIC_SITE_URL: "https://staging.example.test",
+vi.mock("@/lib/server-env", () => ({
+  serverEnv: {
+    API_URL: "https://api.example.test/api/v1",
   },
 }));
 
@@ -66,8 +65,11 @@ describe("proxyStaffRequest", () => {
         body: JSON.stringify({ status: "published" }),
         headers: {
           Authorization: "must-not-be-forwarded",
-          Cookie: "csrftoken=csrf-value; sessionid=session-value",
+          Cookie:
+            "csrftoken=csrf-value; sessionid=session-value; tracking=must-not-be-forwarded",
           "Content-Type": "application/json",
+          Origin: "https://staging.example.test",
+          "Sec-Fetch-Site": "same-origin",
           "X-CSRFToken": "csrf-value",
         },
         method: "PATCH",
@@ -81,7 +83,9 @@ describe("proxyStaffRequest", () => {
     expect(url?.toString()).toBe("https://api.example.test/api/v1/admin/orders?page=2");
     expect(options?.method).toBe("PATCH");
     expect(headers.get("authorization")).toBeNull();
-    expect(headers.get("cookie")).toContain("sessionid=session-value");
+    expect(headers.get("cookie")).toBe(
+      "csrftoken=csrf-value; sessionid=session-value",
+    );
     expect(headers.get("x-csrftoken")).toBe("csrf-value");
     expect(new TextDecoder().decode(options?.body as ArrayBuffer)).toBe(
       '{"status":"published"}',
@@ -99,6 +103,65 @@ describe("proxyStaffRequest", () => {
     );
 
     expect(response.status).toBe(404);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["enrollment", ["auth", "login", "mfa", "enroll"]],
+    ["confirmation", ["auth", "login", "mfa", "confirm"]],
+  ])("allows first-login MFA %s requests", async (_label, path) => {
+    configureAccessToken();
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json({ ok: true }),
+    );
+    const request = new Request(
+      `https://staging.example.test/api/staff/${path.join("/")}`,
+      {
+        body: JSON.stringify({ challenge: "short-lived-challenge" }),
+        headers: {
+          "Content-Type": "application/json",
+          Origin: "https://staging.example.test",
+          "Sec-Fetch-Site": "same-origin",
+        },
+        method: "POST",
+      },
+    );
+
+    const response = await proxyStaffRequest(request, path);
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock.mock.calls[0]?.[0].toString()).toBe(
+      `https://api.example.test/api/v1/${path.join("/")}`,
+    );
+  });
+
+  it("rejects cross-origin writes and oversized bodies before upstream", async () => {
+    configureAccessToken();
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    const crossOrigin = await proxyStaffRequest(
+      new Request("https://staging.example.test/api/staff/admin/orders", {
+        body: "{}",
+        headers: { Origin: "https://attacker.example" },
+        method: "PATCH",
+      }),
+      ["admin", "orders"],
+    );
+    expect(crossOrigin.status).toBe(403);
+
+    const oversized = await proxyStaffRequest(
+      new Request("https://staging.example.test/api/staff/admin/orders", {
+        body: "x",
+        headers: {
+          "Content-Length": String(64 * 1024 + 1),
+          Origin: "https://staging.example.test",
+          "Sec-Fetch-Site": "same-origin",
+        },
+        method: "PATCH",
+      }),
+      ["admin", "orders"],
+    );
+    expect(oversized.status).toBe(413);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

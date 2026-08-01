@@ -1,8 +1,10 @@
 from uuid import UUID
 
 import pytest
+from django.contrib.auth import get_user_model
 from django.test import override_settings
 from django.urls import reverse
+from django_otp.plugins.otp_totp.models import TOTPDevice
 
 
 @pytest.mark.django_db
@@ -24,6 +26,37 @@ def test_readiness(client):
 
     assert response.status_code == 200
     assert response.json()["checks"] == {"database": "ok", "cache": "ok"}
+
+
+@pytest.mark.django_db
+@override_settings(
+    DEPLOYMENT_ENVIRONMENT="production",
+    STAFF_MFA_REQUIRED=True,
+)
+def test_production_readiness_requires_an_enrolled_owner(client):
+    response = client.get(reverse("health-ready"))
+
+    assert response.status_code == 503
+    assert response.json()["checks"]["staff_mfa"] == "unavailable"
+
+    owner = get_user_model().objects.create_user(
+        username="ready-owner",
+        email="ready-owner@example.com",
+        password="strong-test-password",
+        role="staff",
+        staff_role="owner",
+        is_staff=True,
+    )
+    TOTPDevice.objects.create(
+        user=owner,
+        name="Production owner",
+        confirmed=True,
+    )
+
+    response = client.get(reverse("health-ready"))
+
+    assert response.status_code == 200
+    assert response.json()["checks"]["staff_mfa"] == "ok"
 
 
 def test_request_id_accepts_safe_value(client):

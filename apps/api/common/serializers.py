@@ -16,6 +16,7 @@ class StaffSessionUserSerializer(serializers.ModelSerializer[User]):
             "username",
             "email",
             "role",
+            "staff_role",
             "display_name",
             "is_staff",
             "mfa_enrolled",

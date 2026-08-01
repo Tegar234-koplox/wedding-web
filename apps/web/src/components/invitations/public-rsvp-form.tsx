@@ -1,7 +1,7 @@
 "use client";
 
 import { Send } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   NetworkAwarePreloader,
@@ -11,8 +11,8 @@ import {
 type PublicRSVPFormProps = {
   embedded?: boolean;
   initialToken?: string;
-  previewToken?: string;
   publicSlug: string;
+  sessionAccess?: boolean;
 };
 
 function friendlyRsvpError(message?: string): string {
@@ -31,8 +31,8 @@ function friendlyRsvpError(message?: string): string {
 export function PublicRSVPForm({
   embedded = false,
   initialToken = "",
-  previewToken = "",
   publicSlug,
+  sessionAccess = false,
 }: PublicRSVPFormProps) {
   const [token] = useState(initialToken);
   const [status, setStatus] = useState("accepted");
@@ -41,6 +41,38 @@ export function PublicRSVPForm({
   const [message, setMessage] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const csrfToken = useRef("");
+
+  useEffect(() => {
+    if (!sessionAccess) {
+      return;
+    }
+    const stored =
+      window.sessionStorage.getItem("niskala-guest-csrf") ?? "";
+    if (stored) {
+      csrfToken.current = stored;
+      return;
+    }
+    void fetch("/api/guest/me", {
+      cache: "no-store",
+      credentials: "same-origin",
+      headers: { Accept: "application/json" },
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          return;
+        }
+        const payload = (await response.json()) as { csrf_token?: string };
+        if (payload.csrf_token) {
+          window.sessionStorage.setItem(
+            "niskala-guest-csrf",
+            payload.csrf_token,
+          );
+          csrfToken.current = payload.csrf_token;
+        }
+      })
+      .catch(() => undefined);
+  }, [sessionAccess]);
 
   async function submitRSVP() {
     setSubmitting(true);
@@ -51,7 +83,6 @@ export function PublicRSVPForm({
         {
           body: JSON.stringify({
             attendance_count: Number(attendanceCount),
-            preview: previewToken,
             rsvp_status: status,
             token: token.trim(),
             wishes,
@@ -59,7 +90,11 @@ export function PublicRSVPForm({
           headers: {
             Accept: "application/json",
             "Content-Type": "application/json",
+            ...(csrfToken.current
+              ? { "X-CSRFToken": csrfToken.current }
+              : {}),
           },
+          credentials: "same-origin",
           method: "POST",
         },
       );
@@ -157,7 +192,11 @@ export function PublicRSVPForm({
         ) : null}
         <button
           className="inline-flex min-h-11 items-center justify-center gap-3 bg-[var(--color-gold)] px-4 text-[0.65rem] font-bold uppercase tracking-[0.16em] text-[#17140d] transition hover:brightness-110 disabled:opacity-50"
-          disabled={submitting || submitted || !token.trim()}
+          disabled={
+            submitting ||
+            submitted ||
+            (!token.trim() && (!sessionAccess || !csrfToken))
+          }
           onClick={() => void submitRSVP()}
           type="button"
         >

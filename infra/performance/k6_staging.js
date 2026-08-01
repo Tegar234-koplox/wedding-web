@@ -5,8 +5,6 @@ const frontendUrl = (__ENV.K6_FRONTEND_URL || "").replace(/\/$/, "");
 const apiUrl = (__ENV.K6_API_URL || "").replace(/\/$/, "");
 const apiOrigin = apiUrl.replace(/\/api\/v1$/, "");
 const publicSlug = __ENV.K6_PUBLIC_SLUG || "";
-const previewToken = __ENV.K6_PREVIEW_TOKEN || "";
-const guestToken = __ENV.K6_GUEST_TOKEN || "";
 const accessClientId = __ENV.K6_CF_ACCESS_CLIENT_ID || "";
 const accessClientSecret = __ENV.K6_CF_ACCESS_CLIENT_SECRET || "";
 
@@ -42,11 +40,7 @@ function invitationUrl() {
   if (!publicSlug) {
     return `${frontendUrl}/id`;
   }
-  const query = new URLSearchParams();
-  if (previewToken) query.set("preview", previewToken);
-  if (guestToken) query.set("guest", guestToken);
-  const suffix = query.toString() ? `?${query.toString()}` : "";
-  return `${frontendUrl}/id/i/${publicSlug}${suffix}`;
+  return `${frontendUrl}/id/i/${publicSlug}`;
 }
 
 export default function () {

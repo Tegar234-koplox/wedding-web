@@ -1,27 +1,35 @@
 import csv
 import hashlib
 import re
-from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 from urllib.parse import urlparse
 
-from django.conf import settings
 from django.db import transaction
 from django.db.models import Count, Max, Prefetch, Q, Sum
 from django.http import HttpResponse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.utils.text import slugify
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.generics import ListAPIView, ListCreateAPIView, RetrieveUpdateAPIView
-from rest_framework.permissions import AllowAny
 from rest_framework.renderers import BaseRenderer, JSONRenderer
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from common.models import AuditEvent
-from common.notifications import enqueue_client_notification
-from common.permissions import require_recent_staff_mfa
+from common.permissions import (
+    HasStaffRole,
+    filter_orders_for_staff,
+    require_recent_staff_mfa,
+    require_staff_order_access,
+    require_staff_roles,
+)
+from invitations.access import (
+    align_invitation_access_expiry,
+    ensure_preview_grant,
+    revoke_preview_grants,
+    rotate_preview_grant,
+)
 from invitations.expiration import publication_expires_at
 from invitations.models import (
     EventLocation,
@@ -34,7 +42,7 @@ from leads.models import WhatsAppIntent
 from media_library.models import MediaAsset
 from orders.lifecycle import (
     archive_expired_wedding,
-    invitation_client_recipient,
+    ensure_order_transition,
     staff_confirm_order,
     staff_reject_order,
 )
@@ -48,6 +56,7 @@ from orders.serializers import (
     StaffRejectOrderSerializer,
     StaffVerificationActionSerializer,
 )
+from users.models import User
 
 
 class StaffCSVRenderer(BaseRenderer):
@@ -221,6 +230,7 @@ def _ensure_invitation(order: Order) -> Invitation:
             },
         },
     )
+    ensure_preview_grant(invitation)
     order.invitation = invitation
     order.save(update_fields=["invitation", "updated_at"])
     return invitation
@@ -250,6 +260,8 @@ def _publish_invitation_for_order(order: Order, actor) -> Invitation:
             "updated_at",
         ]
     )
+    align_invitation_access_expiry(invitation)
+    revoke_preview_grants(invitation)
     AuditEvent.objects.create(
         actor=actor,
         action="invitation.published",
@@ -588,7 +600,6 @@ def _manual_order_payload(data) -> dict:
         for key in [
             "reference",
             "status",
-            "payment_status",
             "theme_slug",
             "package_code",
             "assigned_staff_username",
@@ -608,8 +619,95 @@ def _manual_order_payload(data) -> dict:
     }
 
 
+def _require_order_patch_role(request) -> None:
+    if "payment_status" in request.data:
+        raise ValidationError(
+            {"payment_status": ("Payment status is derived from reviewed manual payment records.")}
+        )
+
+    if request.user.effective_staff_role == User.StaffRole.OWNER:
+        return
+
+    allowed_fields = {
+        User.StaffRole.EDITOR: {
+            "status",
+            "theme_slug",
+            "package_code",
+            "client_name",
+            "event_date",
+            "notes",
+            "custom_status",
+            "custom_brief",
+            "custom_approval_notes",
+            "custom_checklist",
+            "ceremony",
+            "reception",
+            "bank_accounts",
+            "couple",
+            "rsvp_manual",
+            "media_urls",
+            "photo_focal",
+            "quote",
+            "story",
+            "timeline",
+        },
+        User.StaffRole.SUPPORT: {
+            "client_name",
+            "client_email",
+            "client_phone",
+            "event_date",
+            "notes",
+        },
+        User.StaffRole.FINANCE: {
+            "total_amount",
+            "currency",
+        },
+    }
+    submitted_fields = set(request.data.keys())
+    permitted_fields = allowed_fields.get(request.user.effective_staff_role, set())
+    if not submitted_fields or not submitted_fields.issubset(permitted_fields):
+        raise PermissionDenied("Peran staff Anda tidak diizinkan mengubah field tersebut.")
+
+
+EDITOR_ORDER_STATUS_TARGETS = frozenset(
+    {
+        Order.Status.CONFIRMED,
+        Order.Status.IN_DESIGN,
+        Order.Status.CLIENT_REVIEW,
+        Order.Status.REVISION,
+        Order.Status.APPROVED,
+    }
+)
+GENERIC_PATCH_RESERVED_ORDER_STATUSES = frozenset(
+    {
+        Order.Status.VERIFIED,
+        Order.Status.REJECTED,
+    }
+)
+
+
+def _validate_order_status_patch(request, order: Order) -> None:
+    if "status" not in request.data:
+        return
+
+    target = str(request.data.get("status") or "")
+    ensure_order_transition(order.status, target)
+    if target == order.status:
+        return
+    if target in GENERIC_PATCH_RESERVED_ORDER_STATUSES:
+        raise ValidationError(
+            {"status": ("Payment verification status must use the confirm or reject endpoint.")}
+        )
+    if (
+        request.user.effective_staff_role == User.StaffRole.EDITOR
+        and target not in EDITOR_ORDER_STATUS_TARGETS
+    ):
+        raise PermissionDenied("Editor hanya dapat mengubah status pada alur desain undangan.")
+
+
 class StaffDashboardMetricsView(APIView):
-    permission_classes = [IsStaffRole]
+    permission_classes = [IsStaffRole, HasStaffRole]
+    required_staff_roles = (User.StaffRole.OWNER,)
 
     def get(self, request) -> Response:
         return Response(
@@ -630,13 +728,15 @@ class StaffOrderListCreateView(ListCreateAPIView):
     serializer_class = OrderSerializer
 
     def get_queryset(self):
-        return (
+        queryset = (
             Order.objects.filter(archived_at__isnull=True)
             .select_related("theme", "package", "invitation", "whatsapp_intent")
             .prefetch_related("manual_payments")
         )
+        return filter_orders_for_staff(queryset, self.request.user)
 
     def post(self, request, *args, **kwargs) -> Response:
+        require_staff_roles(request, User.StaffRole.OWNER)
         data = request.data.copy()
         reference = str(data.get("reference", "")).strip()
         if not reference or (
@@ -651,10 +751,12 @@ class StaffOrderListCreateView(ListCreateAPIView):
 
 
 class StaffOrderExportView(APIView):
-    permission_classes = [IsStaffRole]
+    permission_classes = [IsStaffRole, HasStaffRole]
+    required_staff_roles = (User.StaffRole.OWNER,)
     renderer_classes = [StaffCSVRenderer, JSONRenderer]
 
     def get(self, request) -> HttpResponse:
+        require_recent_staff_mfa(request)
         response = HttpResponse(content_type="text/csv; charset=utf-8")
         response["Content-Disposition"] = 'attachment; filename="niskala-orders.csv"'
         writer = csv.writer(response)
@@ -670,22 +772,15 @@ class StaffOrderExportView(APIView):
                 "payment_status",
                 "workflow_status",
                 "order_date",
-                "preview_url",
             ]
         )
 
         orders = (
             Order.objects.filter(archived_at__isnull=True)
-            .select_related("theme", "package", "invitation")
+            .select_related("theme", "package")
             .order_by("-created_at")
         )
         for order in orders:
-            preview_url = ""
-            if order.invitation_id:
-                preview_url = StaffOrderDetailSerializer(
-                    order,
-                    context={"request": request},
-                ).data.get("preview_url", "")
             writer.writerow(
                 [
                     order.reference,
@@ -698,7 +793,6 @@ class StaffOrderExportView(APIView):
                     order.get_payment_status_display(),
                     order.get_status_display(),
                     order.created_at.isoformat(),
-                    preview_url,
                 ]
             )
 
@@ -711,16 +805,20 @@ class StaffOrderDetailView(RetrieveUpdateAPIView):
     lookup_field = "reference"
 
     def get_queryset(self):
-        return _detail_queryset().filter(archived_at__isnull=True)
+        queryset = _detail_queryset().filter(archived_at__isnull=True)
+        return filter_orders_for_staff(queryset, self.request.user)
 
     def get(self, request, *args, **kwargs) -> Response:
         order = self.get_object()
+        require_staff_order_access(request, order)
         serializer = StaffOrderDetailSerializer(order, context={"request": request})
         return Response(serializer.data)
 
     def patch(self, request, *args, **kwargs) -> Response:
         require_recent_staff_mfa(request)
         order = self.get_object()
+        require_staff_order_access(request, order)
+        _require_order_patch_role(request)
         previous_theme = order.theme.slug if order.theme_id else None
         previous_package = order.package.code if order.package_id else None
         previous_custom_status = order.custom_status
@@ -762,6 +860,9 @@ class StaffOrderDetailView(RetrieveUpdateAPIView):
         )
         serializer.is_valid(raise_exception=True)
         with transaction.atomic():
+            locked_order = Order.objects.select_for_update().get(pk=order.pk)
+            _validate_order_status_patch(request, locked_order)
+            serializer.instance = locked_order
             updated = serializer.save()
             if updated.status == Order.Status.PUBLISHED:
                 _publish_invitation_for_order(updated, request.user)
@@ -808,6 +909,7 @@ class StaffOrderDetailView(RetrieveUpdateAPIView):
                     isinstance(media_urls, dict) and "photo" in media_urls
                 ) or "photo_focal" in request.data:
                     _sync_photo_cover_snapshot(invitation)
+                rotate_preview_grant(invitation, actor=request.user)
                 AuditEvent.objects.create(
                     actor=request.user,
                     action="order.manual_detail_updated",
@@ -870,6 +972,8 @@ class StaffOrderDetailView(RetrieveUpdateAPIView):
     def delete(self, request, *args, **kwargs) -> Response:
         require_recent_staff_mfa(request)
         order = self.get_object()
+        require_staff_order_access(request, order)
+        require_staff_roles(request, User.StaffRole.OWNER)
         order.archived_at = timezone.now()
         order.save(update_fields=["archived_at", "updated_at"])
         AuditEvent.objects.create(
@@ -886,11 +990,18 @@ class StaffOrderRevisionListCreateView(APIView):
     permission_classes = [IsStaffRole]
 
     def post(self, request, reference: str) -> Response:
-        order = Order.objects.select_related("invitation").filter(reference=reference).first()
+        require_staff_roles(
+            request,
+            User.StaffRole.OWNER,
+            User.StaffRole.EDITOR,
+        )
+        queryset = Order.objects.select_related("invitation").filter(reference=reference)
+        order = filter_orders_for_staff(queryset, request.user).first()
         if order is None or order.invitation_id is None:
             from django.http import Http404
 
             raise Http404
+        require_staff_order_access(request, order)
 
         serializer = StaffOrderRevisionCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -928,11 +1039,21 @@ class StaffOrderRevisionDetailView(APIView):
     permission_classes = [IsStaffRole]
 
     def patch(self, request, reference: str, revision_id: str) -> Response:
-        order = _detail_queryset().filter(reference=reference, archived_at__isnull=True).first()
+        require_staff_roles(
+            request,
+            User.StaffRole.OWNER,
+            User.StaffRole.EDITOR,
+        )
+        queryset = _detail_queryset().filter(
+            reference=reference,
+            archived_at__isnull=True,
+        )
+        order = filter_orders_for_staff(queryset, request.user).first()
         if order is None or order.invitation_id is None:
             from django.http import Http404
 
             raise Http404
+        require_staff_order_access(request, order)
         revision = order.invitation.revisions.filter(id=revision_id).first()
         if revision is None:
             from django.http import Http404
@@ -960,25 +1081,37 @@ class StaffOrderRevisionDetailView(APIView):
 
 
 class StaffVerificationQueueView(ListAPIView):
-    permission_classes = [IsStaffRole]
+    permission_classes = [IsStaffRole, HasStaffRole]
+    required_staff_roles = (
+        User.StaffRole.OWNER,
+        User.StaffRole.FINANCE,
+    )
     serializer_class = OrderSerializer
     pagination_class = None
 
     def get_queryset(self):
-        return (
+        queryset = (
             Order.objects.filter(status=Order.Status.PENDING)
             .select_related("theme", "package", "invitation", "client_user")
             .order_by("created_at")
         )
+        return filter_orders_for_staff(queryset, self.request.user)
 
 
 class StaffConfirmOrderView(APIView):
-    permission_classes = [IsStaffRole]
+    permission_classes = [IsStaffRole, HasStaffRole]
+    required_staff_roles = (
+        User.StaffRole.OWNER,
+        User.StaffRole.FINANCE,
+    )
 
     def post(self, request, reference: str) -> Response:
         require_recent_staff_mfa(request)
         order = (
-            Order.objects.select_related("invitation", "client_user")
+            filter_orders_for_staff(
+                Order.objects.select_related("invitation", "client_user"),
+                request.user,
+            )
             .filter(reference=reference)
             .first()
         )
@@ -986,6 +1119,7 @@ class StaffConfirmOrderView(APIView):
             from django.http import Http404
 
             raise Http404
+        require_staff_order_access(request, order)
         serializer = StaffVerificationActionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         updated = staff_confirm_order(
@@ -997,12 +1131,19 @@ class StaffConfirmOrderView(APIView):
 
 
 class StaffRejectOrderView(APIView):
-    permission_classes = [IsStaffRole]
+    permission_classes = [IsStaffRole, HasStaffRole]
+    required_staff_roles = (
+        User.StaffRole.OWNER,
+        User.StaffRole.FINANCE,
+    )
 
     def post(self, request, reference: str) -> Response:
         require_recent_staff_mfa(request)
         order = (
-            Order.objects.select_related("invitation", "client_user")
+            filter_orders_for_staff(
+                Order.objects.select_related("invitation", "client_user"),
+                request.user,
+            )
             .filter(reference=reference)
             .first()
         )
@@ -1010,6 +1151,7 @@ class StaffRejectOrderView(APIView):
             from django.http import Http404
 
             raise Http404
+        require_staff_order_access(request, order)
         serializer = StaffRejectOrderSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         updated = staff_reject_order(
@@ -1021,7 +1163,11 @@ class StaffRejectOrderView(APIView):
 
 
 class StaffClientLifecycleListView(ListAPIView):
-    permission_classes = [IsStaffRole]
+    permission_classes = [IsStaffRole, HasStaffRole]
+    required_staff_roles = (
+        User.StaffRole.OWNER,
+        User.StaffRole.SUPPORT,
+    )
     serializer_class = StaffClientLifecycleSerializer
     pagination_class = None
 
@@ -1030,11 +1176,15 @@ class StaffClientLifecycleListView(ListAPIView):
         status = self.request.query_params.get("status")
         if status:
             queryset = queryset.filter(Q(status=status) | Q(invitation__status=status))
-        return queryset.order_by("client_name", "reference")
+        return filter_orders_for_staff(
+            queryset,
+            self.request.user,
+        ).order_by("client_name", "reference")
 
 
 class StaffArchiveWeddingView(APIView):
-    permission_classes = [IsStaffRole]
+    permission_classes = [IsStaffRole, HasStaffRole]
+    required_staff_roles = (User.StaffRole.OWNER,)
 
     def post(self, request, public_slug: str) -> Response:
         require_recent_staff_mfa(request)
@@ -1043,52 +1193,7 @@ class StaffArchiveWeddingView(APIView):
             from django.http import Http404
 
             raise Http404
+        require_staff_order_access(request, invitation)
         reason = str(request.data.get("reason", "")).strip()
         updated = archive_expired_wedding(invitation=invitation, actor=request.user, reason=reason)
         return Response({"public_slug": updated.public_slug, "status": updated.status})
-
-
-class BillingLifecycleRefreshView(APIView):
-    permission_classes = [AllowAny]
-
-    def post(self, request) -> Response:
-        configured_secret = getattr(settings, "BILLING_CRON_SECRET", "")
-        supplied_secret = request.headers.get("X-Cron-Secret", "")
-        if configured_secret and supplied_secret != configured_secret:
-            return Response({"detail": "Forbidden"}, status=403)
-
-        now = timezone.now()
-        warning_days = int(getattr(settings, "BILLING_EXPIRY_WARNING_DAYS", 14))
-        warning_at = now + timedelta(days=warning_days)
-        expiring = Invitation.objects.filter(
-            status=Invitation.Status.ACTIVE,
-            expires_at__isnull=False,
-            expires_at__lte=warning_at,
-            expires_at__gt=now,
-        )
-        expired = Invitation.objects.filter(
-            status__in=[
-                Invitation.Status.ACTIVE,
-                Invitation.Status.EXPIRING_SOON,
-                Invitation.Status.PUBLISHED,
-            ],
-            expires_at__isnull=False,
-            expires_at__lte=now,
-        ).exclude(status=Invitation.Status.PUBLISHED, is_sample=True)
-
-        expiring_count = 0
-        for invitation in expiring:
-            invitation.status = Invitation.Status.EXPIRING_SOON
-            invitation.save(update_fields=["status", "updated_at"])
-            enqueue_client_notification(
-                recipient=invitation_client_recipient(invitation),
-                event_type="wedding.expiring_soon",
-                payload={
-                    "invitation": invitation.public_slug,
-                    "expires_at": invitation.expires_at.isoformat(),
-                },
-            )
-            expiring_count += 1
-
-        expired_count = expired.update(status=Invitation.Status.EXPIRED, updated_at=now)
-        return Response({"expiring_soon": expiring_count, "expired": expired_count})

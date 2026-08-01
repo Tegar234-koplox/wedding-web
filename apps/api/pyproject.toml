@@ -8,6 +8,7 @@ version = "0.1.0"
 description = "Backend API for the Wedding Invitation Studio"
 requires-python = ">=3.12,<3.15"
 dependencies = [
+  "argon2-cffi>=25,<26",
   "celery[redis]>=5.5,<6",
   "cloudinary>=1.44,<2",
   "dj-database-url>=3,<4",

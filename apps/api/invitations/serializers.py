@@ -1,13 +1,18 @@
 import re
 from urllib.parse import urlparse
 
-from django.contrib.auth.hashers import check_password
 from django.utils import timezone
-from django.utils.crypto import constant_time_compare
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
+from common.permissions import effective_staff_role, is_staff_user
+from invitations.access import (
+    access_from_request,
+    legacy_guest_for_token,
+    legacy_link_allowed,
+)
 from invitations.models import (
+    AccessSession,
     EventLocation,
     Guest,
     Invitation,
@@ -16,6 +21,7 @@ from invitations.models import (
 )
 from media_library.models import MediaAsset
 from media_library.services import public_audio_payload
+from users.models import User
 
 
 def _couple_from_client_name(client_name: str) -> tuple[str, str]:
@@ -263,27 +269,16 @@ class PublicInvitationSerializer(serializers.ModelSerializer[Invitation]):
     content = serializers.SerializerMethodField()
     guest = serializers.SerializerMethodField()
 
-    def _guest_matches_token(self, guest, token: str) -> bool:
-        stored = guest.access_token_hash
-        if stored.startswith(("pbkdf2_", "argon2", "bcrypt", "md5$")):
-            return check_password(token, stored)
-        return constant_time_compare(stored, token)
-
     def get_guest(self, obj: Invitation) -> dict[str, object] | None:
         request = self.context.get("request")
+        if request is not None:
+            access = access_from_request(request, kind=AccessSession.Kind.GUEST)
+            if access is not None and access.invitation.id == obj.id and access.guest is not None:
+                return {"displayName": access.guest.display_name}
         token = request.query_params.get("guest", "").strip() if request else ""
-        if not token:
+        if not token or not legacy_link_allowed():
             return None
-        guest = next(
-            (
-                item
-                for item in obj.guests.all()
-                if item.archived_at is None
-                and item.anonymized_at is None
-                and self._guest_matches_token(item, token)
-            ),
-            None,
-        )
+        guest = legacy_guest_for_token(obj, token)
         if guest is None:
             return None
         return {"displayName": guest.display_name}
@@ -512,6 +507,7 @@ class PublicInvitationSerializer(serializers.ModelSerializer[Invitation]):
         model = Invitation
         fields = [
             "public_slug",
+            "public_access_id",
             "theme_slug",
             "package_code",
             "rendererKey",
@@ -547,6 +543,7 @@ class StaffInvitationOperationSerializer(serializers.ModelSerializer[Invitation]
         model = Invitation
         fields = [
             "public_slug",
+            "public_access_id",
             "theme_slug",
             "package_code",
             "status",
@@ -559,6 +556,17 @@ class StaffInvitationOperationSerializer(serializers.ModelSerializer[Invitation]
             "published_at",
             "updated_at",
         ]
+
+    def to_representation(self, instance: Invitation):
+        data = super().to_representation(instance)
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        role = effective_staff_role(user) if is_staff_user(user) else User.StaffRole.VIEWER
+        if role not in {User.StaffRole.OWNER, User.StaffRole.SUPPORT}:
+            data.pop("client_email", None)
+        if role == User.StaffRole.VIEWER:
+            data.pop("order_client_name", None)
+        return data
 
     def get_order_reference(self, obj: Invitation) -> str | None:
         order = getattr(obj, "order", None)
@@ -574,23 +582,10 @@ class StaffInvitationOperationSerializer(serializers.ModelSerializer[Invitation]
 
 
 class PublicRSVPSerializer(serializers.Serializer):
-    token = serializers.CharField(write_only=True)
+    token = serializers.CharField(write_only=True, required=False, allow_blank=True)
     rsvp_status = serializers.ChoiceField(choices=Guest.RSVPStatus.choices)
     attendance_count = serializers.IntegerField(min_value=0)
     wishes = serializers.CharField(required=False, allow_blank=True, max_length=2000)
-
-    def validate(self, attrs):
-        if attrs["rsvp_status"] == Guest.RSVPStatus.DECLINED and attrs["attendance_count"] != 0:
-            raise serializers.ValidationError({"attendance_count": "Declined RSVP must use 0."})
-        return attrs
-
-
-class PublicGuestRSVPCreateSerializer(serializers.Serializer):
-    name = serializers.CharField(max_length=120)
-    contact = serializers.CharField(max_length=120, required=False, allow_blank=True)
-    rsvp_status = serializers.ChoiceField(choices=Guest.RSVPStatus.choices)
-    attendance_count = serializers.IntegerField(min_value=0)
-    message = serializers.CharField(required=False, allow_blank=True, max_length=2000)
 
     def validate(self, attrs):
         if attrs["rsvp_status"] == Guest.RSVPStatus.DECLINED and attrs["attendance_count"] != 0:
