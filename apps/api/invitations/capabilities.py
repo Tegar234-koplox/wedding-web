@@ -1,6 +1,5 @@
 from invitations.models import Invitation
 
-
 RSVP_PACKAGE_CODES = frozenset({"signature", "couture"})
 GUEST_WISHES_PACKAGE_CODES = RSVP_PACKAGE_CODES
 

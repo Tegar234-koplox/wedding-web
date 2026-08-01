@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-const apiBase = "http://127.0.0.1:8000/api/v1";
+const staffApiBase = "**/api/staff";
 
 test("admin route redirects before rendering protected content", async ({
   page,
@@ -26,7 +26,7 @@ test("forged UX gate cookie cannot bypass the Django session check", async ({
       path: "/",
     },
   ]);
-  await page.route(`${apiBase}/auth/me`, (route) =>
+  await page.route(`${staffApiBase}/auth/me`, (route) =>
     route.fulfill({
       status: 403,
       contentType: "application/json",
@@ -45,17 +45,17 @@ test("forged UX gate cookie cannot bypass the Django session check", async ({
 test("staff login requires and completes the second factor", async ({
   page,
 }) => {
-  await page.route(`${apiBase}/**`, (route) =>
+  await page.route(`${staffApiBase}/**`, (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: "[]" }),
   );
-  await page.route(`${apiBase}/auth/csrf`, (route) =>
+  await page.route(`${staffApiBase}/auth/csrf`, (route) =>
     route.fulfill({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({ csrfToken: "test-csrf" }),
     }),
   );
-  await page.route(`${apiBase}/auth/login`, (route) =>
+  await page.route(`${staffApiBase}/auth/login`, (route) =>
     route.fulfill({
       status: 202,
       contentType: "application/json",
@@ -66,7 +66,7 @@ test("staff login requires and completes the second factor", async ({
       }),
     }),
   );
-  await page.route(`${apiBase}/auth/login/mfa`, (route) =>
+  await page.route(`${staffApiBase}/auth/login/mfa`, (route) =>
     route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -75,13 +75,14 @@ test("staff login requires and completes the second factor", async ({
           username: "operator",
           email: "operator@example.com",
           role: "staff",
+          staff_role: "owner",
           display_name: "Operator",
           mfa_enrolled: true,
         },
       }),
     }),
   );
-  await page.route(`${apiBase}/auth/me`, (route) =>
+  await page.route(`${staffApiBase}/auth/me`, (route) =>
     route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -90,6 +91,7 @@ test("staff login requires and completes the second factor", async ({
           username: "operator",
           email: "operator@example.com",
           role: "staff",
+          staff_role: "owner",
           display_name: "Operator",
           mfa_enrolled: true,
         },
