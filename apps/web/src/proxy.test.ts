@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { proxy } from "./proxy";
+import { config, proxy } from "./proxy";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -26,6 +26,17 @@ function configureProductionHosts() {
 }
 
 describe("frontend trust-zone proxy", () => {
+  it("keeps application and API routes protected without intercepting static media", () => {
+    const matcher = new RegExp(`^${config.matcher[0].source}$`);
+
+    expect(matcher.test("/id/preview/elegant-classic")).toBe(true);
+    expect(matcher.test("/api/staff/auth/me")).toBe(true);
+    expect(matcher.test("/_next/image")).toBe(false);
+    expect(matcher.test("/_next/static/chunks/app.js")).toBe(false);
+    expect(matcher.test("/images/themes/elegant-classic.webp")).toBe(false);
+    expect(matcher.test("/audio/invitation-essential/music.mp3")).toBe(false);
+  });
+
   it("rejects a staff path on the public production host", () => {
     vi.stubEnv("DEPLOYMENT_ENVIRONMENT", "production");
     configureProductionHosts();
