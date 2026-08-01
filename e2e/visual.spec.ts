@@ -25,8 +25,15 @@ for (const item of cases) {
         }
       `,
     });
-    await page.getByRole("button", { name: /buka undangan/i }).click();
-    await expect(page.getByText("Akad dan Resepsi").first()).toBeVisible();
+    const openInvitationButton = page.getByRole("button", {
+      name: /buka undangan/i,
+    });
+    await openInvitationButton.click();
+    await expect(openInvitationButton).toBeHidden();
+    await expect(
+      page.getByRole("heading", { name: "Akad dan Resepsi" }).first(),
+    ).toBeVisible();
+    await page.evaluate(() => document.fonts.ready);
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.evaluate(async () => {
       const visibleImages = Array.from(document.images).filter((image) => {
