@@ -223,7 +223,7 @@ def validate_grant_token(
     grant_id, secret = parsed
     with transaction.atomic():
         grant = (
-            AccessGrant.objects.select_for_update()
+            AccessGrant.objects.select_for_update(of=("self",))
             .select_related("invitation", "guest")
             .filter(id=grant_id)
             .first()
