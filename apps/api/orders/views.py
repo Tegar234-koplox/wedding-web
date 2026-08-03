@@ -864,8 +864,17 @@ class StaffOrderDetailView(RetrieveUpdateAPIView):
             _validate_order_status_patch(request, locked_order)
             serializer.instance = locked_order
             updated = serializer.save()
+
+            if updated.status == Order.Status.APPROVED:
+                invitation = _ensure_invitation(updated)
+
+                if invitation.approval_status != Invitation.ApprovalStatus.APPROVED_FOR_PUBLISH:
+                    invitation.approval_status = Invitation.ApprovalStatus.APPROVED_FOR_PUBLISH
+                    invitation.save(update_fields=["approval_status", "updated_at"])
+
             if updated.status == Order.Status.PUBLISHED:
                 _publish_invitation_for_order(updated, request.user)
+
             if should_sync_invitation:
                 invitation = _ensure_invitation(updated)
                 if "client_name" in request.data:
