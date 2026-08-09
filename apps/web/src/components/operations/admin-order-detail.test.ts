@@ -9,6 +9,7 @@ import {
 import {
   galleryPayloadFor,
   gallerySlotsFromMedia,
+  isPublicationReady,
   orderPatchPayloadForRole,
 } from "./admin-order-detail";
 
@@ -135,10 +136,17 @@ describe("staff order PATCH RBAC", () => {
     });
   });
 
-  it("limits editor payload to content fields and safe workflow targets", () => {
+  it("submits publication as a status-only owner request", () => {
     expect(
-      orderPatchPayloadForRole("editor", unrestrictedPayload),
-    ).toEqual({
+      orderPatchPayloadForRole("owner", {
+        ...unrestrictedPayload,
+        status: "published",
+      }),
+    ).toEqual({ status: "published" });
+  });
+
+  it("limits editor payload to content fields and safe workflow targets", () => {
+    expect(orderPatchPayloadForRole("editor", unrestrictedPayload)).toEqual({
       ceremony: { venue_name: "Venue" },
       client_name: "Reno & Erisa",
       event_date: "2026-12-12",
@@ -158,9 +166,7 @@ describe("staff order PATCH RBAC", () => {
   });
 
   it("limits support payload to client contact fields", () => {
-    expect(
-      orderPatchPayloadForRole("support", unrestrictedPayload),
-    ).toEqual({
+    expect(orderPatchPayloadForRole("support", unrestrictedPayload)).toEqual({
       client_email: "client@example.test",
       client_name: "Reno & Erisa",
       client_phone: "+628123456789",
@@ -170,14 +176,22 @@ describe("staff order PATCH RBAC", () => {
   });
 
   it("keeps finance generic fields minimal and viewer read-only", () => {
-    expect(
-      orderPatchPayloadForRole("finance", unrestrictedPayload),
-    ).toEqual({
+    expect(orderPatchPayloadForRole("finance", unrestrictedPayload)).toEqual({
       currency: "IDR",
       total_amount: "249000.00",
     });
-    expect(orderPatchPayloadForRole("viewer", unrestrictedPayload)).toEqual(
-      {},
+    expect(orderPatchPayloadForRole("viewer", unrestrictedPayload)).toEqual({});
+  });
+});
+
+describe("staff publication approval guard", () => {
+  it("requires persisted Final status and invitation approval", () => {
+    expect(isPublicationReady("client_review", "client_review")).toBe(false);
+    expect(isPublicationReady("approved", "client_review")).toBe(false);
+    expect(isPublicationReady("client_review", "approved_for_publish")).toBe(
+      false,
     );
+    expect(isPublicationReady("approved", "approved_for_publish")).toBe(true);
+    expect(isPublicationReady("published", "published")).toBe(true);
   });
 });

@@ -316,6 +316,9 @@ export function orderPatchPayloadForRole(
     ([field]) => field !== "payment_status",
   );
   if (role === "owner") {
+    if (payload.status === "published") {
+      return { status: "published" };
+    }
     return Object.fromEntries(entries);
   }
   const allowedFields = orderPatchFieldsByRole[role];
@@ -327,6 +330,16 @@ export function orderPatchPayloadForRole(
           field !== "status" ||
           editorOrderStatusTargets.has(String(value))),
     ),
+  );
+}
+
+export function isPublicationReady(
+  orderStatus: string | undefined,
+  approvalStatus: string | undefined,
+): boolean {
+  return (
+    orderStatus === "published" ||
+    (orderStatus === "approved" && approvalStatus === "approved_for_publish")
   );
 }
 
@@ -867,6 +880,19 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
         return;
       }
     }
+    const requestedStatus = workflowStatusDefaults[form.status_label] ?? "lead";
+    if (
+      requestedStatus === "published" &&
+      !isPublicationReady(
+        detail?.order.status,
+        detail?.invitation?.approval_status,
+      )
+    ) {
+      setError(
+        "Publikasi belum dapat dilakukan. Simpan status Final terlebih dahulu agar approval tercatat, lalu pilih Publikasi.",
+      );
+      return;
+    }
     setSaving(true);
     setError("");
     setNotice("");
@@ -969,7 +995,7 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
                 total_declined: totalDeclined,
                 total_invited: totalInvited,
               },
-              status: workflowStatusDefaults[form.status_label] ?? "lead",
+              status: requestedStatus,
               story: {
                 body: form.story_body.trim(),
                 heading: form.story_heading.trim(),
@@ -1264,6 +1290,10 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
   const canManagePayments = staffRole === "owner" || staffRole === "finance";
   const canPatchOrder =
     canEditContent || staffRole === "support" || staffRole === "finance";
+  const publicationReady = isPublicationReady(
+    detail?.order.status,
+    detail?.invitation?.approval_status,
+  );
   const lifecycleLabel = linkLifecycleLabel(detail);
   const lifecycleDescription = linkLifecycleDescription(detail);
   const mediaSections = mediaPlanFor(form.package_code);
@@ -1391,13 +1421,16 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
                     <option
                       className={optionClassName}
                       disabled={
-                        staffRole === "editor" &&
-                        !editorWorkflowLabels.has(label)
+                        (label === "Publikasi" && !publicationReady) ||
+                        (staffRole === "editor" &&
+                          !editorWorkflowLabels.has(label))
                       }
                       key={label}
                       value={label}
                     >
-                      {label}
+                      {label === "Publikasi" && !publicationReady
+                        ? "Publikasi - simpan Final dahulu"
+                        : label}
                     </option>
                   ))}
                 </select>
