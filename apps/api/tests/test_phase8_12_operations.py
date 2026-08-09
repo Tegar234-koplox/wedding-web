@@ -817,6 +817,49 @@ def test_public_preview_keeps_custom_story_body(client):
 
 
 @pytest.mark.django_db
+def test_staff_final_approval_prepares_invitation_for_publication(client):
+    staff = create_user(
+        username="staff-final-approval",
+        email="staff-final-approval@example.com",
+        role="staff",
+        is_staff=True,
+    )
+    theme = create_theme()
+    invitation = create_invitation(
+        theme=theme,
+        status=Invitation.Status.REVIEW,
+        public_slug="final-approval",
+    )
+    invitation.approval_status = Invitation.ApprovalStatus.CLIENT_REVIEW
+    invitation.save(update_fields=["approval_status", "updated_at"])
+    order = Order.objects.create(
+        reference="N010",
+        client_name="Final Approval",
+        status=Order.Status.CLIENT_REVIEW,
+        theme=theme,
+        invitation=invitation,
+    )
+    client.force_login(staff)
+
+    response = client.patch(
+        reverse("admin-order-detail", kwargs={"reference": order.reference}),
+        {"status": Order.Status.APPROVED},
+        content_type="application/json",
+        HTTP_ORIGIN="https://wedding.example",
+    )
+
+    assert response.status_code == 200
+    order.refresh_from_db()
+    invitation.refresh_from_db()
+    assert order.status == Order.Status.APPROVED
+    assert invitation.approval_status == Invitation.ApprovalStatus.APPROVED_FOR_PUBLISH
+    assert AuditEvent.objects.filter(
+        action="invitation.approved_for_publish",
+        resource_reference=invitation.public_slug,
+    ).exists()
+
+
+@pytest.mark.django_db
 def test_staff_publishing_order_turns_preview_link_into_public_link(client):
     staff = create_user(
         username="staff-final-link",
