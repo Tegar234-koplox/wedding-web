@@ -236,6 +236,39 @@ def _ensure_invitation(order: Order) -> Invitation:
     return invitation
 
 
+def _approve_invitation_for_order(order: Order, actor) -> Invitation:
+    invitation = _ensure_invitation(order)
+
+    if invitation.status == Invitation.Status.PUBLISHED:
+        raise ValidationError(
+            {"invitation": "Published invitations cannot be approved again."}
+        )
+
+    target_status = Invitation.ApprovalStatus.APPROVED_FOR_PUBLISH
+
+    if invitation.approval_status == target_status:
+        return invitation
+
+    previous_status = invitation.approval_status
+    invitation.approval_status = target_status
+    invitation.save(update_fields=["approval_status", "updated_at"])
+
+    AuditEvent.objects.create(
+        actor=actor,
+        action="invitation.approved_for_publish",
+        resource_type="invitation",
+        resource_reference=invitation.public_slug,
+        metadata={
+            "order": order.reference,
+            "from": previous_status,
+            "to": target_status,
+            "source": "staff_order_status",
+        },
+    )
+
+    return invitation
+
+
 def _publish_invitation_for_order(order: Order, actor) -> Invitation:
     invitation = _ensure_invitation(order)
     if invitation.status == Invitation.Status.PUBLISHED:
@@ -842,8 +875,25 @@ class StaffOrderDetailView(RetrieveUpdateAPIView):
         should_sync_invitation = bool(
             nested_keys.intersection(request.data) or "client_name" in request.data
         )
+        requested_status = str(request.data.get("status") or "")
+
+        if requested_status == Order.Status.PUBLISHED:
+            unexpected_fields = sorted(set(request.data.keys()) - {"status"})
+
+            if unexpected_fields:
+                raise ValidationError(
+                    {
+                        "status": (
+                            "Publication must be submitted as a status-only request. "
+                            "Save invitation changes and final approval request. "
+                        )
+                    }
+                )
         if (
-            (should_sync_invitation or {"theme_slug", "package_code"}.intersection(request.data))
+            (
+                should_sync_invitation
+                or {"theme_slug", "package_code"}.intersection(request.data)
+            )
             and order.invitation_id
             and order.invitation.status == Invitation.Status.PUBLISHED
         ):
@@ -864,8 +914,10 @@ class StaffOrderDetailView(RetrieveUpdateAPIView):
             _validate_order_status_patch(request, locked_order)
             serializer.instance = locked_order
             updated = serializer.save()
-            if updated.status == Order.Status.PUBLISHED:
-                _publish_invitation_for_order(updated, request.user)
+
+            if updated.status == Order.Status.APPROVED:
+                _approve_invitation_for_order(updated, request.user)
+
             if should_sync_invitation:
                 invitation = _ensure_invitation(updated)
                 if "client_name" in request.data:
@@ -917,6 +969,8 @@ class StaffOrderDetailView(RetrieveUpdateAPIView):
                     resource_reference=updated.reference,
                     metadata={"nested_fields": sorted(nested_keys.intersection(request.data))},
                 )
+            if updated.status == Order.Status.PUBLISHED:
+                _publish_invitation_for_order(updated, request.user)
             current_theme = updated.theme.slug if updated.theme_id else None
             current_package = updated.package.code if updated.package_id else None
             if previous_theme != current_theme:
