@@ -240,9 +240,7 @@ def _approve_invitation_for_order(order: Order, actor) -> Invitation:
     invitation = _ensure_invitation(order)
 
     if invitation.status == Invitation.Status.PUBLISHED:
-        raise ValidationError(
-            {"invitation": "Published invitations cannot be approved again."}
-        )
+        raise ValidationError({"invitation": "Published invitations cannot be approved again."})
 
     target_status = Invitation.ApprovalStatus.APPROVED_FOR_PUBLISH
 
@@ -890,10 +888,7 @@ class StaffOrderDetailView(RetrieveUpdateAPIView):
                     }
                 )
         if (
-            (
-                should_sync_invitation
-                or {"theme_slug", "package_code"}.intersection(request.data)
-            )
+            (should_sync_invitation or {"theme_slug", "package_code"}.intersection(request.data))
             and order.invitation_id
             and order.invitation.status == Invitation.Status.PUBLISHED
         ):
