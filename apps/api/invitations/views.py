@@ -341,7 +341,7 @@ def _guest_management_invitation(token: str) -> Invitation | None:
     )
     if invitation is None:
         return None
-    if invitation.expires_at and timezone.now() >= invitation.expires_at + timedelta(days=30):
+    if invitation.expires_at and timezone.now() >= invitation.expires_at:
         return None
     return invitation
 

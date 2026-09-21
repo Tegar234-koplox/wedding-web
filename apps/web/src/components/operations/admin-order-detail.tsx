@@ -2380,18 +2380,36 @@ export function AdminOrderDetail({ reference }: { reference: string }) {
                   </p>
                 </div>
                 {clientAccessIssue ? (
-                  <div className="mt-3 border border-[var(--color-gold)]/40 bg-black/35 p-4">
-                    <p className="text-[10px] uppercase tracking-[0.16em] text-white/45">
-                      PIN awal — kirim melalui kanal terpisah
-                    </p>
-                    <p className="mt-2 font-mono text-xl tracking-[0.16em] text-[var(--color-gold)]">
-                      {clientAccessIssue.initial_pin}
-                    </p>
-                    <p className="mt-2 text-xs leading-5 text-white/45">
-                      Client wajib mengganti PIN ini pada login pertama. PIN
-                      tidak dapat ditampilkan kembali setelah halaman direfresh.
-                    </p>
-                  </div>
+                  <>
+                    <div className="mt-4 border-t border-white/10 pt-4">
+                      <p className="text-xs font-semibold text-white/80">
+                        Link login setelah aktivasi
+                      </p>
+
+                      <p className="mt-2 break-all text-sm text-[var(--color-gold)]">
+                        {clientAccessIssue.return_url}
+                      </p>
+
+                      <p className="mt-2 text-xs leading-5 text-white/60">
+                        Client menggunakan link ini dengan PIN buatannya
+                        sendiri. Rotasi akses hanya diperlukan untuk reset atau
+                        pencabutan akses.
+                      </p>
+                    </div>
+                    <div className="mt-3 border border-[var(--color-gold)]/40 bg-black/35 p-4">
+                      <p className="text-[10px] uppercase tracking-[0.16em] text-white/45">
+                        PIN awal — kirim melalui kanal terpisah
+                      </p>
+                      <p className="mt-2 font-mono text-xl tracking-[0.16em] text-[var(--color-gold)]">
+                        {clientAccessIssue.initial_pin}
+                      </p>
+                      <p className="mt-2 text-xs leading-5 text-white/45">
+                        Client wajib mengganti PIN ini pada login pertama. PIN
+                        tidak dapat ditampilkan kembali setelah halaman
+                        direfresh.
+                      </p>
+                    </div>
+                  </>
                 ) : null}
                 <div className="mt-4 flex flex-wrap gap-3">
                   <button

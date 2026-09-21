@@ -39,6 +39,8 @@ export function ClientAccessForm(props: ClientAccessFormProps) {
   const [mustChangePin, setMustChangePin] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [loginUrl, setLoginUrl] = useState("");
+  const [pinCreated, setPinCreated] = useState(false);
 
   async function authenticate() {
     setBusy(true);
@@ -67,26 +69,35 @@ export function ClientAccessForm(props: ClientAccessFormProps) {
       if (props.mode === "bootstrap") {
         consumeGrantFragment();
       }
-      window.sessionStorage.setItem(
-        "niskala-client-csrf",
-        payload.csrf_token,
+      const accessId =
+        props.mode === "login" ? props.grantId : payload.access_id;
+
+      if (!accessId) {
+        throw new Error("Alamat login belum tersedia. Silahkan coba lagi");
+      }
+
+      setLoginUrl(
+        new URL(
+          `/client/login/${encodeURIComponent(accessId)}`,
+          window.location.origin,
+        ).href,
       );
+      window.sessionStorage.setItem("niskala-client-csrf", payload.csrf_token);
       if (payload.access_id) {
         window.localStorage.setItem(
           "niskala-client-access-id",
           payload.access_id,
         );
       } else if (props.mode === "login") {
-        window.localStorage.setItem(
-          "niskala-client-access-id",
-          props.grantId,
-        );
+        window.localStorage.setItem("niskala-client-access-id", props.grantId);
       }
       setCsrfToken(payload.csrf_token);
       setMustChangePin(payload.must_change_pin);
       if (!payload.must_change_pin) {
-        router.replace(payload.redirect_to as Route);
-        router.refresh();
+        setPin("");
+        setNextPin("");
+        setConfirmPin("");
+        setPinCreated(true);
       }
     } catch (caught) {
       setError(
@@ -100,8 +111,8 @@ export function ClientAccessForm(props: ClientAccessFormProps) {
   }
 
   async function changePin() {
-    if (nextPin.length < 8) {
-      setError("PIN/passphrase baru minimal delapan karakter.");
+    if (nextPin.length < 8 || nextPin.length > 128) {
+      setError("PIN/passphrase baru harus berisi 8-128 karakter.");
       return;
     }
     if (nextPin !== confirmPin) {
@@ -141,6 +152,51 @@ export function ClientAccessForm(props: ClientAccessFormProps) {
     }
   }
 
+  if (pinCreated) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-black px-6 py-14 text-white">
+        <section className="w-full max-w-lg border-white/12 bg-white/[0.025] p-7 md:p-10">
+          <h1 className="font-serif text-4xl">PIN berhasil dibuat.</h1>
+
+          <p className="mt-4 text-sm leading-7 text-white/70">
+            Gunakan PIN baru kamu untuk masuk kembali sampai masa aktif undangan
+            berakhir. PIN awal dari staff sudah tidak berlaku.
+          </p>
+
+          <label className="mt-6 block">
+            <span className="text-xs uppercase tracking-[0.14em] text-white/60">
+              Simpan link login ini
+            </span>
+
+            <input
+              className="mt-2 w-full border border-white/15 bg-black/40 py-3 text-sm"
+              onFocus={(event) => event.currentTarget.select()}
+              readOnly
+              type="text"
+              value={loginUrl}
+            />
+          </label>
+
+          <p className="mt-3 text-sm leading-6 text-white/60">
+            Salink link ini atau simpan sebagai bookmark. Untuk masuk dari
+            perangkat lain, buka link yang sama dan gunakan PIN baru kamu.
+          </p>
+
+          <button
+            className="mt-6 min-h-12 w-full bg-[var(--color-gold)] px-5 text-xs  font-semibold uppercase tracking-[0.16em] text-black"
+            onClick={() => {
+              router.replace("/client/portal" as Route);
+              router.refresh();
+            }}
+            type="button"
+          >
+            Lanjut ke Portal Tamu
+          </button>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-black px-6 py-14 text-white">
       <section className="w-full max-w-lg border border-white/12 bg-white/[0.025] p-7 md:p-10">
@@ -155,8 +211,10 @@ export function ClientAccessForm(props: ClientAccessFormProps) {
         </h1>
         <p className="mt-4 text-sm leading-7 text-white/60">
           {mustChangePin
-            ? "PIN awal hanya dapat digunakan sekali. Buat PIN/passphrase baru sebelum mengelola daftar tamu."
-            : "Masukkan PIN yang diberikan secara terpisah oleh staff Niskala."}
+            ? "Buat PIN/passphrase pribadi sepanjang 8-128 karakter. Setelah tersimpan, gunakan PIN ini untuk login berikutnya sampai undangan expired."
+            : props.mode === "bootstrap"
+              ? "Masukkan PIN awal dari staff untuk mengaktifkan akses kamu."
+              : "Masukkan PIN pribadi yang kamu buat saat aktivasi. Jika aktivasi belum selesai, gunakan PIN awal untuk melanjutkan."}
         </p>
 
         <div className="mt-8 space-y-4">
