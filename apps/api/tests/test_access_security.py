@@ -453,3 +453,74 @@ def test_public_access_id_migration_backfills_distinct_values_for_existing_rows(
     finally:
         executor = MigrationExecutor(connection)
         executor.migrate(executor.loader.graph.leaf_nodes())
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("active_days", [90, 180, 365])
+def test_customer_pin_can_be_reused_until_invitation_expires(monkeypatch, active_days):
+    now = timezone.now()
+    invitation = _draft_invitation(f"persistent-pin-{active_days}")
+    invitation.expires_at = now + timedelta(days=active_days)
+    invitation.save(update_fields=["expires_at", "updated_at"])
+
+    issued = issue_client_portal_access(
+        invitation,
+        actor=_staff(f"persistent-pin-issuer-{active_days}"),
+    )
+    initial_pin = issued.initial_pin or ""
+    personal_pin = "my-personal-passphrase-2026"
+
+    access = redeem_client_bootstrap(issued.token, initial_pin)
+    change_client_pin(access, initial_pin, personal_pin)
+
+    # PIN awal tidak lagi berlaku setelah pelanggan membuat PIN sendiri.
+    with pytest.raises(AccessDenied):
+        login_client_portal(issued.grant.id, initial_pin)
+
+    # Link aktivasi tidak dapat digunakan ulang.
+    with pytest.raises(AccessDenied):
+        redeem_client_bootstrap(issued.token, personal_pin)
+
+    # Sesi lama boleh berakhir; PIN yang sama tetap bisa dipakai login.
+    monkeypatch.setattr(
+        timezone,
+        "now",
+        lambda: now + timedelta(days=1),
+    )
+    assert (
+        access_from_raw_session(
+            access.raw_token,
+            kind=AccessSession.Kind.CLIENT,
+        )
+        is None
+    )
+    login_client_portal(issued.grant.id, personal_pin)
+
+    monkeypatch.setattr(
+        timezone,
+        "now",
+        lambda: now + timedelta(days=2),
+    )
+    last_access = login_client_portal(issued.grant.id, personal_pin)
+
+    # Simulasikan grant lama yang masih memiliki grace period.
+    issued.grant.expires_at = invitation.expires_at + timedelta(days=30)
+    issued.grant.save(update_fields=["expires_at", "updated_at"])
+
+    # Sesi juga dibuat melampaui expired untuk menguji batas undangan.
+    last_access.session.expires_at = invitation.expires_at + timedelta(hours=1)
+    last_access.session.idle_expires_at = invitation.expires_at + timedelta(hours=1)
+    last_access.session.save(update_fields=["expires_at", "idle_expires_at", "updated_at"])
+
+    monkeypatch.setattr(timezone, "now", lambda: invitation.expires_at)
+
+    with pytest.raises(AccessDenied):
+        login_client_portal(issued.grant.id, personal_pin)
+
+    assert (
+        access_from_raw_session(
+            last_access.raw_token,
+            kind=AccessSession.Kind.CLIENT,
+        )
+        is None
+    )

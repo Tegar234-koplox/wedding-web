@@ -26,7 +26,7 @@ from invitations.models import (
 CLIENT_SESSION_COOKIE = "__Host-niskala_client"
 GUEST_SESSION_COOKIE = "__Host-niskala_guest"
 PREVIEW_SESSION_COOKIE = "__Host-niskala_preview"
-CLIENT_GRACE_PERIOD = timedelta(days=30)
+CLIENT_GRACE_PERIOD = timedelta(0)
 CLIENT_BOOTSTRAP_MAX_AGE = timedelta(hours=24)
 CLIENT_SESSION_MAX_AGE = timedelta(hours=12)
 CLIENT_SESSION_IDLE_AGE = timedelta(minutes=30)
@@ -649,7 +649,13 @@ def login_client_portal(
             .first()
         )
         now = timezone.now()
-        if grant is None or grant.redeemed_at is None or grant.expires_at <= now:
+        if (
+            grant is None
+            or grant.redeemed_at is None
+            or grant.expires_at <= now
+            or grant.invitation.archived_at is not None
+            or (grant.invitation.expires_at is not None and now >= grant.invitation.expires_at)
+        ):
             raise AccessDenied("Invalid client access.")
         credential = ClientPortalCredential.objects.select_for_update().get(
             invitation=grant.invitation
@@ -720,6 +726,8 @@ def redeem_preview_access(token: str, *, user_agent: str = "") -> AuthenticatedA
         token,
         purposes=[AccessGrant.Purpose.CLIENT_PREVIEW],
     )
+    if grant.invitation.expires_at is not None and timezone.now() >= grant.invitation.expires_at:
+        raise AccessDenied("Invalid client access.")
     return create_access_session(
         grant,
         kind=AccessSession.Kind.PREVIEW,
