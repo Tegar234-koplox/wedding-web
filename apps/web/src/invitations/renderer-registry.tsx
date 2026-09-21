@@ -438,6 +438,7 @@ function WeatherSection({
 }: RendererProps & { design: Design }) {
   const id = invitation.locale === "id";
   const selected = weather?.selected;
+  const eventPassed = weather?.reason === "event_passed";
   const isAvailable =
     weather?.status === "ready" || weather?.status === "stale";
 
@@ -537,20 +538,28 @@ function WeatherSection({
           {id ? "Cuaca hari pernikahan" : "Wedding-day weather"}
         </p>
         <h2 className={`${design.display} mt-5 text-4xl md:text-6xl`}>
-          {id
-            ? "Tersedia mendekati hari acara"
-            : "Available closer to the date"}
+          {eventPassed
+            ? id
+              ? "Hari Perayaan telah usai"
+              : "The celebration has ended"
+            : id
+              ? "Tersedia mendekati hari acara"
+              : "Available closer to the date"}
         </h2>
         <p
           className={`mx-auto mt-6 max-w-xl text-sm leading-7 ${design.muted}`}
         >
-          {weather?.reason === "provider_unavailable"
+          {eventPassed
             ? id
-              ? "Layanan cuaca sedang tidak tersedia. Silakan periksa kembali beberapa saat lagi."
-              : "Weather information is temporarily unavailable. Please check again shortly."
-            : id
-              ? "Prakiraan akan tampil ketika tanggal pernikahan memasuki jangkauan prakiraan 16 hari."
-              : "The forecast will appear when the wedding enters Open-Meteo's 16-day forecast window."}
+              ? "Terima kasih telah menjadi bagian dari hari perayaan kami."
+              : "Thank you for being part of our celebration."
+            : weather?.reason === "provider_unavailable"
+              ? id
+                ? "Layanan cuaca sedang tidak tersedia. Silakan periksa kembali beberapa saat lagi."
+                : "Weather information is temporarily unavailable. Please check again shortly."
+              : id
+                ? "Prakiraan akan tampil ketika tanggal pernikahan memasuki jangkauan prakiraan 16 hari."
+                : "The forecast will appear when the wedding enters Open-Meteo's 16-day forecast window."}
         </p>
         <a
           className="mt-7 inline-block text-[0.58rem] uppercase tracking-[0.18em] opacity-45 underline underline-offset-4"

@@ -765,6 +765,33 @@ describe("renderer v2 invitation experience", () => {
     ).not.toBeNull();
   });
 
+  it("shows a dedicated message after the celebration has passed", () => {
+    render(
+      <RendererV2
+        invitation={getSampleInvitation("islamic-soft", "id", "signature")}
+        packageCode="signature"
+        weather={{
+          attribution_url: "https://open-meteo.com/",
+          forecast: [],
+          provider: "Open-Meteo",
+          reason: "event_passed",
+          status: "unavailable",
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Buka Undangan" }));
+
+    expect(screen.getByText("Hari Perayaan telah usai")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Terima kasih telah menjadi bagian dari hari perayaan kami.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText("Tersedia mendekati hari acara")).toBeNull();
+    expect(screen.queryByText("Menunggu jangkauan prakiraan")).toBeNull();
+  });
+
   it("renders the Essential gift section after opening and reveals account details on tap", () => {
     render(
       <RendererV2

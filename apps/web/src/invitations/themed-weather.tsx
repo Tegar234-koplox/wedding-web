@@ -234,6 +234,7 @@ export function ThemedWeather({
   const available =
     (weather?.status === "ready" || weather?.status === "stale") &&
     slots.length > 0;
+  const eventPassed = weather?.reason === "event_passed";
   const rich = packageCode === "couture";
   const primarySlot = slots[0];
 
@@ -263,9 +264,13 @@ export function ThemedWeather({
                       ? "Akad & Resepsi"
                       : "Ceremony & Reception"
                     : primarySlot?.selected.description[locale]
-                  : id
-                    ? "Tersedia mendekati hari acara"
-                    : "Available closer to the event"}
+                  : eventPassed
+                    ? id
+                      ? "Hari Perayaan telah usai"
+                      : "The celebration has ended"
+                    : id
+                      ? "Tersedia mendekati hari acara"
+                      : "Available closer to the event"}
               </h2>
             </div>
             {available && slots.length > 1 ? null : available && primarySlot ? (
@@ -354,13 +359,17 @@ export function ThemedWeather({
             </div>
           ) : (
             <p className={`mt-8 max-w-2xl text-sm leading-7 ${design.muted}`}>
-              {weather?.reason === "provider_unavailable"
+              {eventPassed
                 ? id
-                  ? "Layanan Open-Meteo sedang tidak tersedia. Informasi akan diperbarui kembali tanpa mengganggu undangan."
-                  : "Open-Meteo is temporarily unavailable. The invitation will remain available while weather refreshes."
-                : id
-                  ? "Prakiraan akan muncul ketika acara memasuki jangkauan prakiraan 16 hari. Preview ini tidak menampilkan data cuaca buatan."
-                  : "The forecast appears when the event enters Open-Meteo's 16-day forecast window. This preview never invents weather data."}
+                  ? "Terima kasih telah menjadi bagian dari hari perayaan kami."
+                  : "Thank you for being part of our celebration."
+                : weather?.reason === "provider_unavailable"
+                  ? id
+                    ? "Layanan Open-Meteo sedang tidak tersedia. Informasi akan diperbarui kembali tanpa mengganggu undangan."
+                    : "Open-Meteo is temporarily unavailable. The invitation will remain available while weather refreshes."
+                  : id
+                    ? "Prakiraan akan muncul ketika acara memasuki jangkauan prakiraan 16 hari. Preview ini tidak menampilkan data cuaca buatan."
+                    : "The forecast appears when the event enters Open-Meteo's 16-day forecast window. This preview never invents weather data."}
             </p>
           )}
 
@@ -379,9 +388,13 @@ export function ThemedWeather({
                     id ? "id-ID" : "en-US",
                     { dateStyle: "medium", timeStyle: "short" },
                   ).format(new Date(weather.updated_at))}`
-                : id
-                  ? "Menunggu jangkauan prakiraan"
-                  : "Awaiting forecast window"}
+                : eventPassed
+                  ? id
+                    ? "Hari perayaan telah usai"
+                    : "The celebration has ended"
+                  : id
+                    ? "Menunggu jangkauan prakiraan"
+                    : "Awaiting forecast window"}
             </span>
           </div>
         </div>
