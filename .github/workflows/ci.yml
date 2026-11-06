@@ -90,7 +90,7 @@ jobs:
           fetch-depth: 0
       - name: Review dependency changes
         if: github.event_name == 'pull_request'
-        uses: actions/dependency-review-action@v4
+        uses: actions/dependency-review-action@v5
         with:
           fail-on-severity: high
       - uses: gitleaks/gitleaks-action@v2
